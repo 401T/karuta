@@ -1,13 +1,113 @@
 [
   {
+    "compound_id": "methane",
+    "stages": [
+      { "stage": 1, "text": "分子式は CH4 である。", "type": "formula" },
+      { "stage": 2, "text": "最も簡単な炭化水素である。", "type": "classification" },
+      { "stage": 3, "text": "正四面体構造をとる。", "type": "structure" },
+      { "stage": 4, "text": "塩素と置換反応を起こす。", "type": "reaction" }
+    ],
+    "explanation": "CH4で最も簡単な炭化水素→メタン。"
+  },
+  {
+    "compound_id": "ethylene",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H4 である。", "type": "formula" },
+      { "stage": 2, "text": "不飽和度は1である。", "type": "unsaturation" },
+      { "stage": 3, "text": "臭素水を脱色する。", "type": "reaction" },
+      { "stage": 4, "text": "重合するとポリエチレンになる。", "type": "polymer" }
+    ],
+    "explanation": "C2H4(不飽和度1)で付加重合→エチレン。"
+  },
+  {
+    "compound_id": "acetylene",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H2 である。", "type": "formula" },
+      { "stage": 2, "text": "不飽和度は2である。", "type": "unsaturation" },
+      { "stage": 3, "text": "三重結合を持つ。", "type": "structure" },
+      { "stage": 4, "text": "水と付加するとアセトアルデヒドになる。", "type": "reaction" }
+    ],
+    "explanation": "C2H2(不飽和度2)で三重結合→アセチレン。"
+  },
+  {
+    "compound_id": "benzene",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H6 である。", "type": "formula" },
+      { "stage": 2, "text": "不飽和度は4である。", "type": "unsaturation" },
+      { "stage": 3, "text": "平面構造で、すべての結合角は120°である。", "type": "structure" },
+      { "stage": 4, "text": "置換反応を起こしやすい。", "type": "reaction" }
+    ],
+    "explanation": "C6H6(不飽和度4)で芳香族→ベンゼン。"
+  },
+  {
+    "compound_id": "toluene",
+    "stages": [
+      { "stage": 1, "text": "分子式は C7H8 である。", "type": "formula" },
+      { "stage": 2, "text": "ベンゼン環にメチル基が1つ結合している。", "type": "structure" },
+      { "stage": 3, "text": "過マンガン酸カリウムで酸化すると安息香酸になる。", "type": "reaction" },
+      { "stage": 4, "text": "ニトロ化すると2,4,6-トリニトロトルエン(TNT)になる。", "type": "derivative" }
+    ],
+    "explanation": "C7H8でベンゼン環+メチル基→トルエン。"
+  },
+  {
+    "compound_id": "methanol",
+    "stages": [
+      { "stage": 1, "text": "分子式は CH4O である。", "type": "formula" },
+      { "stage": 2, "text": "最も簡単なアルコールである。", "type": "classification" },
+      { "stage": 3, "text": "酸化するとホルムアルデヒドになる。", "type": "oxidation" },
+      { "stage": 4, "text": "劇物であり、摂取すると失明の原因となる。", "type": "property" }
+    ],
+    "explanation": "CH4Oで最も簡単なアルコール→メタノール。"
+  },
+  {
     "compound_id": "ethanol",
     "stages": [
       { "stage": 1, "text": "分子式は C2H6O である。", "type": "formula" },
       { "stage": 2, "text": "ナトリウムと反応して水素を発生する。", "type": "reaction" },
-      { "stage": 3, "text": "酸化すると、まずアルデヒドを経て、最終的にカルボン酸になる。", "type": "oxidation" },
-      { "stage": 4, "text": "濃硫酸と170℃で加熱すると、エチレンが生じる。", "type": "elimination" }
+      { "stage": 3, "text": "酸化するとアセトアルデヒドを経て酢酸になる。", "type": "oxidation" },
+      { "stage": 4, "text": "濃硫酸と170℃で加熱するとエチレンになる。", "type": "elimination" }
     ],
-    "explanation": "C2H6OでNaと反応→アルコール。酸化でアルデヒドを経由→第一級アルコール。"
+    "explanation": "C2H6OでNaと反応、酸化でアルデヒドを経由→エタノール。"
+  },
+  {
+    "compound_id": "ethylene_glycol",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H6O2 である。", "type": "formula" },
+      { "stage": 2, "text": "2価のアルコールである。", "type": "classification" },
+      { "stage": 3, "text": "テレフタル酸と縮合重合するとPET樹脂になる。", "type": "polymer" },
+      { "stage": 4, "text": "不凍液として用いられる。", "type": "property" }
+    ],
+    "explanation": "C2H6O2で2価アルコール、PETの原料→エチレングリコール。"
+  },
+  {
+    "compound_id": "glycerol",
+    "stages": [
+      { "stage": 1, "text": "分子式は C3H8O3 である。", "type": "formula" },
+      { "stage": 2, "text": "3価のアルコールである。", "type": "classification" },
+      { "stage": 3, "text": "高級脂肪酸とエステル化すると油脂になる。", "type": "reaction" },
+      { "stage": 4, "text": "硝酸とエステル化するとニトログリセリンになる。", "type": "derivative" }
+    ],
+    "explanation": "C3H8O3で3価アルコール、油脂の構成要素→グリセロール。"
+  },
+  {
+    "compound_id": "phenol",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H6O である。", "type": "formula" },
+      { "stage": 2, "text": "水溶液は弱酸性を示す。", "type": "acidity" },
+      { "stage": 3, "text": "塩化鉄(III)水溶液で紫色を呈する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水と反応して2,4,6-トリブロモフェノールの白色沈殿を生じる。", "type": "reaction" }
+    ],
+    "explanation": "C6H6Oで弱酸性、FeCl3呈色反応→フェノール。"
+  },
+  {
+    "compound_id": "formaldehyde",
+    "stages": [
+      { "stage": 1, "text": "分子式は CH2O である。", "type": "formula" },
+      { "stage": 2, "text": "最も簡単なアルデヒドである。", "type": "classification" },
+      { "stage": 3, "text": "銀鏡反応を示す。", "type": "reaction" },
+      { "stage": 4, "text": "フェノールと縮合重合するとフェノール樹脂になる。", "type": "polymer" }
+    ],
+    "explanation": "CH2Oで最も簡単なアルデヒド→ホルムアルデヒド。"
   },
   {
     "compound_id": "acetaldehyde",
@@ -15,19 +115,9 @@
       { "stage": 1, "text": "分子式は C2H4O である。", "type": "formula" },
       { "stage": 2, "text": "銀鏡反応を示す。", "type": "reaction" },
       { "stage": 3, "text": "フェーリング液を還元して赤色沈殿を生じる。", "type": "reaction" },
-      { "stage": 4, "text": "酸化されると、酢酸になる。", "type": "oxidation" }
+      { "stage": 4, "text": "酸化すると酢酸になる。", "type": "oxidation" }
     ],
-    "explanation": "C2H4O(不飽和度1)で銀鏡反応陽性→アルデヒド。"
-  },
-  {
-    "compound_id": "acetic_acid",
-    "stages": [
-      { "stage": 1, "text": "分子式は C2H4O2 であり、弱酸性を示す。", "type": "formula" },
-      { "stage": 2, "text": "炭酸水素ナトリウム水溶液と反応して二酸化炭素を発生する。", "type": "reaction" },
-      { "stage": 3, "text": "エタノールと濃硫酸を混ぜて加熱すると、酢酸エチルが生じる。", "type": "esterification" },
-      { "stage": 4, "text": "酢酸エチルの加水分解生成物の一つである。", "type": "hydrolysis" }
-    ],
-    "explanation": "C2H4O2で弱酸、NaHCO3と反応→カルボン酸。"
+    "explanation": "C2H4Oで銀鏡反応陽性→アセトアルデヒド。"
   },
   {
     "compound_id": "acetone",
@@ -37,77 +127,198 @@
       { "stage": 3, "text": "ヨードホルム反応を示す。", "type": "reaction" },
       { "stage": 4, "text": "ケトンであり、銀鏡反応は示さない。", "type": "property" }
     ],
-    "explanation": "C3H6Oで第二級アルコールの酸化生成物→ケトン（アセトン）。"
+    "explanation": "C3H6Oで第二級アルコールの酸化生成物→アセトン。"
   },
   {
-    "compound_id": "phenol",
+    "compound_id": "formic_acid",
     "stages": [
-      { "stage": 1, "text": "分子式は C6H6O であり、不飽和度は4である。", "type": "formula" },
-      { "stage": 2, "text": "水溶液は弱酸性だが、炭酸水素ナトリウムとは反応しない。", "type": "acidity" },
-      { "stage": 3, "text": "塩化鉄(III)水溶液を加えると紫色を呈する。", "type": "reaction" },
-      { "stage": 4, "text": "ベンゼン環にヒドロキシ基が直接結合している。", "type": "structure" }
+      { "stage": 1, "text": "分子式は CH2O2 である。", "type": "formula" },
+      { "stage": 2, "text": "最も簡単なカルボン酸である。", "type": "classification" },
+      { "stage": 3, "text": "アルデヒドの性質も持つ。", "type": "property" },
+      { "stage": 4, "text": "銀鏡反応を示す。", "type": "reaction" }
     ],
-    "explanation": "C6H6O(不飽和度4)でFeCl3呈色反応→フェノール類。"
+    "explanation": "CH2O2で最も簡単なカルボン酸、還元性あり→ギ酸。"
   },
   {
-    "compound_id": "aniline",
+    "compound_id": "acetic_acid",
     "stages": [
-      { "stage": 1, "text": "分子式は C6H7N である。", "type": "formula" },
-      { "stage": 2, "text": "塩酸に溶けて塩を作る。", "type": "reaction" },
-      { "stage": 3, "text": "臭素水を加えると白色沈殿を生じる。", "type": "reaction" },
-      { "stage": 4, "text": "ニトロベンゼンを還元すると得られる。", "type": "reduction" }
+      { "stage": 1, "text": "分子式は C2H4O2 である。", "type": "formula" },
+      { "stage": 2, "text": "弱酸性を示す。", "type": "acidity" },
+      { "stage": 3, "text": "炭酸水素ナトリウムと反応して気体を発生する。", "type": "reaction" },
+      { "stage": 4, "text": "エタノールとエステル化すると酢酸エチルになる。", "type": "esterification" }
     ],
-    "explanation": "C6H7Nで塩基性、Br2水で白色沈殿→アニリン。"
+    "explanation": "C2H4O2で弱酸、NaHCO3と反応→酢酸。"
+  },
+  {
+    "compound_id": "oxalic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H2O4 である。", "type": "formula" },
+      { "stage": 2, "text": "2価のカルボン酸である。", "type": "classification" },
+      { "stage": 3, "text": "過マンガン酸カリウムを還元する。", "type": "reaction" },
+      { "stage": 4, "text": "加熱すると分解してCO2、CO、H2Oを生じる。", "type": "decomposition" }
+    ],
+    "explanation": "C2H2O4で2価のカルボン酸、KMnO4を還元→シュウ酸。"
   },
   {
     "compound_id": "benzoic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C7H6O2 である。", "type": "formula" },
-      { "stage": 2, "text": "水に溶けにくいが、水酸化ナトリウム水溶液には溶ける。", "type": "solubility" },
-      { "stage": 3, "text": "炭酸水素ナトリウム水溶液にも溶けて気体を発生する。", "type": "reaction" },
+      { "stage": 2, "text": "芳香族カルボン酸である。", "type": "classification" },
+      { "stage": 3, "text": "水に溶けにくいが、水酸化ナトリウムには溶ける。", "type": "solubility" },
       { "stage": 4, "text": "トルエンを過マンガン酸カリウムで酸化すると得られる。", "type": "oxidation" }
     ],
-    "explanation": "C7H6O2で芳香族カルボン酸。トルエンの酸化生成物→安息香酸。"
+    "explanation": "C7H6O2で芳香族カルボン酸、トルエンの酸化生成物→安息香酸。"
   },
   {
     "compound_id": "salicylic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C7H6O3 である。", "type": "formula" },
-      { "stage": 2, "text": "塩化鉄(III)水溶液で紫色を呈する。", "type": "reaction" },
-      { "stage": 3, "text": "炭酸水素ナトリウム水溶液に溶けて気体を発生する。", "type": "reaction" },
-      { "stage": 4, "text": "無水酢酸と反応すると、アセチルサリチル酸（アスピリン）になる。", "type": "derivative" }
+      { "stage": 2, "text": "フェノール性ヒドロキシ基とカルボキシ基を持つ。", "type": "functional_group" },
+      { "stage": 3, "text": "塩化鉄(III)水溶液で紫色を呈する。", "type": "reaction" },
+      { "stage": 4, "text": "無水酢酸と反応するとアセチルサリチル酸になる。", "type": "derivative" }
     ],
-    "explanation": "C7H6O3でフェノール性OHとCOOHを併せ持つ→サリチル酸。"
+    "explanation": "C7H6O3でフェノール性OHとCOOH→サリチル酸。"
   },
   {
-    "compound_id": "glucose",
+    "compound_id": "methyl_acetate",
     "stages": [
-      { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
-      { "stage": 2, "text": "銀鏡反応を示し、フェーリング液を還元する。", "type": "reaction" },
-      { "stage": 3, "text": "多価アルコールの性質とアルデヒドの性質を併せ持つ。", "type": "functional_group" },
-      { "stage": 4, "text": "加水分解すると2分子のグルコースになるショ糖とは異なり、それ自体が単糖である。", "type": "classification" }
+      { "stage": 1, "text": "分子式は C3H6O2 である。", "type": "formula" },
+      { "stage": 2, "text": "エステルである。", "type": "classification" },
+      { "stage": 3, "text": "加水分解すると酢酸とメタノールになる。", "type": "hydrolysis" },
+      { "stage": 4, "text": "酢酸とメタノールから合成される。", "type": "synthesis" }
     ],
-    "explanation": "C6H12O6で還元性を持つ単糖→グルコース。"
-  },
-  {
-    "compound_id": "glycine",
-    "stages": [
-      { "stage": 1, "text": "分子式は C2H5NO2 である。", "type": "formula" },
-      { "stage": 2, "text": "タンパク質を構成するアミノ酸のうち、最も単純な構造を持つ。", "type": "classification" },
-      { "stage": 3, "text": "不斉炭素原子を持たない。", "type": "structure" },
-      { "stage": 4, "text": "両性電解質であり、等電点は約6.0である。", "type": "property" }
-    ],
-    "explanation": "C2H5NO2で不斉炭素なし→グリシン。"
+    "explanation": "C3H6O2でエステル、加水分解で酢酸+メタノール→酢酸メチル。"
   },
   {
     "compound_id": "ethyl_acetate",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8O2 である。", "type": "formula" },
       { "stage": 2, "text": "甘い香りを持つ液体である。", "type": "property" },
-      { "stage": 3, "text": "酸性または塩基性条件下で加水分解すると、酢酸とエタノールを生じる。", "type": "hydrolysis" },
-      { "stage": 4, "text": "酢酸とエタノールからエステル化反応で合成される。", "type": "synthesis" }
+      { "stage": 3, "text": "加水分解すると酢酸とエタノールになる。", "type": "hydrolysis" },
+      { "stage": 4, "text": "酢酸とエタノールから合成される。", "type": "synthesis" }
     ],
-    "explanation": "C4H8O2でエステル。加水分解で酢酸とエタノール→酢酸エチル。"
+    "explanation": "C4H8O2でエステル、加水分解で酢酸+エタノール→酢酸エチル。"
+  },
+  {
+    "compound_id": "diethyl_ether",
+    "stages": [
+      { "stage": 1, "text": "分子式は C4H10O である。", "type": "formula" },
+      { "stage": 2, "text": "エーテルである。", "type": "classification" },
+      { "stage": 3, "text": "揮発性が高く、引火しやすい。", "type": "property" },
+      { "stage": 4, "text": "かつて麻酔として用いられた。", "type": "property" }
+    ],
+    "explanation": "C4H10Oでエーテル→ジエチルエーテル。"
+  },
+  {
+    "compound_id": "methylamine",
+    "stages": [
+      { "stage": 1, "text": "分子式は CH5N である。", "type": "formula" },
+      { "stage": 2, "text": "最も簡単なアミンである。", "type": "classification" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "魚の腐敗臭の原因物質である。", "type": "property" }
+    ],
+    "explanation": "CH5Nで最も簡単なアミン→メチルアミン。"
+  },
+  {
+    "compound_id": "aniline",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H7N である。", "type": "formula" },
+      { "stage": 2, "text": "芳香族アミンである。", "type": "classification" },
+      { "stage": 3, "text": "塩酸に溶けて塩を作る。", "type": "reaction" },
+      { "stage": 4, "text": "ニトロベンゼンを還元すると得られる。", "type": "reduction" }
+    ],
+    "explanation": "C6H7Nで芳香族アミン、ニトロベンゼンの還元生成物→アニリン。"
+  },
+  {
+    "compound_id": "nitrobenzene",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H5NO2 である。", "type": "formula" },
+      { "stage": 2, "text": "ベンゼンのニトロ化で得られる。", "type": "synthesis" },
+      { "stage": 3, "text": "芳香族ニトロ化合物である。", "type": "classification" },
+      { "stage": 4, "text": "還元するとアニリンになる。", "type": "reduction" }
+    ],
+    "explanation": "C6H5NO2でベンゼンのニトロ化生成物→ニトロベンゼン。"
+  },
+  {
+    "compound_id": "glycine",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H5NO2 である。", "type": "formula" },
+      { "stage": 2, "text": "アミノ酸である。", "type": "classification" },
+      { "stage": 3, "text": "不斉炭素原子を持たない。", "type": "structure" },
+      { "stage": 4, "text": "両性電解質であり、等電点は約6.0である。", "type": "property" }
+    ],
+    "explanation": "C2H5NO2で不斉炭素なし→グリシン。"
+  },
+  {
+    "compound_id": "alanine",
+    "stages": [
+      { "stage": 1, "text": "分子式は C3H7NO2 である。", "type": "formula" },
+      { "stage": 2, "text": "α-アミノ酸である。", "type": "classification" },
+      { "stage": 3, "text": "不斉炭素原子を持つ。", "type": "structure" },
+      { "stage": 4, "text": "D型とL型の光学異性体が存在する。", "type": "property" }
+    ],
+    "explanation": "C3H7NO2で不斉炭素あり→アラニン。"
+  },
+  {
+    "compound_id": "glucose",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
+      { "stage": 2, "text": "単糖類である。", "type": "classification" },
+      { "stage": 3, "text": "銀鏡反応を示し、フェーリング液を還元する。", "type": "reaction" },
+      { "stage": 4, "text": "アルデヒド基とヒドロキシ基を複数持つ。", "type": "functional_group" }
+    ],
+    "explanation": "C6H12O6で還元性単糖→グルコース。"
+  },
+  {
+    "compound_id": "fructose",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
+      { "stage": 2, "text": "単糖類である。", "type": "classification" },
+      { "stage": 3, "text": "ケトースである。", "type": "classification" },
+      { "stage": 4, "text": "グルコースとは構造異性体である。", "type": "isomer" }
+    ],
+    "explanation": "C6H12O6でケトース→フルクトース。"
+  },
+  {
+    "compound_id": "sucrose",
+    "stages": [
+      { "stage": 1, "text": "分子式は C12H22O11 である。", "type": "formula" },
+      { "stage": 2, "text": "二糖類である。", "type": "classification" },
+      { "stage": 3, "text": "加水分解するとグルコースとフルクトースになる。", "type": "hydrolysis" },
+      { "stage": 4, "text": "還元性を示さない。", "type": "property" }
+    ],
+    "explanation": "C12H22O11で二糖、還元性なし→ショ糖。"
+  },
+  {
+    "compound_id": "palmitic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C16H32O2 である。", "type": "formula" },
+      { "stage": 2, "text": "高級脂肪酸である。", "type": "classification" },
+      { "stage": 3, "text": "飽和脂肪酸である。", "type": "classification" },
+      { "stage": 4, "text": "油脂の構成成分である。", "type": "property" }
+    ],
+    "explanation": "C16H32O2で飽和脂肪酸→パルミチン酸。"
+  },
+  {
+    "compound_id": "oleic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C18H34O2 である。", "type": "formula" },
+      { "stage": 2, "text": "高級脂肪酸である。", "type": "classification" },
+      { "stage": 3, "text": "不飽和脂肪酸である。", "type": "classification" },
+      { "stage": 4, "text": "二重結合を1つ持つ。", "type": "structure" }
+    ],
+    "explanation": "C18H34O2で不飽和脂肪酸、二重結合1つ→オレイン酸。"
+  },
+  {
+    "compound_id": "stearic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C18H36O2 である。", "type": "formula" },
+      { "stage": 2, "text": "高級脂肪酸である。", "type": "classification" },
+      { "stage": 3, "text": "飽和脂肪酸である。", "type": "classification" },
+      { "stage": 4, "text": "油脂の構成成分である。", "type": "property" }
+    ],
+    "explanation": "C18H36O2で飽和脂肪酸→ステアリン酸。"
   }
 ]
+
 
