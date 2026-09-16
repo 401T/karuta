@@ -318,12 +318,14 @@ class App {
     }
 
     /**
-     * カードを描画
+     * カードを描画（全カード読み込み完了を待機）
      */
-    renderCards(cards) {
+    async renderCards(cards) {
         this.dom.game.cardGrid.innerHTML = '';
 
-        cards.forEach((c, index) => {
+        // 全カードのDOMを作成
+        const cardElements = [];
+        cards.forEach(c => {
             const div = document.createElement('div');
             div.className = 'card';
             div.dataset.id = c.id;
@@ -333,17 +335,41 @@ class App {
             div.appendChild(contentDiv);
 
             this.dom.game.cardGrid.appendChild(div);
-
-            // 段階的に描画開始（0.1秒ずつ遅延）
-            setTimeout(() => {
-                StructureRenderer.render(contentDiv, c.smiles, 'light', {
-                    name: c.name,
-                    name_en: c.name_en,
-                    formula: c.formula
-                });
-            }, index * 100);
+            cardElements.push({ element: contentDiv, compound: c });
         });
+
+        // 全カードの画像読み込みを並列で開始（段階的遅延付き）
+        const promises = cardElements.map(({ element, compound }, index) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    StructureRenderer.render(element, compound.smiles, 'light', {
+                        name: compound.name,
+                        name_en: compound.name_en,
+                        formula: compound.formula
+                    }).then(resolve);
+                }, index * 50); // 50msずつずらして開始
+            });
+        });
+
+        // 全カードの読み込み完了を待つ（最大15秒のタイムアウト）
+        const timeoutPromise = new Promise((resolve) => {
+            setTimeout(() => {
+                console.warn('Card rendering timeout - proceeding anyway');
+                resolve();
+            }, 15000);
+        });
+
+        await Promise.race([
+            Promise.all(promises),
+            timeoutPromise
+        ]);
+
+        console.log('All cards loaded - starting reading');
+
+        // 全カード読み込み完了後、読み札を開始
+        this.engine.startReading();
     }
+
 
 
     /**
