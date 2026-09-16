@@ -1,6 +1,6 @@
 /**
  * App - メインアプリケーションクラス
- * UI制御、画面遷移、イベント処理、統計表示を統合管理
+ * 和風デザイン・読み札履歴表示・ステージ自動進行対応
  */
 class App {
     constructor() {
@@ -35,6 +35,7 @@ class App {
                 scoreCpu: document.getElementById('score-cpu'),
                 timer: document.getElementById('timer'),
                 combo: document.getElementById('combo'),
+                clueHistory: document.getElementById('clue-history'),
                 clueStage: document.getElementById('clue-stage'),
                 clueText: document.getElementById('clue-text'),
                 cardGrid: document.getElementById('card-grid'),
@@ -51,7 +52,6 @@ class App {
                 score: document.getElementById('result-score'),
                 structure: document.getElementById('result-structure'),
                 name: document.getElementById('result-name'),
-                formula: document.getElementById('result-formula'),
                 time: document.getElementById('result-time'),
                 explanation: document.getElementById('result-explanation'),
                 nextBtn: document.getElementById('btn-next-round'),
@@ -82,10 +82,8 @@ class App {
      * 初期化
      */
     async init() {
-        // ローディング表示
         this.showLoading(true);
 
-        // データ読み込み
         const loaded = await this.engine.loadData();
         
         if (!loaded) {
@@ -93,30 +91,18 @@ class App {
             return;
         }
 
-        // 構造式描画エンジンの初期化
         StructureRenderer.init();
-        
-        // 音声マネージャーの初期化
         AudioManager.init();
-
-        // ストレージマネージャーの初期化
         StorageManager.init();
-
-        // 設定をロード
         this.loadSettings();
 
-        // UI更新コールバックの設定
         this.engine.onUpdate = (data) => this.updateGameUI(data);
         this.engine.onRoundEnd = (data) => this.showResult(data);
         this.engine.onGameEnd = (data) => this.showGameEnd(data);
 
-        // イベント設定
         this.bindEvents();
-
-        // メニューの化合物数表示
         this.dom.menu.compoundCount.textContent = this.engine.getCompoundCount();
 
-        // ローディング非表示
         setTimeout(() => {
             this.showLoading(false);
             this.showScreen('menu');
@@ -129,7 +115,6 @@ class App {
      * イベント設定
      */
     bindEvents() {
-        // メニューボタン
         document.querySelectorAll('.menu-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const mode = e.currentTarget.dataset.mode;
@@ -137,19 +122,16 @@ class App {
             });
         });
 
-        // 戻るボタン
         document.querySelectorAll('.back-btn').forEach(btn => {
             btn.addEventListener('click', () => {
                 this.showScreen('menu');
             });
         });
 
-        // ゲーム設定画面
         this.dom.setup.startBtn.addEventListener('click', () => {
             this.startGame();
         });
 
-        // ゲーム画面
         this.dom.game.cardGrid.addEventListener('click', (e) => {
             const card = e.target.closest('.card');
             if (card && !card.classList.contains('taken')) {
@@ -174,7 +156,6 @@ class App {
             this.engine.skipRound();
         });
 
-        // 結果画面
         this.dom.result.nextBtn.addEventListener('click', () => {
             this.showScreen('game');
             this.engine.startNewRound();
@@ -184,7 +165,6 @@ class App {
             this.showScreen('menu');
         });
 
-        // 一時停止画面
         document.getElementById('btn-resume').addEventListener('click', () => {
             this.resumeGame();
         });
@@ -193,7 +173,6 @@ class App {
             this.showScreen('menu');
         });
 
-        // 設定画面
         this.dom.settings.voice.addEventListener('change', (e) => {
             this.updateSetting('voiceEnabled', e.target.checked);
         });
@@ -207,9 +186,9 @@ class App {
         });
 
         this.dom.settings.resetBtn.addEventListener('click', () => {
-            if (confirm('統計データをリセットしますか？')) {
+            if (confirm('統計データを初期化しますか？')) {
                 StorageManager.resetAll();
-                alert('リセットしました。');
+                alert('初期化しました。');
             }
         });
     }
@@ -240,18 +219,17 @@ class App {
             cpu: 'CPU対戦',
             local: '友達対戦',
             practice: '一人練習',
-            training: '構造決定トレーニング'
+            training: '構造決定訓練'
         };
 
         this.dom.setup.title.textContent = titles[mode] || 'ゲーム設定';
 
-        // 難易度選択
         this.dom.setup.difficultyGrid.innerHTML = '';
         for (let i = 1; i <= 7; i++) {
             const btn = document.createElement('button');
             btn.className = 'difficulty-btn' + (i === this.selectedDifficulty ? ' selected' : '');
             btn.innerHTML = `
-                <div class="difficulty-level">Lv.${i}</div>
+                <div class="difficulty-level">第${['一','二','三','四','五','六','七'][i-1]}段</div>
                 <div class="difficulty-name">${this.getDifficultyName(i)}</div>
             `;
             btn.addEventListener('click', () => {
@@ -262,7 +240,6 @@ class App {
             this.dom.setup.difficultyGrid.appendChild(btn);
         }
 
-        // カテゴリ選択
         this.dom.setup.categoryTags.innerHTML = '';
         const categories = this.engine.getCategories();
         categories.forEach(cat => {
@@ -306,30 +283,26 @@ class App {
      * ゲーム中のUI更新
      */
     updateGameUI(data) {
-        // スコア更新
         this.dom.game.scorePlayer.textContent = data.scores.player;
         this.dom.game.scoreCpu.textContent = data.scores.cpu;
-
-        // ラウンド情報
         this.dom.game.roundInfo.textContent = `${data.roundNumber} / ${data.totalRounds}`;
 
-        // コンボ表示
         if (data.combo > 1) {
-            this.dom.game.combo.textContent = `${data.combo} COMBO!`;
+            this.dom.game.combo.textContent = `${data.combo}連`;
         } else {
             this.dom.game.combo.textContent = '';
         }
 
-        // 状態ごとの処理
         switch (data.state) {
             case 'DEAL':
                 this.renderCards(data.round.cards);
-                this.dom.game.clueStage.textContent = '準備中...';
+                this.dom.game.clueHistory.innerHTML = '';
+                this.dom.game.clueStage.textContent = '読み札';
                 this.dom.game.clueText.textContent = '読み札が始まります';
                 break;
 
             case 'READING':
-                this.updateClue(data.round);
+                this.updateClueWithHistory(data.round);
                 break;
 
             case 'RESULT':
@@ -337,7 +310,6 @@ class App {
                 break;
         }
 
-        // フィードバック
         if (data.type === 'wrong') {
             this.flashCard(data.id, 'wrong');
         } else if (data.type === 'cpu_wrong') {
@@ -346,7 +318,7 @@ class App {
     }
 
     /**
-     * カードを描画
+     * カードを描画（構造式表示）
      */
     renderCards(cards) {
         this.dom.game.cardGrid.innerHTML = '';
@@ -356,64 +328,44 @@ class App {
             div.className = 'card';
             div.dataset.id = c.id;
 
-            const svgContainer = document.createElement('div');
-            svgContainer.style.width = '100%';
-            svgContainer.style.height = '100%';
-            div.appendChild(svgContainer);
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'card-content';
+            div.appendChild(contentDiv);
 
             this.dom.game.cardGrid.appendChild(div);
 
-            // 化合物名と分子式も渡す
+            // 構造式を描画（compoundオブジェクト全体を渡す）
             requestAnimationFrame(() => {
-                StructureRenderer.render(svgContainer, c.smiles, 'light', c.name, c.formula);
+                StructureRenderer.render(contentDiv, c.smiles, 'light', {
+                    name: c.name,
+                    name_en: c.name_en,
+                    formula: c.formula
+                });
             });
         });
     }
 
     /**
-     * 読み札を更新（履歴付き）
+     * 読み札を更新（履歴付き・巻物風）
      */
-    updateClue(round) {
+    updateClueWithHistory(round) {
         const clueData = this.engine.clues[round.target.id];
         if (!clueData) return;
 
-        const cluePanel = document.querySelector('.clue-panel');
-        if (!cluePanel) return;
-
-        // 履歴エリアと現在表示エリアを作成
-        let historyDiv = cluePanel.querySelector('.clue-history');
-        let currentDiv = cluePanel.querySelector('.clue-current');
-
-        if (!historyDiv) {
-            historyDiv = document.createElement('div');
-            historyDiv.className = 'clue-history';
-            cluePanel.insertBefore(historyDiv, cluePanel.firstChild);
-        }
-
-        if (!currentDiv) {
-            currentDiv = document.createElement('div');
-            currentDiv.className = 'clue-current';
-            cluePanel.appendChild(currentDiv);
-        }
-
-        // 現在のステージを取得
         const currentStageData = clueData.stages.find(s => s.stage === round.currentStage);
         
         if (currentStageData) {
-            // 現在のステージを表示
-            currentDiv.innerHTML = `
-                <div class="stage-label">STAGE ${round.currentStage}</div>
-                <div>${currentStageData.text}</div>
-            `;
+            // 現在のステージを強調表示
+            this.dom.game.clueStage.textContent = `第${['一','二','三','四'][round.currentStage-1]}段`;
+            this.dom.game.clueText.textContent = currentStageData.text;
 
             // 前のステージを履歴に追加（重複チェック）
-            const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
+            const existingStages = Array.from(this.dom.game.clueHistory.querySelectorAll('.clue-history-item'));
             const alreadyExists = existingStages.some(item => 
                 item.dataset.stage === String(round.currentStage)
             );
 
             if (!alreadyExists && round.currentStage > 1) {
-                // 前のステージ（currentStage - 1）を履歴に追加
                 const prevStage = round.currentStage - 1;
                 const prevStageData = clueData.stages.find(s => s.stage === prevStage);
                 
@@ -422,20 +374,25 @@ class App {
                     historyItem.className = 'clue-history-item';
                     historyItem.dataset.stage = String(prevStage);
                     historyItem.innerHTML = `
-                        <div class="stage-label">STAGE ${prevStage}</div>
+                        <span class="stage-label">第${['一','二','三','四'][prevStage-1]}段</span>
                         <div>${prevStageData.text}</div>
                     `;
-                    historyDiv.appendChild(historyItem);
+                    this.dom.game.clueHistory.appendChild(historyItem);
+                    
+                    // 履歴を自動スクロール
+                    const cluePanel = document.querySelector('.clue-panel');
+                    if (cluePanel) {
+                        cluePanel.scrollTop = cluePanel.scrollHeight;
+                    }
                 }
             }
 
             // 初回表示時（Stage 1）は履歴をクリア
             if (round.currentStage === 1) {
-                historyDiv.innerHTML = '';
+                this.dom.game.clueHistory.innerHTML = '';
             }
         }
     }
-
 
     /**
      * カードタップ処理
@@ -469,38 +426,36 @@ class App {
 
         this.dom.result.icon.textContent = playerWon ? '✓' : '✗';
         this.dom.result.icon.style.background = playerWon 
-            ? 'var(--accent-gradient)' 
-            : 'linear-gradient(135deg, #ef4444 0%, #dc2626 100%)';
+            ? 'linear-gradient(135deg, var(--kin-iro) 0%, var(--kin-iro-light) 100%)' 
+            : 'linear-gradient(135deg, var(--shu-iro) 0%, #e57373 100%)';
 
-        this.dom.result.title.textContent = playerWon ? '正解！' : '不正解...';
+        this.dom.result.title.textContent = playerWon ? '正解' : '不正解';
         this.dom.result.title.style.color = playerWon ? 'var(--success)' : 'var(--danger)';
 
-        // スコア表示（プレイヤーが正解した場合のみ）
         if (playerWon) {
-            const gained = this.engine.scores.player - (this.engine.scores.player - 1000); // 簡易計算
+            const gained = this.engine.scores.player - (this.engine.scores.player - 1000);
             this.dom.result.score.textContent = `+${gained}`;
         } else {
             this.dom.result.score.textContent = '';
         }
 
         // 構造式表示
-        // showResult メソッド内の構造式表示部分を以下に変更
         this.dom.result.structure.innerHTML = '';
-        const svgContainer = document.createElement('div');
-        svgContainer.style.width = '100%';
-        svgContainer.style.height = '150px';
-        this.dom.result.structure.appendChild(svgContainer);
-        StructureRenderer.render(svgContainer, data.target.smiles, 'light', data.target.name, data.target.formula);
+        const contentDiv = document.createElement('div');
+        contentDiv.style.width = '100%';
+        contentDiv.style.height = '100%';
+        this.dom.result.structure.appendChild(contentDiv);
+        StructureRenderer.render(contentDiv, data.target.smiles, 'light', {
+            name: data.target.name,
+            name_en: data.target.name_en,
+            formula: data.target.formula
+        });
 
-
-        // 詳細情報
         this.dom.result.name.textContent = data.target.name;
-        this.dom.result.formula.textContent = data.target.formula;
         
         const reactionTime = ((Date.now() - this.engine.currentRound.startTime) / 1000).toFixed(2);
-        this.dom.result.time.textContent = `${reactionTime}s`;
+        this.dom.result.time.textContent = `${reactionTime}秒`;
 
-        // 解説
         this.dom.result.explanation.textContent = data.explanation;
 
         this.showScreen('result');
@@ -515,7 +470,7 @@ class App {
         const message = data.winner === 'player' ? '勝利！' : 
                        data.winner === 'cpu' ? '敗北...' : '引き分け';
         
-        alert(`ゲーム終了\n${message}\n\nプレイヤー: ${data.playerScore}点\nCPU: ${data.cpuScore}点\n最大コンボ: ${data.maxCombo}`);
+        alert(`ゲーム終了\n${message}\n\n玩家: ${data.playerScore}点\nCPU: ${data.cpuScore}点\n最大連勝: ${data.maxCombo}`);
         
         this.showScreen('menu');
     }
@@ -528,9 +483,8 @@ class App {
         
         this.dom.stats.todayGames.textContent = summary.totalGames;
         this.dom.stats.todayAccuracy.textContent = `${summary.accuracy}%`;
-        this.dom.stats.todayAvgTime.textContent = `${summary.avgTime}s`;
+        this.dom.stats.todayAvgTime.textContent = `${summary.avgTime}秒`;
 
-        // 分野別正答率
         const categoryAccuracy = StorageManager.getCategoryAccuracy();
         this.dom.stats.accuracyBars.innerHTML = '';
         
@@ -547,7 +501,6 @@ class App {
             this.dom.stats.accuracyBars.appendChild(div);
         });
 
-        // 苦手分野
         const weakCompounds = StorageManager.getWeakCompounds(5);
         this.dom.stats.weaknessList.innerHTML = '';
         
@@ -662,11 +615,11 @@ class App {
     }
 
     /**
-     * ヒント表示（簡易実装）
+     * ヒント表示
      */
     showHint() {
         const target = this.engine.currentRound.target;
-        alert(`ヒント: ${target.category} / 分子式: ${target.formula}`);
+        alert(`ヒント: ${this.getCategoryDisplayName(target.category)} / 分子式: ${target.formula}`);
     }
 
     /**
@@ -707,7 +660,16 @@ class App {
             fat: '油脂',
             amide: 'アミド',
             heterocycle: '複素環',
-            nucleobase: '核酸塩基'
+            nucleobase: '核酸塩基',
+            nitrile: 'ニトリル',
+            peptide: 'ペプチド',
+            nitrate: '硝酸エステル',
+            indicator: '指示薬',
+            soap: '石鹸',
+            surfactant: '界面活性剤',
+            pharmaceutical: '医薬品',
+            alkaloid: 'アルカロイド',
+            polysaccharide: '多糖類'
         };
         return names[category] || category;
     }
@@ -717,11 +679,11 @@ class App {
 window.addEventListener('DOMContentLoaded', () => {
     window.app = new App();
     
-    // Service Worker登録 (PWA)
     if ('serviceWorker' in navigator) {
         navigator.serviceWorker.register('./sw.js').catch(err => {
             console.log('SW registration failed:', err);
         });
     }
 });
+
 
