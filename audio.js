@@ -1,42 +1,31 @@
 /**
  * AudioManager - 音声読み上げ・効果音管理
+ * スマホ対応版（onEndイベントのフォールバック付き）
  */
 const AudioManager = {
     enabled: true,
     rate: 1.0,
     voice: null,
     sounds: {},
+    fallbackTimer: null,
     
-    /**
-     * 初期化
-     */
     init() {
-        // Web Speech API の可用性チェック
         if ('speechSynthesis' in window) {
             this.loadVoices();
-            
-            // 音声リストが非同期で読み込まれる場合がある
             window.speechSynthesis.onvoiceschanged = () => {
                 this.loadVoices();
             };
-            
             console.log('AudioManager initialized');
         } else {
             console.warn('Web Speech API not supported');
             this.enabled = false;
         }
         
-        // 効果音の生成（Web Audio API）
         this.initSoundEffects();
     },
 
-    /**
-     * 日本語音声をロード
-     */
     loadVoices() {
         const voices = window.speechSynthesis.getVoices();
-        
-        // 日本語音声を優先的に選択
         this.voice = voices.find(v => v.lang === 'ja-JP') ||
                      voices.find(v => v.lang.startsWith('ja')) ||
                      voices.find(v => v.lang.includes('ja')) ||
@@ -44,8 +33,6 @@ const AudioManager = {
         
         if (this.voice) {
             console.log('Japanese voice loaded:', this.voice.name);
-        } else {
-            console.warn('Japanese voice not found, using default');
         }
     },
 
@@ -55,10 +42,22 @@ const AudioManager = {
      * @param {Object} options - オプション
      */
     speak(text, options = {}) {
-        if (!this.enabled) return;
+        if (!this.enabled) {
+            // 音声無効の場合は即座にonEndを呼ぶ
+            if (options.onEnd) {
+                setTimeout(() => options.onEnd(), 100);
+            }
+            return;
+        }
         
         // 既存の読み上げをキャンセル
         window.speechSynthesis.cancel();
+        
+        // 既存のフォールバックタイマーをクリア
+        if (this.fallbackTimer) {
+            clearTimeout(this.fallbackTimer);
+            this.fallbackTimer = null;
+        }
         
         const utterance = new SpeechSynthesisUtterance(text);
         utterance.lang = 'ja-JP';
@@ -70,35 +69,64 @@ const AudioManager = {
             utterance.voice = this.voice;
         }
         
-        // コールバック
-        if (options.onEnd) {
-            utterance.onend = options.onEnd;
-        }
+        let onEndCalled = false;
+        
+        // onEndコールバック
+        const callOnEnd = () => {
+            if (onEndCalled) return;
+            onEndCalled = true;
+            
+            if (this.fallbackTimer) {
+                clearTimeout(this.fallbackTimer);
+                this.fallbackTimer = null;
+            }
+            
+            if (options.onEnd) {
+                options.onEnd();
+            }
+        };
+        
+        utterance.onend = callOnEnd;
+        utterance.onerror = (e) => {
+            console.warn('Speech error:', e);
+            callOnEnd();
+        };
+        
+        // フォールバック：テキストの長さに基づいて推定時間を計算
+        // 日本語は1秒あたり約3-4文字と仮定
+        const estimatedDuration = Math.max(2000, (text.length / 3) * 1000 / this.rate);
+        const fallbackTime = estimatedDuration + 1000; // 余裕を持って+1秒
+        
+        this.fallbackTimer = setTimeout(() => {
+            console.log('Speech fallback timer triggered');
+            callOnEnd();
+        }, fallbackTime);
         
         window.speechSynthesis.speak(utterance);
+        
+        // iOS Safari対策：100ms後にspeaking状態をチェック
+        setTimeout(() => {
+            if (!window.speechSynthesis.speaking) {
+                console.log('Speech not started, calling onEnd');
+                callOnEnd();
+            }
+        }, 100);
     },
 
-    /**
-     * 読み上げを停止
-     */
     stop() {
         if ('speechSynthesis' in window) {
             window.speechSynthesis.cancel();
         }
+        if (this.fallbackTimer) {
+            clearTimeout(this.fallbackTimer);
+            this.fallbackTimer = null;
+        }
     },
 
-    /**
-     * 読み上げ中かどうか
-     * @returns {boolean}
-     */
     isSpeaking() {
         return window.speechSynthesis.speaking;
     },
 
-    /**
-     * 設定を更新
-     * @param {Object} settings
-     */
     updateSettings(settings) {
         if (settings.enabled !== undefined) {
             this.enabled = settings.enabled;
@@ -111,9 +139,6 @@ const AudioManager = {
         }
     },
 
-    /**
-     * 効果音の初期化（Web Audio API）
-     */
     initSoundEffects() {
         try {
             this.audioContext = new (window.AudioContext || window.webkitAudioContext)();
@@ -122,19 +147,12 @@ const AudioManager = {
         }
     },
 
-    /**
-     * 効果音を再生
-     * @param {string} type - 'correct', 'wrong', 'combo', 'click'
-     */
     playSound(type) {
         if (!this.audioContext) return;
         
-        // AudioContext が suspended 状態の場合、resume する
         if (this.audioContext.state === 'suspended') {
             this.audioContext.resume();
         }
-        
-        const now = this.audioContext.currentTime;
         
         switch (type) {
             case 'correct':
@@ -155,13 +173,6 @@ const AudioManager = {
         }
     },
 
-    /**
-     * 単音を再生
-     * @param {Array<number>} frequencies - 周波数の配列
-     * @param {Array<number>} startTimes - 開始時間の配列
-     * @param {number} duration - 各音の長さ
-     * @param {string} type - 波形タイプ
-     */
     playTone(frequencies, startTimes, duration, type = 'sine') {
         frequencies.forEach((freq, i) => {
             const oscillator = this.audioContext.createOscillator();
@@ -185,7 +196,7 @@ const AudioManager = {
     }
 };
 
-// 初期化
 document.addEventListener('DOMContentLoaded', () => {
     AudioManager.init();
 });
+
