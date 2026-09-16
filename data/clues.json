@@ -1,0 +1,92 @@
+[
+  {
+    "compound_id": "ethanol",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H6O である。", "type": "formula" },
+      { "stage": 2, "text": "ナトリウムと反応して気体を発生する。", "type": "reaction" },
+      { "stage": 3, "text": "酸化すると、まずアルデヒドを経て、最終的にカルボン酸になる。", "type": "oxidation" },
+      { "stage": 4, "text": "濃硫酸と170℃で加熱すると、気体の炭化水素が生じる。", "type": "elimination" }
+    ],
+    "explanation": "C2H6OでNaと反応→アルコール。酸化でアルデヒドを経由→第一級アルコール。"
+  },
+  {
+    "compound_id": "acetaldehyde",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H4O である。", "type": "formula" },
+      { "stage": 2, "text": "銀鏡反応を示す。", "type": "reaction" },
+      { "stage": 3, "text": "フェーリング液を還元して赤色沈殿を生じる。", "type": "reaction" },
+      { "stage": 4, "text": "酸化されると、酢酸になる。", "type": "oxidation" }
+    ],
+    "explanation": "C2H4O(不飽和度1)で銀鏡反応陽性→アルデヒド。"
+  },
+  {
+    "compound_id": "acetic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H4O2 であり、弱酸性を示す。", "type": "formula" },
+      { "stage": 2, "text": "炭酸水素ナトリウム水溶液と反応して気体を発生する。", "type": "reaction" },
+      { "stage": 3, "text": "エタノールと濃硫酸を混ぜて加熱すると、甘い香りの液体が生じる。", "type": "esterification" },
+      { "stage": 4, "text": "酢酸エチルの加水分解生成物の一つである。", "type": "hydrolysis" }
+    ],
+    "explanation": "C2H4O2で弱酸、NaHCO3と反応→カルボン酸。酢酸エチルの構成要素。"
+  },
+  {
+    "compound_id": "acetone",
+    "stages": [
+      { "stage": 1, "text": "分子式は C3H6O である。", "type": "formula" },
+      { "stage": 2, "text": "2-プロパノールの酸化生成物である。", "type": "oxidation" },
+      { "stage": 3, "text": "ヨードホルム反応を示す。", "type": "reaction" },
+      { "stage": 4, "text": "ケトンであり、アルデヒドのような還元性は示さない。", "type": "property" }
+    ],
+    "explanation": "C3H6Oで第二級アルコールの酸化生成物→ケトン（アセトン）。"
+  },
+  {
+    "compound_id": "phenol",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H6O であり、不飽和度は4である。", "type": "formula" },
+      { "stage": 2, "text": "水溶液は弱酸性だが、炭酸水素ナトリウムとは反応しない。", "type": "acidity" },
+      { "stage": 3, "text": "塩化鉄(III)水溶液を加えると紫色を呈する。", "type": "reaction" },
+      { "stage": 4, "text": "ベンゼン環にヒドロキシ基が直接結合している。", "type": "structure" }
+    ],
+    "explanation": "C6H6O(不飽和度4)でFeCl3呈色反応→フェノール類。"
+  },
+  {
+    "compound_id": "salicylic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C7H6O3 である。", "type": "formula" },
+      { "stage": 2, "text": "水酸化ナトリウムには溶けるが、炭酸水素ナトリウムにも溶けて気体を出す。", "type": "acidity" },
+      { "stage": 3, "text": "フェノール性とカルボキシ基の両方を持つ。", "type": "functional_group" },
+      { "stage": 4, "text": "無水酢酸と反応すると、アセチルサリチル酸（アスピリン）になる。", "type": "derivative" }
+    ],
+    "explanation": "C7H6O3でフェノール性OHとCOOHを併せ持つ→サリチル酸。"
+  },
+  {
+    "compound_id": "glucose",
+    "stages": [
+      { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
+      { "stage": 2, "text": "多価アルコールの性質と、アルデヒドの性質を併せ持つ。", "type": "functional_group" },
+      { "stage": 3, "text": "銀鏡反応を示し、フェーリング液を還元する。", "type": "reaction" },
+      { "stage": 4, "text": "水解すると2分子のグルコースになる蔗糖とは異なり、それ自体が単糖である。", "type": "classification" }
+    ],
+    "explanation": "C6H12O6で還元性を持つ単糖→グルコース（またはフルクトースだが、構造式的にはアルデヒド型）。"
+  },
+  {
+    "compound_id": "glycine",
+    "stages": [
+      { "stage": 1, "text": "分子式は C2H5NO2 である。", "type": "formula" },
+      { "stage": 2, "text": "タンパク質を構成するアミノ酸のうち、最も単純な構造を持つ。", "type": "classification" },
+      { "stage": 3, "text": "不斉炭素原子を持たない唯一の標準アミノ酸である。", "type": "structure" },
+      { "stage": 4, "text": "両性電解質であり、等電点は約6.0である。", "type": "property" }
+    ],
+    "explanation": "C2H5NO2で不斉炭素なし→グリシン。"
+  },
+  {
+    "compound_id": "terephthalic_acid",
+    "stages": [
+      { "stage": 1, "text": "分子式は C8H6O4 である。", "type": "formula" },
+      { "stage": 2, "text": "ベンゼン環上に2つのカルボキシ基が、パラの位置に結合している。", "type": "structure" },
+      { "stage": 3, "text": "エチレングリコールと縮合重合すると、PET樹脂になる。", "type": "polymer" },
+      { "stage": 4, "text": "フタル酸、イソフタル酸とは異性体関係にある。", "type": "isomer" }
+    ],
+    "explanation": "C8H6O4でパラ置換体、PETの原料→テレフタル酸。"
+  }
+]

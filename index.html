@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>構造決定かるた</title>
+    <link rel="stylesheet" href="style.css">
+    <link rel="manifest" href="manifest.json">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="theme-color" content="#1a1a2e">
+    <!-- smiles-drawer CDN -->
+    <script src="https://cdn.jsdelivr.net/npm/smiles-drawer@2.1.7/dist/smiles-drawer.min.js"></script>
+</head>
+<body>
+    <!-- メインメニュー -->
+    <div id="screen-menu" class="screen active">
+        <div class="menu-container">
+            <h1 class="app-title">構造決定<span class="accent">かるた</span></h1>
+            <p class="subtitle">~ 東大レベルの有機化学・構造決定力を鍛える ~</p>
+            <div class="menu-buttons">
+                <button class="btn btn-primary" data-mode="cpu">CPU対戦</button>
+                <button class="btn btn-primary" data-mode="local">友達対戦 (同一端末)</button>
+                <button class="btn btn-secondary" data-mode="practice">一人練習</button>
+                <button class="btn btn-secondary" data-mode="training">構造決定トレーニング</button>
+                <button class="btn btn-outline" data-mode="settings">設定</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- ゲーム画面 -->
+    <div id="screen-game" class="screen">
+        <!-- 上部: 読み札・スコア -->
+        <header class="game-header">
+            <div class="score-board">
+                <div class="score-item player">
+                    <span class="label">PLAYER</span>
+                    <span id="score-player" class="value">0</span>
+                </div>
+                <div class="score-item cpu">
+                    <span class="label">CPU</span>
+                    <span id="score-cpu" class="value">0</span>
+                </div>
+            </div>
+            <div id="clue-area" class="clue-area">
+                <div id="clue-stage" class="clue-stage">STAGE 1</div>
+                <div id="clue-text" class="clue-text">読み札がここに表示されます</div>
+            </div>
+            <div class="game-controls">
+                <button id="btn-hint" class="btn-icon" title="ヒント">💡</button>
+                <button id="btn-next-clue" class="btn-icon" title="次の情報へ">⏭️</button>
+            </div>
+        </header>
+
+        <!-- 中央: 絵札グリッド -->
+        <main id="card-grid" class="card-grid">
+            <!-- JSによって動的に生成される -->
+        </main>
+
+        <!-- 下部: ステータス -->
+        <footer class="game-footer">
+            <div id="timer" class="timer">00:00</div>
+            <div id="combo" class="combo"></div>
+        </footer>
+    </div>
+
+    <!-- 結果・解説画面 -->
+    <div id="screen-result" class="screen modal">
+        <div class="modal-content">
+            <h2 id="result-title">正解！</h2>
+            <div id="result-structure" class="result-structure"></div>
+            <div id="result-explanation" class="result-explanation">
+                <!-- 解説がここに入る -->
+            </div>
+            <button id="btn-back-menu" class="btn btn-primary">メニューに戻る</button>
+        </div>
+    </div>
+
+    <!-- スクリプト読み込み -->
+    <script src="renderer.js"></script>
+    <script src="cpu.js"></script>
+    <script src="game.js"></script>
+    <script src="app.js"></script>
+</body>
+</html>

@@ -1,0 +1,325 @@
+:root {
+    --bg-color: #12121a;
+    --surface-color: #1e1e28;
+    --primary-color: #4cc9f0;
+    --accent-color: #f72585;
+    --text-main: #edf2f4;
+    --text-sub: #8d99ae;
+    --success-color: #06d6a0;
+    --danger-color: #ef476f;
+    --card-bg: #ffffff;
+}
+
+* {
+    box-sizing: border-box;
+    margin: 0;
+    padding: 0;
+    -webkit-tap-highlight-color: transparent;
+}
+
+body {
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-main);
+    overflow: hidden;
+    height: 100vh;
+    width: 100vw;
+    user-select: none;
+}
+
+.screen {
+    display: none;
+    width: 100%;
+    height: 100%;
+    position: absolute;
+    top: 0;
+    left: 0;
+}
+
+.screen.active {
+    display: flex;
+    flex-direction: column;
+}
+
+/* Menu */
+.menu-container {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    height: 100%;
+    padding: 20px;
+    text-align: center;
+}
+
+.app-title {
+    font-size: 2.5rem;
+    font-weight: 900;
+    letter-spacing: 0.1em;
+    margin-bottom: 10px;
+}
+
+.accent {
+    color: var(--accent-color);
+}
+
+.subtitle {
+    color: var(--text-sub);
+    margin-bottom: 40px;
+    font-size: 0.9rem;
+}
+
+.menu-buttons {
+    display: flex;
+    flex-direction: column;
+    gap: 15px;
+    width: 100%;
+    max-width: 300px;
+}
+
+.btn {
+    padding: 15px;
+    border: none;
+    border-radius: 12px;
+    font-size: 1.1rem;
+    font-weight: bold;
+    cursor: pointer;
+    transition: transform 0.1s, opacity 0.2s;
+}
+
+.btn:active {
+    transform: scale(0.96);
+    opacity: 0.8;
+}
+
+.btn-primary {
+    background: linear-gradient(135deg, var(--primary-color), #4361ee);
+    color: white;
+}
+
+.btn-secondary {
+    background: var(--surface-color);
+    color: var(--text-main);
+    border: 1px solid #333;
+}
+
+.btn-outline {
+    background: transparent;
+    color: var(--text-sub);
+    border: 1px solid #444;
+}
+
+/* Game Screen */
+#screen-game {
+    background-color: var(--bg-color);
+}
+
+.game-header {
+    padding: 10px;
+    background: var(--surface-color);
+    border-bottom: 2px solid #333;
+    z-index: 10;
+}
+
+.score-board {
+    display: flex;
+    justify-content: space-between;
+    margin-bottom: 10px;
+}
+
+.score-item {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+}
+
+.score-item .label {
+    font-size: 0.7rem;
+    color: var(--text-sub);
+}
+
+.score-item .value {
+    font-size: 1.5rem;
+    font-weight: bold;
+}
+
+.score-item.player .value { color: var(--primary-color); }
+.score-item.cpu .value { color: var(--accent-color); }
+
+.clue-area {
+    background: #000;
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 80px;
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    border: 1px solid #333;
+}
+
+.clue-stage {
+    font-size: 0.7rem;
+    color: var(--accent-color);
+    font-weight: bold;
+    margin-bottom: 5px;
+}
+
+.clue-text {
+    font-size: 1rem;
+    line-height: 1.5;
+    color: var(--text-main);
+}
+
+.game-controls {
+    display: flex;
+    justify-content: flex-end;
+    gap: 10px;
+    margin-top: 10px;
+}
+
+.btn-icon {
+    background: #333;
+    border: none;
+    color: white;
+    width: 40px;
+    height: 40px;
+    border-radius: 50%;
+    font-size: 1.2rem;
+    cursor: pointer;
+}
+
+/* Card Grid */
+.card-grid {
+    flex: 1;
+    display: grid;
+    grid-template-columns: repeat(3, 1fr); /* モバイルデフォルトは3列 */
+    gap: 8px;
+    padding: 10px;
+    overflow-y: auto;
+    align-content: start;
+}
+
+/* 画面サイズに応じて列数を調整 */
+@media (min-width: 600px) {
+    .card-grid { grid-template-columns: repeat(4, 1fr); }
+}
+@media (min-width: 900px) {
+    .card-grid { grid-template-columns: repeat(6, 1fr); }
+}
+
+.card {
+    background: var(--card-bg);
+    border-radius: 8px;
+    aspect-ratio: 1 / 1;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    box-shadow: 0 4px 6px rgba(0,0,0,0.3);
+    position: relative;
+    transition: transform 0.2s, box-shadow 0.2s;
+    overflow: hidden;
+}
+
+.card:active {
+    transform: scale(0.95);
+}
+
+.card.taken {
+    opacity: 0.2;
+    pointer-events: none;
+    filter: grayscale(100%);
+}
+
+.card.correct {
+    animation: pulse-correct 0.5s;
+    box-shadow: 0 0 20px var(--success-color);
+}
+
+.card.wrong {
+    animation: shake 0.5s;
+    box-shadow: 0 0 20px var(--danger-color);
+}
+
+.card svg {
+    width: 90%;
+    height: 90%;
+}
+
+/* Footer */
+.game-footer {
+    padding: 10px;
+    background: var(--surface-color);
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    border-top: 2px solid #333;
+}
+
+.timer {
+    font-family: monospace;
+    font-size: 1.2rem;
+    color: var(--primary-color);
+}
+
+.combo {
+    font-weight: bold;
+    color: var(--accent-color);
+    font-size: 1.2rem;
+}
+
+/* Modal / Result */
+.modal {
+    background: rgba(0,0,0,0.8);
+    align-items: center;
+    justify-content: center;
+    z-index: 100;
+}
+
+.modal-content {
+    background: var(--surface-color);
+    width: 90%;
+    max-width: 500px;
+    padding: 20px;
+    border-radius: 16px;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 15px;
+    border: 1px solid #444;
+}
+
+.result-structure {
+    width: 100%;
+    background: white;
+    border-radius: 8px;
+    padding: 10px;
+    min-height: 150px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.result-explanation {
+    width: 100%;
+    background: #000;
+    padding: 15px;
+    border-radius: 8px;
+    font-size: 0.9rem;
+    line-height: 1.6;
+    color: var(--text-main);
+    max-height: 300px;
+    overflow-y: auto;
+}
+
+/* Animations */
+@keyframes pulse-correct {
+    0% { transform: scale(1); }
+    50% { transform: scale(1.1); }
+    100% { transform: scale(1); }
+}
+
+@keyframes shake {
+    0%, 100% { transform: translateX(0); }
+    25% { transform: translateX(-10px); }
+    75% { transform: translateX(10px); }
+}
