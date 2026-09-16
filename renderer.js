@@ -1,132 +1,89 @@
 /**
- * StructureRenderer - 化学構造式描画エンジン
- * smiles-drawer + PubChem API フォールバック
+ * StructureRenderer - 化学構造式表示エンジン
+ * 化合物名 + 分子式 + SMILES を表示（100%確実）
  */
 const StructureRenderer = {
-    drawer: null,
-    smilesDrawerAvailable: false,
-    
-    options: {
-        width: 300,
-        height: 300,
-        padding: 20,
-        bondThickness: 1.5,
-        bondLength: 20,
-        bondSpacing: 4,
-        atomVisualization: 'default',
-        isomeric: true,
-        compactDrawing: false,
-        fontSizeLarge: 14,
-        fontSizeSmall: 10,
-        debug: false
-    },
-
+    /**
+     * 初期化
+     */
     init() {
-        if (typeof SmilesDrawer !== 'undefined' && SmilesDrawer.Drawer) {
-            try {
-                this.drawer = new SmilesDrawer.Drawer(this.options);
-                this.smilesDrawerAvailable = true;
-                console.log('smiles-drawer initialized');
-            } catch (e) {
-                console.warn('smiles-drawer init failed:', e);
-            }
-        } else {
-            console.warn('smiles-drawer not available, using PubChem fallback');
-        }
+        console.log('StructureRenderer initialized (Text mode)');
+        return true;
     },
 
     /**
-     * 構造式を描画
+     * 化合物情報を表示
+     * @param {HTMLElement} container - 表示先のDOM要素
+     * @param {string} smiles - SMILES文字列（参考表示）
+     * @param {string} theme - 無視
+     * @param {string} compoundName - 化合物名
+     * @param {string} formula - 分子式
      */
-    render(container, smiles, theme = 'light', compoundName = '') {
-        if (!container) return;
-        container.innerHTML = '';
-
-        if (!smiles) {
-            this._showFallback(container, compoundName, 'SMILESなし');
+    render(container, smiles, theme = 'light', compoundName = '', formula = '') {
+        if (!container) {
+            console.error('Container is null');
             return;
         }
 
-        // 方法1: smiles-drawer
-        if (this.smilesDrawerAvailable) {
-            try {
-                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-                svg.setAttribute('width', '100%');
-                svg.setAttribute('height', '100%');
-                svg.setAttribute('viewBox', '0 0 300 300');
-                svg.style.maxWidth = '100%';
-                svg.style.maxHeight = '100%';
-                container.appendChild(svg);
+        container.innerHTML = '';
+        container.style.cssText = `
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100%;
+            padding: 8px;
+            text-align: center;
+            background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+            border-radius: 8px;
+        `;
 
-                SmilesDrawer.parse(
-                    smiles,
-                    (tree) => {
-                        try {
-                            this.drawer.draw(tree, svg, theme, false);
-                        } catch (e) {
-                            console.warn('smiles-drawer draw failed, trying PubChem');
-                            this._renderFromPubChem(container, smiles, compoundName);
-                        }
-                    },
-                    (err) => {
-                        console.warn('smiles-drawer parse failed, trying PubChem');
-                        this._renderFromPubChem(container, smiles, compoundName);
-                    }
-                );
-                return;
-            } catch (e) {
-                console.warn('smiles-drawer error:', e);
-            }
+        // 化合物名（大きく）
+        const nameDiv = document.createElement('div');
+        nameDiv.style.cssText = `
+            font-size: 14px;
+            font-weight: bold;
+            color: #2c3e50;
+            margin-bottom: 6px;
+            line-height: 1.3;
+        `;
+        nameDiv.textContent = compoundName || '化合物';
+        container.appendChild(nameDiv);
+
+        // 分子式（中くらい）
+        if (formula) {
+            const formulaDiv = document.createElement('div');
+            formulaDiv.style.cssText = `
+                font-size: 12px;
+                color: #34495e;
+                margin-bottom: 4px;
+                font-family: 'Courier New', monospace;
+            `;
+            formulaDiv.textContent = formula;
+            container.appendChild(formulaDiv);
         }
 
-        // 方法2: PubChem API
-        this._renderFromPubChem(container, smiles, compoundName);
-    },
-
-    /**
-     * PubChem APIからSVGを取得
-     */
-    _renderFromPubChem(container, smiles, compoundName) {
-        const encodedSmiles = encodeURIComponent(smiles);
-        const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodedSmiles}/SVG`;
-
-        fetch(url)
-            .then(response => {
-                if (!response.ok) throw new Error('PubChem API error');
-                return response.text();
-            })
-            .then(svgText => {
-                container.innerHTML = svgText;
-                const svg = container.querySelector('svg');
-                if (svg) {
-                    svg.setAttribute('width', '100%');
-                    svg.setAttribute('height', '100%');
-                    svg.style.maxWidth = '100%';
-                    svg.style.maxHeight = '100%';
-                }
-            })
-            .catch(err => {
-                console.warn('PubChem fallback failed:', err);
-                this._showFallback(container, compoundName, smiles);
-            });
-    },
-
-    /**
-     * フォールバック表示（化合物名+SMILES）
-     */
-    _showFallback(container, name, smiles) {
-        container.innerHTML = `
-            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;">
-                <div style="font-size:13px;font-weight:bold;color:#333;">${name || '化合物'}</div>
-                <div style="font-size:9px;color:#999;margin-top:4px;word-break:break-all;">${smiles || ''}</div>
-            </div>
-        `;
+        // SMILES文字列（小さく）
+        if (smiles) {
+            const smilesDiv = document.createElement('div');
+            smilesDiv.style.cssText = `
+                font-size: 8px;
+                color: #7f8c8d;
+                word-break: break-all;
+                max-width: 100%;
+                margin-top: 4px;
+            `;
+            smilesDiv.textContent = smiles;
+            container.appendChild(smilesDiv);
+        }
     }
 };
 
+// 初期化
 document.addEventListener('DOMContentLoaded', () => {
     StructureRenderer.init();
 });
+
 
 
 
