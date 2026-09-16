@@ -363,12 +363,13 @@ class App {
 
             this.dom.game.cardGrid.appendChild(div);
 
-            // 非同期で構造式を描画
+            // 非同期で構造式を描画（化合物名も渡す）
             requestAnimationFrame(() => {
-                StructureRenderer.render(svgContainer, c.smiles, 'light');
+                StructureRenderer.render(svgContainer, c.smiles, 'light', c.name);
             });
         });
     }
+
 
     /**
      * 読み札を更新
@@ -431,12 +432,14 @@ class App {
         }
 
         // 構造式表示
+        // showResult メソッド内の構造式描画部分を以下に変更
         this.dom.result.structure.innerHTML = '';
         const svgContainer = document.createElement('div');
         svgContainer.style.width = '100%';
         svgContainer.style.height = '150px';
         this.dom.result.structure.appendChild(svgContainer);
-        StructureRenderer.render(svgContainer, data.target.smiles, 'light');
+        StructureRenderer.render(svgContainer, data.target.smiles, 'light', data.target.name);
+
 
         // 詳細情報
         this.dom.result.name.textContent = data.target.name;

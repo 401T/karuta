@@ -1,8 +1,11 @@
 /**
  * StructureRenderer - 化学構造式描画エンジン
- * smiles-drawer v2 対応版
+ * smiles-drawer + PubChem API フォールバック
  */
 const StructureRenderer = {
+    drawer: null,
+    smilesDrawerAvailable: false,
+    
     options: {
         width: 300,
         height: 300,
@@ -15,111 +18,116 @@ const StructureRenderer = {
         compactDrawing: false,
         fontSizeLarge: 14,
         fontSizeSmall: 10,
-        debug: false,
-        themes: {
-            light: {
-                C: '#000000',
-                O: '#FF0000',
-                N: '#0000FF',
-                S: '#FFB000',
-                P: '#FF8000',
-                F: '#00FF00',
-                Cl: '#00FF00',
-                Br: '#A52A2A',
-                I: '#800080',
-                H: '#666666',
-                other: '#000000',
-                background: '#FFFFFF'
-            },
-            dark: {
-                C: '#FFFFFF',
-                O: '#FF6666',
-                N: '#6666FF',
-                S: '#FFCC00',
-                P: '#FF9900',
-                F: '#66FF66',
-                Cl: '#66FF66',
-                Br: '#CC7755',
-                I: '#CC66FF',
-                H: '#999999',
-                other: '#FFFFFF',
-                background: '#252A4A'
-            }
-        }
+        debug: false
     },
 
-    /**
-     * 初期化
-     */
     init() {
-        if (typeof SmilesDrawer === 'undefined') {
-            console.error('smiles-drawer library not loaded');
-            return false;
+        if (typeof SmilesDrawer !== 'undefined' && SmilesDrawer.Drawer) {
+            try {
+                this.drawer = new SmilesDrawer.Drawer(this.options);
+                this.smilesDrawerAvailable = true;
+                console.log('smiles-drawer initialized');
+            } catch (e) {
+                console.warn('smiles-drawer init failed:', e);
+            }
+        } else {
+            console.warn('smiles-drawer not available, using PubChem fallback');
         }
-        console.log('StructureRenderer initialized');
-        return true;
     },
 
     /**
      * 構造式を描画
-     * @param {HTMLElement} container - 描画先のDOM要素
-     * @param {string} smiles - SMILES文字列
-     * @param {string} theme - 'light' or 'dark'
      */
-    render(container, smiles, theme = 'light') {
-        if (!container) {
-            console.error('Container is null');
-            return;
-        }
-
-        if (!smiles || typeof smiles !== 'string') {
-            console.error('Invalid SMILES:', smiles);
-            container.innerHTML = '<div style="color:red;font-size:10px;text-align:center;">SMILESエラー</div>';
-            return;
-        }
-
-        // コンテナをクリア
+    render(container, smiles, theme = 'light', compoundName = '') {
+        if (!container) return;
         container.innerHTML = '';
 
-        try {
-            // SVG要素を作成
-            const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
-            svg.setAttribute('width', '100%');
-            svg.setAttribute('height', '100%');
-            svg.setAttribute('viewBox', '0 0 300 300');
-            svg.style.maxWidth = '100%';
-            svg.style.maxHeight = '100%';
-            container.appendChild(svg);
-
-            // smiles-drawer v2 の正しい使い方
-            const drawer = new SmilesDrawer.Drawer(this.options);
-            
-            SmilesDrawer.parse(
-                smiles,
-                (tree) => {
-                    try {
-                        drawer.draw(tree, svg, theme, false);
-                    } catch (drawError) {
-                        console.error('Draw error:', drawError, 'SMILES:', smiles);
-                        container.innerHTML = `<div style="color:#666;font-size:11px;text-align:center;padding:10px;">描画エラー<br><small>${smiles}</small></div>`;
-                    }
-                },
-                (parseError) => {
-                    console.error('Parse error:', parseError, 'SMILES:', smiles);
-                    container.innerHTML = `<div style="color:#666;font-size:11px;text-align:center;padding:10px;">SMILES解析エラー<br><small>${smiles}</small></div>`;
-                }
-            );
-        } catch (e) {
-            console.error('Render error:', e);
-            container.innerHTML = `<div style="color:#666;font-size:11px;text-align:center;padding:10px;">エラー</div>`;
+        if (!smiles) {
+            this._showFallback(container, compoundName, 'SMILESなし');
+            return;
         }
+
+        // 方法1: smiles-drawer
+        if (this.smilesDrawerAvailable) {
+            try {
+                const svg = document.createElementNS('http://www.w3.org/2000/svg', 'svg');
+                svg.setAttribute('width', '100%');
+                svg.setAttribute('height', '100%');
+                svg.setAttribute('viewBox', '0 0 300 300');
+                svg.style.maxWidth = '100%';
+                svg.style.maxHeight = '100%';
+                container.appendChild(svg);
+
+                SmilesDrawer.parse(
+                    smiles,
+                    (tree) => {
+                        try {
+                            this.drawer.draw(tree, svg, theme, false);
+                        } catch (e) {
+                            console.warn('smiles-drawer draw failed, trying PubChem');
+                            this._renderFromPubChem(container, smiles, compoundName);
+                        }
+                    },
+                    (err) => {
+                        console.warn('smiles-drawer parse failed, trying PubChem');
+                        this._renderFromPubChem(container, smiles, compoundName);
+                    }
+                );
+                return;
+            } catch (e) {
+                console.warn('smiles-drawer error:', e);
+            }
+        }
+
+        // 方法2: PubChem API
+        this._renderFromPubChem(container, smiles, compoundName);
+    },
+
+    /**
+     * PubChem APIからSVGを取得
+     */
+    _renderFromPubChem(container, smiles, compoundName) {
+        const encodedSmiles = encodeURIComponent(smiles);
+        const url = `https://pubchem.ncbi.nlm.nih.gov/rest/pug/compound/smiles/${encodedSmiles}/SVG`;
+
+        fetch(url)
+            .then(response => {
+                if (!response.ok) throw new Error('PubChem API error');
+                return response.text();
+            })
+            .then(svgText => {
+                container.innerHTML = svgText;
+                const svg = container.querySelector('svg');
+                if (svg) {
+                    svg.setAttribute('width', '100%');
+                    svg.setAttribute('height', '100%');
+                    svg.style.maxWidth = '100%';
+                    svg.style.maxHeight = '100%';
+                }
+            })
+            .catch(err => {
+                console.warn('PubChem fallback failed:', err);
+                this._showFallback(container, compoundName, smiles);
+            });
+    },
+
+    /**
+     * フォールバック表示（化合物名+SMILES）
+     */
+    _showFallback(container, name, smiles) {
+        container.innerHTML = `
+            <div style="display:flex;flex-direction:column;align-items:center;justify-content:center;height:100%;padding:8px;text-align:center;">
+                <div style="font-size:13px;font-weight:bold;color:#333;">${name || '化合物'}</div>
+                <div style="font-size:9px;color:#999;margin-top:4px;word-break:break-all;">${smiles || ''}</div>
+            </div>
+        `;
     }
 };
 
-// 初期化
 document.addEventListener('DOMContentLoaded', () => {
     StructureRenderer.init();
 });
+
 
 
 

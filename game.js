@@ -157,7 +157,6 @@ class GameEngine {
         // 少し間を置いて読み札開始
         setTimeout(() => this.nextClue(), 1500);
     }
-
     /**
      * 読み札を1段階進める
      */
@@ -167,13 +166,28 @@ class GameEngine {
         this.currentRound.currentStage++;
         this.state = 'READING';
         
-        // 音声読み上げ
         const clueData = this.clues[this.currentRound.target.id];
         if (clueData) {
             const currentClue = clueData.stages.find(s => s.stage === this.currentRound.currentStage);
             if (currentClue) {
-                AudioManager.speak(currentClue.text);
                 AudioManager.playSound('stage');
+                
+                // 音声読み上げ + 終了時に次のステージへ自動進行
+                AudioManager.speak(currentClue.text, {
+                    onEnd: () => {
+                        // まだラウンドがアクティブなら次のステージへ
+                        if (this.currentRound.isActive) {
+                            // 次のステージが存在するか確認
+                            const hasNext = clueData.stages.some(
+                                s => s.stage === this.currentRound.currentStage + 1
+                            );
+                            if (hasNext) {
+                                // 少し間を置いてから次のステージへ
+                                setTimeout(() => this.nextClue(), 500);
+                            }
+                        }
+                    }
+                });
             }
         }
         
@@ -195,7 +209,6 @@ class GameEngine {
             );
         }
     }
-
     /**
      * プレイヤーのタップ処理
      */

@@ -9,8 +9,18 @@
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
     <meta name="theme-color" content="#0a0e27">
-    <!-- これに変更 -->
+    <!-- 新：unpkgに変更 + ロード確認スクリプト追加 -->
     <script src="https://unpkg.com/smiles-drawer@2.1.7/dist/smiles-drawer.min.js"></script>
+    <script>
+        window.addEventListener('DOMContentLoaded', function() {
+            if (typeof SmilesDrawer === 'undefined') {
+                console.warn('smiles-drawer not loaded, will use PubChem fallback');
+            } else {
+                console.log('smiles-drawer loaded successfully');
+            }
+        });
+    </script>
+
 
 </head>
 <body>
