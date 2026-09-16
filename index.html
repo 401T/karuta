@@ -3,81 +3,335 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>構造決定かるた</title>
+    <title>構造決定かるた - Kettei Karuta</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
     <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1a1a2e">
-    <!-- smiles-drawer CDN -->
+    <meta name="theme-color" content="#0a0e27">
     <script src="https://cdn.jsdelivr.net/npm/smiles-drawer@2.1.7/dist/smiles-drawer.min.js"></script>
 </head>
 <body>
+    <!-- ローディング画面 -->
+    <div id="loading-screen" class="loading-screen active">
+        <div class="loading-content">
+            <div class="loading-logo">
+                <svg viewBox="0 0 100 100" class="loading-icon">
+                    <circle cx="50" cy="50" r="45" fill="none" stroke="url(#gradient)" stroke-width="2"/>
+                    <text x="50" y="60" font-size="24" text-anchor="middle" fill="url(#gradient)">化</text>
+                    <defs>
+                        <linearGradient id="gradient" x1="0%" y1="0%" x2="100%" y2="100%">
+                            <stop offset="0%" style="stop-color:#667eea"/>
+                            <stop offset="100%" style="stop-color:#764ba2"/>
+                        </linearGradient>
+                    </defs>
+                </svg>
+            </div>
+            <h1 class="loading-title">構造決定かるた</h1>
+            <div class="loading-bar">
+                <div class="loading-progress"></div>
+            </div>
+            <p class="loading-text">データを読み込んでいます...</p>
+        </div>
+    </div>
+
     <!-- メインメニュー -->
-    <div id="screen-menu" class="screen active">
+    <div id="screen-menu" class="screen">
         <div class="menu-container">
-            <h1 class="app-title">構造決定<span class="accent">かるた</span></h1>
-            <p class="subtitle">~ 東大レベルの有機化学・構造決定力を鍛える ~</p>
-            <div class="menu-buttons">
-                <button class="btn btn-primary" data-mode="cpu">CPU対戦</button>
-                <button class="btn btn-primary" data-mode="local">友達対戦 (同一端末)</button>
-                <button class="btn btn-secondary" data-mode="practice">一人練習</button>
-                <button class="btn btn-secondary" data-mode="training">構造決定トレーニング</button>
-                <button class="btn btn-outline" data-mode="settings">設定</button>
+            <header class="menu-header">
+                <h1 class="app-title">
+                    <span class="title-jp">構造決定</span>
+                    <span class="title-en">KARUTA</span>
+                </h1>
+                <p class="app-subtitle">東京大学レベルの有機化学・構造決定力を鍛える</p>
+            </header>
+
+            <nav class="menu-nav">
+                <button class="menu-btn menu-btn-primary" data-mode="cpu">
+                    <span class="btn-icon">🤖</span>
+                    <span class="btn-content">
+                        <span class="btn-title">CPU対戦</span>
+                        <span class="btn-desc">7段階の難易度で競争</span>
+                    </span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <button class="menu-btn menu-btn-primary" data-mode="local">
+                    <span class="btn-icon">👥</span>
+                    <span class="btn-content">
+                        <span class="btn-title">友達対戦</span>
+                        <span class="btn-desc">同一端末で対戦</span>
+                    </span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <button class="menu-btn menu-btn-secondary" data-mode="practice">
+                    <span class="btn-icon">📚</span>
+                    <span class="btn-content">
+                        <span class="btn-title">一人練習</span>
+                        <span class="btn-desc">自分のペースで学習</span>
+                    </span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <button class="menu-btn menu-btn-secondary" data-mode="training">
+                    <span class="btn-icon">🎯</span>
+                    <span class="btn-content">
+                        <span class="btn-title">構造決定トレーニング</span>
+                        <span class="btn-desc">段階的に構造を決定</span>
+                    </span>
+                    <span class="btn-arrow">→</span>
+                </button>
+
+                <div class="menu-divider"></div>
+
+                <button class="menu-btn menu-btn-outline" data-mode="stats">
+                    <span class="btn-icon">📊</span>
+                    <span class="btn-content">
+                        <span class="btn-title">成績・統計</span>
+                        <span class="btn-desc">学習記録を確認</span>
+                    </span>
+                </button>
+
+                <button class="menu-btn menu-btn-outline" data-mode="settings">
+                    <span class="btn-icon">⚙️</span>
+                    <span class="btn-content">
+                        <span class="btn-title">設定</span>
+                        <span class="btn-desc">音声・表示設定</span>
+                    </span>
+                </button>
+            </nav>
+
+            <footer class="menu-footer">
+                <p class="footer-text">v2.0.0 | 化合物数: <span id="compound-count">0</span></p>
+            </footer>
+        </div>
+    </div>
+
+    <!-- 設定画面 -->
+    <div id="screen-settings" class="screen">
+        <div class="screen-container">
+            <header class="screen-header">
+                <button class="back-btn" data-back="menu">←</button>
+                <h2 class="screen-title">設定</h2>
+            </header>
+
+            <div class="settings-content">
+                <section class="settings-section">
+                    <h3 class="section-title">音声設定</h3>
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <span class="label-text">音声読み上げ</span>
+                            <label class="toggle">
+                                <input type="checkbox" id="setting-voice" checked>
+                                <span class="toggle-slider"></span>
+                            </label>
+                        </label>
+                    </div>
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <span class="label-text">音声速度</span>
+                            <select id="setting-voice-speed" class="setting-select">
+                                <option value="0.75">0.75x (遅い)</option>
+                                <option value="1.0" selected>1.0x (標準)</option>
+                                <option value="1.25">1.25x (速い)</option>
+                                <option value="1.5">1.5x (非常に速い)</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <h3 class="section-title">表示設定</h3>
+                    <div class="setting-item">
+                        <label class="setting-label">
+                            <span class="label-text">カード表示数</span>
+                            <select id="setting-card-count" class="setting-select">
+                                <option value="6">6枚 (初心者)</option>
+                                <option value="9" selected>9枚 (標準)</option>
+                                <option value="12">12枚 (上級者)</option>
+                                <option value="16">16枚 (最上級)</option>
+                            </select>
+                        </label>
+                    </div>
+                </section>
+
+                <section class="settings-section">
+                    <h3 class="section-title">データ管理</h3>
+                    <button class="btn btn-danger" id="btn-reset-stats">統計データをリセット</button>
+                </section>
+            </div>
+        </div>
+    </div>
+
+    <!-- ゲーム設定画面 -->
+    <div id="screen-game-setup" class="screen">
+        <div class="screen-container">
+            <header class="screen-header">
+                <button class="back-btn" data-back="menu">←</button>
+                <h2 class="screen-title" id="setup-title">ゲーム設定</h2>
+            </header>
+
+            <div class="setup-content">
+                <section class="setup-section">
+                    <h3 class="section-title">難易度</h3>
+                    <div class="difficulty-grid" id="difficulty-grid">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </section>
+
+                <section class="setup-section">
+                    <h3 class="section-title">カテゴリフィルタ</h3>
+                    <div class="category-tags" id="category-tags">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </section>
+
+                <button class="btn btn-primary btn-large" id="btn-start-game">ゲーム開始</button>
             </div>
         </div>
     </div>
 
     <!-- ゲーム画面 -->
     <div id="screen-game" class="screen">
-        <!-- 上部: 読み札・スコア -->
         <header class="game-header">
-            <div class="score-board">
-                <div class="score-item player">
-                    <span class="label">PLAYER</span>
-                    <span id="score-player" class="value">0</span>
-                </div>
-                <div class="score-item cpu">
-                    <span class="label">CPU</span>
-                    <span id="score-cpu" class="value">0</span>
+            <div class="header-left">
+                <button class="icon-btn" id="btn-pause">⏸️</button>
+                <div class="score-display">
+                    <div class="score-item player">
+                        <span class="score-label">PLAYER</span>
+                        <span class="score-value" id="score-player">0</span>
+                    </div>
+                    <div class="score-divider">VS</div>
+                    <div class="score-item cpu">
+                        <span class="score-label">CPU</span>
+                        <span class="score-value" id="score-cpu">0</span>
+                    </div>
                 </div>
             </div>
-            <div id="clue-area" class="clue-area">
-                <div id="clue-stage" class="clue-stage">STAGE 1</div>
-                <div id="clue-text" class="clue-text">読み札がここに表示されます</div>
-            </div>
-            <div class="game-controls">
-                <button id="btn-hint" class="btn-icon" title="ヒント">💡</button>
-                <button id="btn-next-clue" class="btn-icon" title="次の情報へ">⏭️</button>
+            <div class="header-right">
+                <div class="timer-display" id="timer">00:00</div>
+                <div class="combo-display" id="combo"></div>
             </div>
         </header>
 
-        <!-- 中央: 絵札グリッド -->
-        <main id="card-grid" class="card-grid">
-            <!-- JSによって動的に生成される -->
+        <div class="clue-panel">
+            <div class="clue-stage" id="clue-stage">STAGE 1</div>
+            <div class="clue-text" id="clue-text">読み札がここに表示されます</div>
+            <div class="clue-controls">
+                <button class="clue-btn" id="btn-hint" title="ヒント">💡</button>
+                <button class="clue-btn" id="btn-next-clue" title="次の情報">⏭️</button>
+            </div>
+        </div>
+
+        <main class="card-grid" id="card-grid">
+            <!-- JSで動的生成 -->
         </main>
 
-        <!-- 下部: ステータス -->
         <footer class="game-footer">
-            <div id="timer" class="timer">00:00</div>
-            <div id="combo" class="combo"></div>
+            <button class="footer-btn" id="btn-skip">スキップ</button>
+            <div class="round-info" id="round-info">1 / 10</div>
         </footer>
     </div>
 
-    <!-- 結果・解説画面 -->
-    <div id="screen-result" class="screen modal">
+    <!-- 結果画面 -->
+    <div id="screen-result" class="screen modal-screen">
         <div class="modal-content">
-            <h2 id="result-title">正解！</h2>
-            <div id="result-structure" class="result-structure"></div>
-            <div id="result-explanation" class="result-explanation">
-                <!-- 解説がここに入る -->
+            <div class="result-header" id="result-header">
+                <div class="result-icon" id="result-icon">✓</div>
+                <h2 class="result-title" id="result-title">正解！</h2>
+                <div class="result-score" id="result-score">+1000</div>
             </div>
-            <button id="btn-back-menu" class="btn btn-primary">メニューに戻る</button>
+
+            <div class="result-structure" id="result-structure">
+                <!-- 構造式がここに表示 -->
+            </div>
+
+            <div class="result-details">
+                <div class="detail-item">
+                    <span class="detail-label">化合物名</span>
+                    <span class="detail-value" id="result-name">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">分子式</span>
+                    <span class="detail-value" id="result-formula">-</span>
+                </div>
+                <div class="detail-item">
+                    <span class="detail-label">回答時間</span>
+                    <span class="detail-value" id="result-time">-</span>
+                </div>
+            </div>
+
+            <div class="result-explanation" id="result-explanation">
+                <!-- 解説がここに表示 -->
+            </div>
+
+            <div class="result-actions">
+                <button class="btn btn-secondary" id="btn-next-round">次の問題へ</button>
+                <button class="btn btn-primary" id="btn-finish-game">ゲーム終了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 一時停止画面 -->
+    <div id="screen-pause" class="screen modal-screen">
+        <div class="modal-content modal-small">
+            <h2 class="modal-title">一時停止</h2>
+            <div class="pause-actions">
+                <button class="btn btn-primary" id="btn-resume">再開</button>
+                <button class="btn btn-secondary" id="btn-quit">ゲームを終了</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- 統計画面 -->
+    <div id="screen-stats" class="screen">
+        <div class="screen-container">
+            <header class="screen-header">
+                <button class="back-btn" data-back="menu">←</button>
+                <h2 class="screen-title">成績・統計</h2>
+            </header>
+
+            <div class="stats-content">
+                <section class="stats-section">
+                    <h3 class="section-title">今日の統計</h3>
+                    <div class="stats-grid">
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-today-games">0</div>
+                            <div class="stat-label">プレイ回数</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-today-accuracy">0%</div>
+                            <div class="stat-label">正答率</div>
+                        </div>
+                        <div class="stat-card">
+                            <div class="stat-value" id="stat-today-avg-time">0.0s</div>
+                            <div class="stat-label">平均回答時間</div>
+                        </div>
+                    </div>
+                </section>
+
+                <section class="stats-section">
+                    <h3 class="section-title">分野別正答率</h3>
+                    <div class="accuracy-bars" id="accuracy-bars">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </section>
+
+                <section class="stats-section">
+                    <h3 class="section-title">苦手分野</h3>
+                    <div class="weakness-list" id="weakness-list">
+                        <!-- JSで動的生成 -->
+                    </div>
+                </section>
+            </div>
         </div>
     </div>
 
     <!-- スクリプト読み込み -->
     <script src="renderer.js"></script>
+    <script src="audio.js"></script>
+    <script src="storage.js"></script>
     <script src="cpu.js"></script>
     <script src="game.js"></script>
     <script src="app.js"></script>
