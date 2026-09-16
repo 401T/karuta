@@ -3,34 +3,33 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>構造決定かるた - 和</title>
+    <title>構造決定かるた | 高校化学・有機化学</title>
     <link rel="stylesheet" href="style.css">
     <link rel="manifest" href="manifest.json">
     <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
-    <meta name="theme-color" content="#1a1410">
+    <meta name="apple-mobile-web-app-status-bar-style" content="default">
+    <meta name="theme-color" content="#ffffff">
     
-    <!-- 和風フォント -->
+    <!-- クリーンで可読性の高い日本語フォント -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Shippori+Mincho:wght@400;600;700;800&family=Noto+Serif+JP:wght@400;500;700;900&family=Kosugi+Maru&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
     <!-- ローディング画面 -->
     <div id="loading-screen" class="loading-screen active">
         <div class="loading-content">
-            <div class="loading-mon">
+            <div class="loading-logo">
                 <svg viewBox="0 0 100 100" class="loading-icon">
-                    <circle cx="50" cy="50" r="45" fill="none" stroke="var(--kin-iro)" stroke-width="1.5"/>
-                    <circle cx="50" cy="50" r="38" fill="none" stroke="var(--kin-iro)" stroke-width="0.5"/>
-                    <text x="50" y="62" font-size="32" text-anchor="middle" fill="var(--kin-iro)" font-family="'Shippori Mincho', serif" font-weight="700">化</text>
+                    <rect x="10" y="10" width="80" height="80" rx="8" fill="none" stroke="#1E3A8A" stroke-width="2"/>
+                    <text x="50" y="62" font-size="36" text-anchor="middle" fill="#1E3A8A" font-family="'Noto Sans JP', sans-serif" font-weight="700">化</text>
                 </svg>
             </div>
             <h1 class="loading-title">構造決定かるた</h1>
             <div class="loading-bar">
                 <div class="loading-progress"></div>
             </div>
-            <p class="loading-text">データを読み込んでおります...</p>
+            <p class="loading-text">データを読み込んでいます...</p>
         </div>
     </div>
 
@@ -38,49 +37,41 @@
     <div id="screen-menu" class="screen">
         <div class="menu-container">
             <header class="menu-header">
-                <div class="menu-decoration top"></div>
                 <h1 class="app-title">
-                    <span class="title-sub">有機化学・構造決定</span>
                     <span class="title-main">構造決定かるた</span>
-                    <span class="title-en">KETTEI KARUTA</span>
+                    <span class="title-sub">高校化学・有機化学 構造決定トレーニング</span>
                 </h1>
-                <p class="app-subtitle">〜 東大レベルの構造決定力を鍛える 〜</p>
-                <div class="menu-decoration bottom"></div>
             </header>
 
             <nav class="menu-nav">
                 <button class="menu-btn menu-btn-primary" data-mode="cpu">
-                    <span class="btn-icon">🤖</span>
                     <span class="btn-content">
                         <span class="btn-title">CPU対戦</span>
-                        <span class="btn-desc">七段階の難易度で競争</span>
+                        <span class="btn-desc">7段階の難易度で思考力を競う</span>
                     </span>
                     <span class="btn-arrow">→</span>
                 </button>
 
                 <button class="menu-btn menu-btn-primary" data-mode="local">
-                    <span class="btn-icon">👥</span>
                     <span class="btn-content">
                         <span class="btn-title">友達対戦</span>
-                        <span class="btn-desc">同一端末で対戦</span>
+                        <span class="btn-desc">同一端末で対戦モード</span>
                     </span>
                     <span class="btn-arrow">→</span>
                 </button>
 
                 <button class="menu-btn menu-btn-secondary" data-mode="practice">
-                    <span class="btn-icon">📚</span>
                     <span class="btn-content">
                         <span class="btn-title">一人練習</span>
-                        <span class="btn-desc">自身のペースで学習</span>
+                        <span class="btn-desc">自分のペースで反復学習</span>
                     </span>
                     <span class="btn-arrow">→</span>
                 </button>
 
                 <button class="menu-btn menu-btn-secondary" data-mode="training">
-                    <span class="btn-icon">🎯</span>
                     <span class="btn-content">
-                        <span class="btn-title">構造決定訓練</span>
-                        <span class="btn-desc">段階的に構造を決定</span>
+                        <span class="btn-title">構造決定トレーニング</span>
+                        <span class="btn-desc">段階的に情報を提示して推論</span>
                     </span>
                     <span class="btn-arrow">→</span>
                 </button>
@@ -88,15 +79,13 @@
                 <div class="menu-divider"></div>
 
                 <button class="menu-btn menu-btn-outline" data-mode="stats">
-                    <span class="btn-icon">📊</span>
                     <span class="btn-content">
                         <span class="btn-title">成績・統計</span>
-                        <span class="btn-desc">学習記録を確認</span>
+                        <span class="btn-desc">学習記録と苦手分野を確認</span>
                     </span>
                 </button>
 
                 <button class="menu-btn menu-btn-outline" data-mode="settings">
-                    <span class="btn-icon">⚙️</span>
                     <span class="btn-content">
                         <span class="btn-title">設定</span>
                         <span class="btn-desc">音声・表示設定</span>
@@ -149,10 +138,10 @@
                         <label class="setting-label">
                             <span class="label-text">カード表示数</span>
                             <select id="setting-card-count" class="setting-select">
-                                <option value="6">六枚（初心者）</option>
-                                <option value="9" selected>九枚（標準）</option>
-                                <option value="12">十二枚（上級者）</option>
-                                <option value="16">十六枚（最上級）</option>
+                                <option value="6">6枚（初心者）</option>
+                                <option value="9" selected>9枚（標準）</option>
+                                <option value="12">12枚（上級者）</option>
+                                <option value="16">16枚（最上級）</option>
                             </select>
                         </label>
                     </div>
@@ -197,7 +186,7 @@
                 <button class="icon-btn" id="btn-pause">⏸</button>
                 <div class="score-display">
                     <div class="score-item player">
-                        <span class="score-label">玩家</span>
+                        <span class="score-label">PLAYER</span>
                         <span class="score-value" id="score-player">0</span>
                     </div>
                     <div class="score-divider">VS</div>
@@ -213,7 +202,6 @@
             </div>
         </header>
 
-        <!-- 読み札パネル（巻物風・履歴付き） -->
         <div class="clue-panel">
             <div class="clue-scroll">
                 <div class="clue-history" id="clue-history"></div>
@@ -288,7 +276,7 @@
 
             <div class="stats-content">
                 <section class="stats-section">
-                    <h3 class="section-title">今日の統計</h3>
+                    <h3 class="section-title">本日の統計</h3>
                     <div class="stats-grid">
                         <div class="stat-card">
                             <div class="stat-value" id="stat-today-games">0</div>
@@ -326,3 +314,4 @@
     <script src="app.js"></script>
 </body>
 </html>
+
