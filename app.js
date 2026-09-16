@@ -318,12 +318,12 @@ class App {
     }
 
     /**
-     * カードを描画（構造式表示）
+     * カードを描画
      */
     renderCards(cards) {
         this.dom.game.cardGrid.innerHTML = '';
 
-        cards.forEach(c => {
+        cards.forEach((c, index) => {
             const div = document.createElement('div');
             div.className = 'card';
             div.dataset.id = c.id;
@@ -334,16 +334,17 @@ class App {
 
             this.dom.game.cardGrid.appendChild(div);
 
-            // 構造式を描画（compoundオブジェクト全体を渡す）
-            requestAnimationFrame(() => {
+            // 段階的に描画開始（0.1秒ずつ遅延）
+            setTimeout(() => {
                 StructureRenderer.render(contentDiv, c.smiles, 'light', {
                     name: c.name,
                     name_en: c.name_en,
                     formula: c.formula
                 });
-            });
+            }, index * 100);
         });
     }
+
 
     /**
      * 読み札を更新（履歴付き・巻物風）
