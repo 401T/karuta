@@ -371,18 +371,71 @@ class App {
     }
 
     /**
-     * 読み札を更新
+     * 読み札を更新（履歴付き）
      */
     updateClue(round) {
         const clueData = this.engine.clues[round.target.id];
         if (!clueData) return;
 
+        const cluePanel = document.querySelector('.clue-panel');
+        if (!cluePanel) return;
+
+        // 履歴エリアと現在表示エリアを作成
+        let historyDiv = cluePanel.querySelector('.clue-history');
+        let currentDiv = cluePanel.querySelector('.clue-current');
+
+        if (!historyDiv) {
+            historyDiv = document.createElement('div');
+            historyDiv.className = 'clue-history';
+            cluePanel.insertBefore(historyDiv, cluePanel.firstChild);
+        }
+
+        if (!currentDiv) {
+            currentDiv = document.createElement('div');
+            currentDiv.className = 'clue-current';
+            cluePanel.appendChild(currentDiv);
+        }
+
+        // 現在のステージを取得
         const currentStageData = clueData.stages.find(s => s.stage === round.currentStage);
+        
         if (currentStageData) {
-            this.dom.game.clueStage.textContent = `STAGE ${round.currentStage}`;
-            this.dom.game.clueText.textContent = currentStageData.text;
+            // 現在のステージを表示
+            currentDiv.innerHTML = `
+                <div class="stage-label">STAGE ${round.currentStage}</div>
+                <div>${currentStageData.text}</div>
+            `;
+
+            // 前のステージを履歴に追加（重複チェック）
+            const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
+            const alreadyExists = existingStages.some(item => 
+                item.dataset.stage === String(round.currentStage)
+            );
+
+            if (!alreadyExists && round.currentStage > 1) {
+                // 前のステージ（currentStage - 1）を履歴に追加
+                const prevStage = round.currentStage - 1;
+                const prevStageData = clueData.stages.find(s => s.stage === prevStage);
+                
+                if (prevStageData) {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'clue-history-item';
+                    historyItem.dataset.stage = String(prevStage);
+                    historyItem.innerHTML = `
+                        <div class="stage-label">STAGE ${prevStage}</div>
+                        <div>${prevStageData.text}</div>
+                    `;
+                    historyDiv.appendChild(historyItem);
+                }
+            }
+
+            // 初回表示時（Stage 1）は履歴をクリア
+            if (round.currentStage === 1) {
+                historyDiv.innerHTML = '';
+            }
         }
     }
+
 
     /**
      * カードタップ処理
