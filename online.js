@@ -227,5 +227,15 @@ const OnlineManager = {
         this.roomRef = null;
         this.onStateChange = null;
         this.onOpponentTap = null;
+    },
+    /**
+     * ゲーム状態を更新
+     */
+    async updateGameState(gameState) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            ...gameState,
+            updatedAt: firebase.database.ServerValue.TIMESTAMP
+        });
     }
 };

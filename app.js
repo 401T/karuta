@@ -772,9 +772,17 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'waiting-room-modal';
+        
+        // ホストの場合はゲーム開始ボタンを表示
+        const hostButtons = this.isHost ? `
+            <button class="btn btn-primary" id="btn-start-game" style="width: 100%; margin-bottom: 10px; min-height: 48px;">ゲーム開始</button>
+        ` : '';
+        
         modal.innerHTML = `
             <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">対戦相手を待っています...</h2>
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">
+                    ${this.isHost ? '対戦相手を待っています...' : 'ホストの開始を待っています...'}
+                </h2>
                 
                 <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
                     <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
@@ -782,8 +790,10 @@ class App {
                 </div>
 
                 <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
-                    上記のルームIDを対戦相手に共有してください
+                    ${this.isHost ? '上記のルームIDを対戦相手に共有してください' : 'ホストがゲームを開始するまでお待ちください'}
                 </p>
+
+                ${hostButtons}
 
                 <div class="loading-spinner" style="margin: 20px auto;"></div>
 
@@ -791,6 +801,11 @@ class App {
             </div>
         `;
         document.body.appendChild(modal);
+
+        // ホスト用のゲーム開始ボタン
+        if (this.isHost) {
+            document.getElementById('btn-start-game').addEventListener('click', () => this.startOnlineGameAsHost(roomId));
+        }
 
         document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
             if (typeof OnlineManager !== 'undefined') {
@@ -840,35 +855,55 @@ class App {
         });
     }
 
-    startOnlineGameAsHost(roomData) {
-        const waitingModal = document.getElementById('waiting-room-modal');
-        if (waitingModal) waitingModal.remove();
-
-        this.isOnlineMode = true;
-        this.isPracticeMode = false;
-
-        const gameScreen = document.getElementById('screen-game');
-        if (gameScreen) {
-            gameScreen.classList.remove('practice-mode');
-        }
-
-        const playerLabel = document.getElementById('player-score-label');
-        const cpuLabel = document.getElementById('cpu-score-label');
-        if (playerLabel) playerLabel.textContent = 'あなた';
-        if (cpuLabel) cpuLabel.textContent = '相手';
-
+    startOnlineGameAsHost(roomId) {
+        // ゲーム設定をFirebaseに保存
         const settings = {
             mode: 'online',
-            isOnline: true,
-            isHost: true,
-            cardCount: roomData.settings.cardCount || 9,
-            categories: roomData.settings.categories || []
+            cardCount: StorageManager.loadSettings().cardCount || 9,
+            categories: this.selectedCategories.length > 0 ? this.selectedCategories : []
         };
-        this.engine.configure(settings);
-        this.engine.startGame(10);
+        
+        // Firebaseにゲーム開始を通知
+        OnlineManager.updateGameState({
+            phase: 'starting',
+            settings: settings
+        }).then(() => {
+            // 待機画面を閉じる
+            const waitingModal = document.getElementById('waiting-room-modal');
+            if (waitingModal) waitingModal.remove();
 
-        this.setupOnlineSync();
-        this.showScreen('screen-game');
+            this.isOnlineMode = true;
+            this.isPracticeMode = false;
+
+            const gameScreen = document.getElementById('screen-game');
+            if (gameScreen) {
+                gameScreen.classList.remove('practice-mode');
+            }
+
+            const playerLabel = document.getElementById('player-score-label');
+            const cpuLabel = document.getElementById('cpu-score-label');
+            if (playerLabel) playerLabel.textContent = 'あなた';
+            if (cpuLabel) cpuLabel.textContent = '相手';
+
+            // ゲームロジックを起動
+            const gameSettings = {
+                mode: 'online',
+                isOnline: true,
+                isHost: true,
+                cardCount: settings.cardCount,
+                categories: settings.categories
+            };
+            this.engine.configure(gameSettings);
+            this.engine.startGame(10);
+
+            // Firebase同期設定
+            this.setupOnlineSync();
+
+            this.showScreen('screen-game');
+        }).catch(e => {
+            console.error('Failed to start game:', e);
+            alert('ゲーム開始に失敗しました: ' + e.message);
+        });
     }
 
     startOnlineGameAsGuest(roomData) {
