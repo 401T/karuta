@@ -56,9 +56,9 @@ class App {
         const loadingScreen = document.getElementById('loading-screen');
         loadingScreen.innerHTML = `
             <div class="loading-content">
-                <h1 style="color: var(--danger); font-size: 1.5rem; margin-bottom: 20px;">エラー</h1>
-                <p style="color: var(--text-dark); margin-bottom: 20px;">${message}</p>
-                <p style="color: var(--text-light); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
+                <h1 style="color: var(--accent-red); font-size: 1.5rem; margin-bottom: 20px;">エラー</h1>
+                <p style="color: var(--card-bg); margin-bottom: 20px;">${message}</p>
+                <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
             </div>
         `;
     }
@@ -100,7 +100,6 @@ class App {
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
                 
                 if (timeDiff < 300 && timeDiff > 0) {
-                    // ダブルタップ detected
                     this.startGame();
                 }
                 
@@ -275,14 +274,14 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid ${playerWon ? '#22c55e' : '#ef4444'}; border-radius: 8px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-                <h2 style="font-size: 2rem; margin-bottom: 20px; color: ${playerWon ? '#22c55e' : '#ef4444'}; font-family: var(--font-display);">${playerWon ? '正解!' : '不正解...'}</h2>
-                <div style="background: var(--tatami-light); border-radius: 6px; padding: 20px; margin-bottom: 20px; min-height: 150px;">
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid ${playerWon ? '#22c55e' : 'var(--accent-red)'}; border-radius: 2px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                <h2 style="font-size: 2rem; margin-bottom: 20px; color: ${playerWon ? '#22c55e' : 'var(--accent-red)'}; font-family: var(--font-display); letter-spacing: 0.15em;">${playerWon ? '正解' : '不正解'}</h2>
+                <div style="background: var(--tatami-light); border-radius: 2px; padding: 20px; margin-bottom: 20px; min-height: 150px; border: 2px solid var(--card-border);">
                     <div id="modal-structure" style="width: 100%; height: 100%;"></div>
                 </div>
-                <div style="font-size: 1.3rem; margin-bottom: 10px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700;">${compound.name}</div>
+                <div style="font-size: 1.3rem; margin-bottom: 10px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${compound.name}</div>
                 <div style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 20px;">${compound.formula}</div>
-                <div style="font-size: 0.9rem; color: var(--text-dark); line-height: 1.8; margin-bottom: 30px; text-align: left; background: var(--tatami-light); padding: 15px; border-radius: 6px; border-left: 4px solid var(--accent-green);">${data.explanation}</div>
+                <div style="font-size: 0.9rem; color: var(--text-dark); line-height: 1.8; margin-bottom: 30px; text-align: left; background: var(--tatami-light); padding: 15px; border-radius: 2px; border-left: 4px solid var(--accent-green);">${data.explanation}</div>
                 <button class="btn btn-primary" id="modal-next-btn" style="width: 100%; font-family: var(--font-display);">次の問題へ</button>
             </div>
         `;
@@ -305,24 +304,24 @@ class App {
     showGameEnd(data) {
         this.stopTimer();
         
-        const message = data.winner === 'player' ? '勝利!' : 
-                       data.winner === 'cpu' ? '敗北...' : '引き分け';
+        const message = data.winner === 'player' ? '勝利' : 
+                       data.winner === 'cpu' ? '敗北' : '引き分け';
         
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-green); border-radius: 8px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
-                <h2 style="font-size: 2rem; margin-bottom: 20px; color: var(--accent-green); font-family: var(--font-display);">ゲーム終了</h2>
-                <div style="font-size: 1.5rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700;">${message}</div>
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                <h2 style="font-size: 2rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">ゲーム終了</h2>
+                <div style="font-size: 1.5rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${message}</div>
                 <div style="display: flex; justify-content: space-around; margin-bottom: 30px;">
                     <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px;">PLAYER</div>
+                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em;">PLAYER</div>
                         <div style="font-size: 2rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 700;">${data.playerScore}</div>
                     </div>
                     <div style="text-align: center;">
-                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px;">CPU</div>
-                        <div style="font-size: 2rem; color: #ef4444; font-family: var(--font-display); font-weight: 700;">${data.cpuScore}</div>
+                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em;">CPU</div>
+                        <div style="font-size: 2rem; color: var(--accent-red); font-family: var(--font-display); font-weight: 700;">${data.cpuScore}</div>
                     </div>
                 </div>
                 <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
