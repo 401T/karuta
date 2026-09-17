@@ -5,250 +5,170 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>化学構造式かるた</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="preconnect" href="https://fonts.googleapis.com">
-    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- タイトル画面 -->
-    <div id="screen-title" class="screen active">
-        <div class="title-container">
-            <div class="title-decoration">
-                <div class="glow-point top-left"></div>
-                <div class="glow-point bottom-right"></div>
-            </div>
-            <div class="title-main">
-                <div class="title-magnifier">
-                    <span class="title-kanji">化学</span>
-                    <span class="title-subtext">構造式かるた</span>
-                </div>
-                <div class="title-icon">
-                    <svg viewBox="0 0 100 100" class="molecule-icon">
-                        <circle cx="50" cy="50" r="8" fill="white"/>
-                        <circle cx="30" cy="35" r="6" fill="white"/>
-                        <circle cx="70" cy="35" r="6" fill="white"/>
-                        <circle cx="25" cy="65" r="6" fill="white"/>
-                        <circle cx="75" cy="65" r="6" fill="white"/>
-                        <line x1="50" y1="50" x2="30" y2="35" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="70" y2="35" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="25" y2="65" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="75" y2="65" stroke="white" stroke-width="2"/>
-                    </svg>
-                </div>
-            </div>
-            <div class="title-cards">
-                <div class="floating-card card-1"></div>
-                <div class="floating-card card-2"></div>
-                <div class="floating-card card-3"></div>
-            </div>
-        </div>
-        
-        <nav class="bottom-nav">
-            <button class="nav-btn active" data-screen="screen-menu">
-                <svg viewBox="0 0 24 24" class="nav-icon">
-                    <rect x="3" y="3" width="7" height="7" rx="1"/>
-                    <rect x="14" y="3" width="7" height="7" rx="1"/>
-                    <rect x="3" y="14" width="7" height="7" rx="1"/>
-                    <rect x="14" y="14" width="7" height="7" rx="1"/>
-                </svg>
-                <span class="nav-text">プレイ</span>
-            </button>
-            <button class="nav-btn" data-screen="screen-list">
-                <svg viewBox="0 0 24 24" class="nav-icon">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
-                </svg>
-                <span class="nav-text">構造式一覧</span>
-            </button>
-            <button class="nav-btn">
-                <svg viewBox="0 0 24 24" class="nav-icon">
-                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
-                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
-                </svg>
-                <span class="nav-text">外部リンク</span>
-            </button>
-            <button class="nav-btn" data-screen="screen-settings">
-                <svg viewBox="0 0 24 24" class="nav-icon">
-                    <circle cx="12" cy="12" r="3"/>
-                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.07-4.93l-4.24 4.24M7.17 16.83l-4.24 4.24m18.31 0l-4.24-4.24M7.17 7.17L2.93 2.93"/>
-                </svg>
-                <span class="nav-text">設定</span>
-            </button>
-        </nav>
+    <!-- 背景装飾（実験室の机風） -->
+    <div class="bg-decoration">
+        <div class="bg-circle circle-1"></div>
+        <div class="bg-circle circle-2"></div>
+        <div class="bg-grid"></div>
     </div>
 
-    <!-- メインメニュー -->
-    <div id="screen-menu" class="screen">
-        <div class="menu-network">
+    <!-- ローディング -->
+    <div id="loading-screen" class="screen active">
+        <div class="loading-content">
+            <div class="molecule-loader">
+                <div class="atom atom-1"></div>
+                <div class="atom atom-2"></div>
+                <div class="atom atom-3"></div>
+                <div class="bond bond-1"></div>
+                <div class="bond bond-2"></div>
+            </div>
+            <h1 class="loading-title">LOADING...</h1>
+        </div>
+    </div>
+
+    <!-- タイトル画面 (Image 3 風) -->
+    <div id="screen-title" class="screen">
+        <div class="title-container">
+            <div class="title-logo">
+                <span class="title-main">化学構造式かるた</span>
+                <span class="title-sub">Chemical structure formula Karuta</span>
+            </div>
+            
+            <div class="title-menu">
+                <button class="menu-icon-btn" data-next="screen-mode">
+                    <div class="icon-cards">🃏</div>
+                    <span>プレイ</span>
+                </button>
+                <button class="menu-icon-btn">
+                    <div class="icon-microscope">🔬</div>
+                    <span>構造式一覧</span>
+                </button>
+                <button class="menu-icon-btn">
+                    <div class="icon-link"></div>
+                    <span>外部リンク</span>
+                </button>
+                <button class="menu-icon-btn" data-next="screen-settings">
+                    <div class="icon-settings">⚙️</div>
+                    <span>設定</span>
+                </button>
+            </div>
+        </div>
+        <div class="version-tag">ver.2.0.0</div>
+    </div>
+
+    <!-- モード選択画面 (Image 2 風: 分子ネットワーク) -->
+    <div id="screen-mode" class="screen">
+        <button class="back-btn" data-back="screen-title">戻る</button>
+        
+        <div class="network-container">
+            <!-- 中央の大きな円（出題範囲） -->
             <div class="network-center">
                 <div class="center-circle">
-                    <svg viewBox="0 0 100 100" class="center-molecule">
-                        <circle cx="50" cy="50" r="12" fill="white" opacity="0.9"/>
-                        <circle cx="30" cy="30" r="8" fill="white" opacity="0.7"/>
-                        <circle cx="70" cy="30" r="8" fill="white" opacity="0.7"/>
-                        <circle cx="30" cy="70" r="8" fill="white" opacity="0.7"/>
-                        <circle cx="70" cy="70" r="8" fill="white" opacity="0.7"/>
-                        <line x1="50" y1="50" x2="30" y2="30" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="70" y2="30" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="30" y2="70" stroke="white" stroke-width="2"/>
-                        <line x1="50" y1="50" x2="70" y2="70" stroke="white" stroke-width="2"/>
-                    </svg>
-                    <h1 class="center-title">基本構造編</h1>
-                    <p class="center-subtitle">出題範囲を変更</p>
+                    <div class="molecule-icon">️</div>
+                    <h2>基本構造編</h2>
+                    <p>出題範囲を変更</p>
                 </div>
             </div>
-            
-            <div class="network-nodes">
-                <div class="node node-cpu" data-mode="cpu">
-                    <div class="node-circle">
-                        <span class="node-icon">️</span>
-                        <span class="node-label">CPU対戦</span>
-                        <span class="node-sublabel">VS CPU</span>
-                    </div>
+
+            <!-- 衛星ボタン -->
+            <div class="satellite-btn top-left" data-mode="cpu" data-next="screen-difficulty">
+                <div class="sat-circle">
+                    <span class="sat-icon">⚔️</span>
+                    <span class="sat-text">CPU対戦<br><small>VS CPU</small></span>
                 </div>
-                
-                <div class="node node-challenge" data-mode="challenge">
-                    <div class="node-circle">
-                        <span class="node-icon">⭐</span>
-                        <span class="node-label">チャレンジ</span>
-                        <span class="node-sublabel">CHALLENGE</span>
-                    </div>
+            </div>
+
+            <div class="satellite-btn bottom-left" data-mode="challenge">
+                <div class="sat-circle">
+                    <span class="star-icon">★</span>
+                    <span class="sat-text">チャレンジ<br><small>CHALLENGE</small></span>
                 </div>
-                
-                <div class="node node-time" data-mode="time">
-                    <div class="node-circle">
-                        <span class="node-icon">⏱️</span>
-                        <span class="node-label">タイム<br>アタック</span>
-                        <span class="node-sublabel">TIME ATTACK</span>
-                    </div>
+            </div>
+
+            <div class="satellite-btn bottom-right" data-mode="timeattack">
+                <div class="sat-circle">
+                    <span class="sat-icon">️</span>
+                    <span class="sat-text">タイムアタック<br><small>TIME ATTACK</small></span>
                 </div>
-                
-                <div class="node node-guest">
-                    <div class="node-circle">
-                        <span class="node-icon">👤</span>
-                        <span class="node-label">ゲスト</span>
-                        <span class="node-sublabel">名前を変更</span>
-                    </div>
-                </div>
-                
-                <div class="node node-ranking" data-screen="screen-stats">
-                    <div class="node-circle">
-                        <span class="node-icon">👑</span>
-                        <span class="node-label">ランキング</span>
-                        <span class="node-sublabel">RANKING</span>
-                    </div>
+            </div>
+
+            <div class="satellite-btn top-right" data-mode="ranking">
+                <div class="sat-circle">
+                    <span class="sat-icon">🏆</span>
+                    <span class="sat-text">ランキング<br><small>RANKING</small></span>
                 </div>
             </div>
         </div>
-        
-        <button class="back-btn" data-screen="screen-title">戻る</button>
     </div>
 
-    <!-- 難易度選択画面 -->
+    <!-- 難易度選択画面 (Image 1 風) -->
     <div id="screen-difficulty" class="screen">
-        <div class="difficulty-header">
-            <h1 class="difficulty-title">難易度</h1>
-            <p class="difficulty-subtitle">対戦する難易度を選択してください</p>
-        </div>
+        <button class="back-btn" data-back="screen-mode">戻る</button>
         
-        <div class="difficulty-grid">
-            <div class="difficulty-card hard" data-level="7">
-                <div class="card-corner top-left"></div>
-                <div class="card-corner bottom-right"></div>
-                <svg viewBox="0 0 100 100" class="difficulty-icon">
-                    <circle cx="50" cy="50" r="10" fill="none" stroke="white" stroke-width="2"/>
-                    <circle cx="50" cy="50" r="20" fill="none" stroke="white" stroke-width="1.5"/>
-                    <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="1"/>
-                    <line x1="50" y1="20" x2="50" y2="35" stroke="white" stroke-width="2"/>
-                    <line x1="50" y1="65" x2="50" y2="80" stroke="white" stroke-width="2"/>
-                    <line x1="20" y1="50" x2="35" y2="50" stroke="white" stroke-width="2"/>
-                    <line x1="65" y1="50" x2="80" y2="50" stroke="white" stroke-width="2"/>
-                </svg>
-                <h2 class="difficulty-name">難しい</h2>
-                <p class="difficulty-desc">読みの途中でも<br>札が確定した時に<br>素早く取ってきます</p>
-            </div>
-            
-            <div class="difficulty-card normal selected" data-level="3">
-                <div class="card-corner top-left"></div>
-                <div class="card-corner bottom-right"></div>
-                <svg viewBox="0 0 100 100" class="difficulty-icon">
-                    <circle cx="50" cy="50" r="8" fill="white"/>
-                    <circle cx="30" cy="35" r="6" fill="white"/>
-                    <circle cx="70" cy="35" r="6" fill="white"/>
-                    <circle cx="35" cy="75" r="6" fill="white"/>
-                    <circle cx="65" cy="75" r="6" fill="white"/>
-                    <line x1="50" y1="50" x2="30" y2="35" stroke="white" stroke-width="2"/>
-                    <line x1="50" y1="50" x2="70" y2="35" stroke="white" stroke-width="2"/>
-                    <line x1="50" y1="50" x2="35" y2="75" stroke="white" stroke-width="2"/>
-                    <line x1="50" y1="50" x2="65" y2="75" stroke="white" stroke-width="2"/>
-                </svg>
-                <h2 class="difficulty-name">普通</h2>
-                <p class="difficulty-desc">読みの途中でも<br>札が確定した時に<br>取ってきます</p>
-            </div>
-            
-            <div class="difficulty-card easy" data-level="1">
-                <div class="card-corner top-left"></div>
-                <div class="card-corner bottom-right"></div>
-                <svg viewBox="0 0 100 100" class="difficulty-icon">
-                    <circle cx="50" cy="50" r="10" fill="white"/>
-                    <circle cx="30" cy="70" r="8" fill="white"/>
-                    <circle cx="70" cy="70" r="8" fill="white"/>
-                    <line x1="50" y1="50" x2="30" y2="70" stroke="white" stroke-width="3"/>
-                    <line x1="50" y1="50" x2="70" y2="70" stroke="white" stroke-width="3"/>
-                </svg>
-                <h2 class="difficulty-name">易しい</h2>
-                <p class="difficulty-desc">読みを最後まで<br>聞いてから<br>取ってきます</p>
-            </div>
-            
-            <div class="difficulty-card practice" data-mode="practice">
-                <div class="card-corner top-left"></div>
-                <div class="card-corner bottom-right"></div>
-                <svg viewBox="0 0 100 100" class="difficulty-icon">
-                    <circle cx="50" cy="35" r="12" fill="white"/>
-                    <path d="M30 85 Q50 75 70 85" fill="white"/>
-                </svg>
-                <h2 class="difficulty-name">練習</h2>
-                <p class="difficulty-desc">1人で練習できます</p>
+        <div class="difficulty-container">
+            <h2 class="section-title">難易度</h2>
+            <p class="section-subtitle">対戦する難易度を選択してください</p>
+
+            <div class="difficulty-grid">
+                <button class="diff-card" data-level="7">
+                    <div class="diff-icon">⚛️</div>
+                    <h3>難しい</h3>
+                    <div class="diff-line"></div>
+                    <p>読みの途中でも<br>札が確定した時に<br>素早く取ってきます</p>
+                </button>
+
+                <button class="diff-card selected" data-level="3">
+                    <div class="diff-icon">🔬</div>
+                    <h3>普通</h3>
+                    <div class="diff-line"></div>
+                    <p>読みの途中でも<br>札が確定した時に<br>取ってきます</p>
+                </button>
+
+                <button class="diff-card" data-level="1">
+                    <div class="diff-icon">🧪</div>
+                    <h3>易しい</h3>
+                    <div class="diff-line"></div>
+                    <p>読みを最後まで<br>聞いてから<br>取ってきます</p>
+                </button>
+
+                <button class="diff-card" data-level="0">
+                    <div class="diff-icon"></div>
+                    <h3>練習</h3>
+                    <div class="diff-line"></div>
+                    <p>1人で練習できます</p>
+                </button>
             </div>
         </div>
-        
-        <button class="back-btn" data-screen="screen-menu">戻る</button>
     </div>
 
     <!-- ゲーム画面 -->
     <div id="screen-game" class="screen">
         <header class="game-header">
-            <div class="header-left">
-                <button class="icon-btn" id="btn-pause">⏸</button>
-                <div class="score-display">
-                    <div class="score-item player">
-                        <span class="score-value" id="score-player">0</span>
-                        <span class="score-label">PLAYER</span>
-                    </div>
-                    <div class="score-divider">VS</div>
-                    <div class="score-item cpu">
-                        <span class="score-value" id="score-cpu">0</span>
-                        <span class="score-label">CPU</span>
-                    </div>
+            <div class="score-board">
+                <div class="score-item player">
+                    <span class="score-label">PLAYER</span>
+                    <span class="score-value" id="score-player">0</span>
+                </div>
+                <div class="vs-text">VS</div>
+                <div class="score-item cpu">
+                    <span class="score-label">CPU</span>
+                    <span class="score-value" id="score-cpu">0</span>
                 </div>
             </div>
-            <div class="header-right">
-                <div class="timer-display" id="timer">00:00</div>
-                <div class="combo-display" id="combo"></div>
+            <div class="game-info">
+                <div class="timer" id="timer">00:00</div>
+                <div class="round-info" id="round-info">1 / 10</div>
             </div>
         </header>
 
         <div class="clue-panel">
-            <div class="clue-scroll">
-                <div class="clue-history" id="clue-history"></div>
-                <div class="clue-current" id="clue-current">
-                    <div class="clue-stage" id="clue-stage">読み札</div>
-                    <div class="clue-text" id="clue-text">読み札がここに表示されます</div>
-                </div>
-            </div>
-            <div class="clue-controls">
-                <button class="clue-btn" id="btn-hint">💡</button>
-                <button class="clue-btn" id="btn-next-clue">⏭</button>
+            <div class="clue-history" id="clue-history"></div>
+            <div class="clue-current">
+                <div class="clue-stage" id="clue-stage">STAGE 1</div>
+                <div class="clue-text" id="clue-text">読み札がここに表示されます</div>
             </div>
         </div>
 
@@ -256,33 +176,21 @@
 
         <footer class="game-footer">
             <button class="footer-btn" id="btn-skip">スキップ</button>
-            <div class="round-info" id="round-info">1 / 10</div>
+            <button class="footer-btn" id="btn-pause">一時停止</button>
         </footer>
     </div>
 
-    <!-- 結果画面 -->
-    <div id="screen-result" class="screen modal-screen">
-        <div class="modal-content">
-            <div class="result-header" id="result-header">
-                <div class="result-icon" id="result-icon">✓</div>
-                <h2 class="result-title" id="result-title">正解</h2>
-                <div class="result-score" id="result-score">+1000</div>
-            </div>
-            <div class="result-structure" id="result-structure"></div>
-            <div class="result-details">
-                <div class="detail-item">
-                    <span class="detail-label">化合物名</span>
-                    <span class="detail-value" id="result-name">-</span>
-                </div>
-                <div class="detail-item">
-                    <span class="detail-label">回答時間</span>
-                    <span class="detail-value" id="result-time">-</span>
-                </div>
-            </div>
-            <div class="result-explanation" id="result-explanation"></div>
-            <div class="result-actions">
-                <button class="btn btn-secondary" id="btn-next-round">次の問題へ</button>
-                <button class="btn btn-primary" id="btn-finish-game">ゲーム終了</button>
+    <!-- 設定画面 -->
+    <div id="screen-settings" class="screen">
+        <button class="back-btn" data-back="screen-title">戻る</button>
+        <div class="settings-container">
+            <h2 class="section-title">設定</h2>
+            <div class="setting-item">
+                <label>音声読み上げ</label>
+                <label class="toggle">
+                    <input type="checkbox" id="setting-voice" checked>
+                    <span class="toggle-slider"></span>
+                </label>
             </div>
         </div>
     </div>
