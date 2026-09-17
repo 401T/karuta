@@ -1435,4 +1435,371 @@ input:checked + .toggle-slider:before {
     }
 }
 
+/* ========================================
+   資料画面（Reference）
+   ======================================== */
 
+#screen-reference {
+    background: transparent;
+}
+
+.reference-container {
+    flex: 1;
+    display: flex;
+    flex-direction: column;
+    padding: 70px 15px 20px;
+    overflow: hidden;
+    width: 100%;
+    max-width: 100vw;
+}
+
+.reference-container .section-title {
+    text-align: center;
+    margin-bottom: 8px;
+    font-size: clamp(1.6rem, 5vw, 2.2rem);
+    color: var(--card-bg);
+    text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+}
+
+.reference-container .section-subtitle {
+    text-align: center;
+    color: rgba(255,255,255,0.7);
+    font-size: clamp(0.75rem, 2.3vw, 0.9rem);
+    margin-bottom: 15px;
+    letter-spacing: 0.05em;
+}
+
+/* 単元タブ（横スクロール） */
+.reference-category-tabs {
+    display: flex;
+    gap: 8px;
+    overflow-x: auto;
+    overflow-y: hidden;
+    padding: 8px 4px;
+    margin-bottom: 12px;
+    -webkit-overflow-scrolling: touch;
+    scrollbar-width: thin;
+    scrollbar-color: var(--accent-gold) rgba(0,0,0,0.3);
+    flex-shrink: 0;
+}
+
+.reference-category-tabs::-webkit-scrollbar {
+    height: 4px;
+}
+
+.reference-category-tabs::-webkit-scrollbar-thumb {
+    background: var(--accent-gold);
+    border-radius: 2px;
+}
+
+.reference-tab {
+    flex-shrink: 0;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid var(--card-border);
+    border-radius: 20px;
+    padding: 8px 16px;
+    color: var(--card-bg);
+    font-family: var(--font-main);
+    font-size: clamp(0.75rem, 2.3vw, 0.85rem);
+    font-weight: 600;
+    cursor: pointer;
+    transition: all 0.3s;
+    white-space: nowrap;
+    letter-spacing: 0.05em;
+}
+
+.reference-tab:active {
+    transform: scale(0.95);
+}
+
+.reference-tab.selected {
+    background: var(--accent-green);
+    border-color: var(--accent-gold);
+    color: white;
+    box-shadow: 0 0 12px rgba(201, 169, 97, 0.4);
+}
+
+/* 化合物リスト */
+.reference-list {
+    flex: 1;
+    overflow-y: auto;
+    -webkit-overflow-scrolling: touch;
+    padding: 4px;
+}
+
+.reference-category-section {
+    margin-bottom: 20px;
+}
+
+.reference-category-header {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    font-weight: 700;
+    color: var(--accent-gold);
+    letter-spacing: 0.15em;
+    padding: 8px 12px;
+    margin-bottom: 10px;
+    border-bottom: 2px solid var(--accent-gold);
+    position: sticky;
+    top: 0;
+    background: rgba(10, 15, 20, 0.95);
+    backdrop-filter: blur(8px);
+    z-index: 5;
+}
+
+.reference-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    gap: 10px;
+}
+
+@media (min-width: 600px) {
+    .reference-grid {
+        grid-template-columns: repeat(3, 1fr);
+    }
+}
+
+@media (min-width: 900px) {
+    .reference-grid {
+        grid-template-columns: repeat(4, 1fr);
+    }
+}
+
+.reference-item {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    padding: 10px;
+    cursor: pointer;
+    transition: all 0.3s;
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.2);
+    min-height: 100px;
+}
+
+.reference-item:active {
+    transform: scale(0.97);
+}
+
+.reference-item:hover {
+    border-color: var(--accent-gold);
+    box-shadow: 0 4px 12px rgba(201, 169, 97, 0.3);
+}
+
+.reference-item-structure {
+    width: 100%;
+    height: 70px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 6px;
+    background: white;
+    border-radius: 2px;
+    overflow: hidden;
+}
+
+.reference-item-structure img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.reference-item-name {
+    font-family: var(--font-main);
+    font-size: clamp(0.75rem, 2.2vw, 0.85rem);
+    font-weight: 700;
+    color: var(--text-dark);
+    line-height: 1.3;
+    margin-bottom: 3px;
+    word-break: break-word;
+}
+
+.reference-item-formula {
+    font-family: var(--font-main);
+    font-size: 0.7rem;
+    color: var(--text-light);
+    letter-spacing: 0.05em;
+}
+
+/* 資料詳細モーダル */
+.modal-overlay {
+    position: fixed;
+    top: 0;
+    left: 0;
+    width: 100%;
+    height: 100%;
+    background: rgba(0,0,0,0.85);
+    backdrop-filter: blur(8px);
+    display: none;
+    align-items: center;
+    justify-content: center;
+    z-index: 2000;
+    padding: 20px;
+}
+
+.modal-overlay.active {
+    display: flex;
+    animation: fadeIn 0.3s ease-out;
+}
+
+.reference-modal {
+    background: var(--card-bg);
+    border: 3px solid var(--accent-gold);
+    border-radius: 2px;
+    padding: 25px 20px;
+    max-width: 500px;
+    width: 95%;
+    max-height: 90vh;
+    overflow-y: auto;
+    position: relative;
+    box-shadow: 0 8px 32px rgba(0,0,0,0.5);
+}
+
+.modal-close-btn {
+    position: absolute;
+    top: 12px;
+    right: 12px;
+    width: 36px;
+    height: 36px;
+    background: var(--accent-red);
+    border: 2px solid var(--card-bg);
+    border-radius: 2px;
+    color: white;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    transition: all 0.3s;
+    z-index: 10;
+}
+
+.modal-close-btn:active {
+    transform: scale(0.95);
+    background: #a03030;
+}
+
+.reference-detail-header {
+    text-align: center;
+    margin-bottom: 15px;
+    padding-right: 40px;
+}
+
+.reference-detail-name {
+    font-family: var(--font-display);
+    font-size: clamp(1.3rem, 4vw, 1.6rem);
+    font-weight: 900;
+    color: var(--text-dark);
+    letter-spacing: 0.1em;
+    margin-bottom: 5px;
+}
+
+.reference-detail-formula {
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+    color: var(--text-light);
+    letter-spacing: 0.1em;
+}
+
+.reference-detail-structure {
+    width: 100%;
+    height: 180px;
+    background: white;
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    margin-bottom: 15px;
+    overflow: hidden;
+}
+
+.reference-detail-structure img {
+    max-width: 100%;
+    max-height: 100%;
+    object-fit: contain;
+}
+
+.reference-detail-stages {
+    background: var(--tatami-light);
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    padding: 12px 14px;
+    margin-bottom: 12px;
+}
+
+.reference-detail-stages-title {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-green);
+    letter-spacing: 0.15em;
+    margin-bottom: 8px;
+    border-bottom: 1px solid var(--card-border);
+    padding-bottom: 4px;
+}
+
+.reference-stage-item {
+    padding: 6px 0;
+    border-bottom: 1px dashed rgba(90, 122, 74, 0.3);
+    font-size: 0.85rem;
+    color: var(--text-dark);
+    line-height: 1.6;
+    font-family: var(--font-main);
+}
+
+.reference-stage-item:last-child {
+    border-bottom: none;
+}
+
+.reference-stage-item .stage-num {
+    font-family: var(--font-display);
+    font-weight: 700;
+    color: var(--accent-green);
+    margin-right: 6px;
+    font-size: 0.8rem;
+}
+
+.reference-detail-explanation {
+    background: var(--tatami-light);
+    border-left: 4px solid var(--accent-gold);
+    border-radius: 2px;
+    padding: 12px 14px;
+    font-size: 0.9rem;
+    line-height: 1.7;
+    color: var(--text-dark);
+    font-family: var(--font-main);
+}
+
+.reference-detail-explanation-title {
+    font-family: var(--font-display);
+    font-size: 0.85rem;
+    font-weight: 700;
+    color: var(--accent-green);
+    letter-spacing: 0.15em;
+    margin-bottom: 6px;
+}
+
+/* 練習モード用：CPUスコア非表示 */
+.practice-mode .cpu-score-box {
+    display: none !important;
+}
+
+.practice-mode .player-score-box {
+    flex: 1;
+}
+
+.practice-mode .round-display {
+    flex: 0.8;
+}
+
+/* 空リストメッセージ */
+.reference-empty {
+    text-align: center;
+    padding: 40px 20px;
+    color: rgba(255,255,255,0.6);
+    font-family: var(--font-main);
+    font-size: 0.95rem;
+}

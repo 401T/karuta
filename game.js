@@ -249,16 +249,13 @@ class GameEngine {
             if (currentClue) {
                 AudioManager.playSound('stage');
                 
-                // 音声読み上げ + 終了時に次のステージへ自動進行
                 AudioManager.speak(currentClue.text, {
                     onEnd: () => {
-                        // まだラウンドがアクティブなら次のステージへ
                         if (this.currentRound.isActive) {
                             const hasNext = clueData.stages.some(
                                 s => s.stage === this.currentRound.currentStage + 1
                             );
                             if (hasNext) {
-                                // 1秒待ってから次のステージへ
                                 setTimeout(() => this.nextClue(), 1000);
                             }
                         }
@@ -269,7 +266,7 @@ class GameEngine {
         
         this._notify();
         
-        // CPUの思考開始
+        // ★ 練習モード（mode === 'practice'）時はCPUを起動しない
         if (this.cpu && this.mode === 'cpu') {
             this.cpu.startThinking(
                 this.currentRound.target.id,

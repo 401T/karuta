@@ -7,7 +7,9 @@
     <link rel="stylesheet" href="style.css">
 </head>
 <body>
+    <!-- 全画面共通の畳背景 -->
     <div class="tatami-bg"></div>
+
     <!-- ローディング -->
     <div id="loading-screen" class="screen active">
         <div class="loading-content">
@@ -32,7 +34,7 @@
                 <button class="menu-btn" data-next="screen-stats">
                     <span class="menu-text">記録</span>
                 </button>
-                <button class="menu-btn">
+                <button class="menu-btn" data-next="screen-reference">
                     <span class="menu-text">資料</span>
                 </button>
                 <button class="menu-btn" data-next="screen-settings">
@@ -52,7 +54,6 @@
         <div class="difficulty-container">
             <h2 class="section-title">対戦設定</h2>
             
-            <!-- 難易度選択 -->
             <div class="setting-section">
                 <h3 class="setting-section-title">難易度</h3>
                 <div class="difficulty-list">
@@ -96,13 +97,10 @@
                 </div>
             </div>
 
-            <!-- 単元選択 -->
             <div class="setting-section">
                 <h3 class="setting-section-title">単元（複数選択可）</h3>
-                <div class="category-grid" id="category-grid">
-                    <!-- JSで動的生成 -->
-                </div>
-                <button class="select-all-btn" id="btn-select-all">すべて選択</button>
+                <div class="category-grid" id="category-grid"></div>
+                <button class="select-all-btn" id="btn-select-all">すべて解除</button>
             </div>
 
             <button class="next-btn" id="btn-start-difficulty">開始</button>
@@ -114,8 +112,8 @@
         <div class="game-bg"></div>
         <header class="game-header">
             <div class="score-display">
-                <div class="score-box player-score">
-                    <div class="score-label">PLAYER</div>
+                <div class="score-box player-score" id="player-score-box">
+                    <div class="score-label" id="player-score-label">PLAYER</div>
                     <div class="score-value" id="score-player">0</div>
                 </div>
             </div>
@@ -124,8 +122,8 @@
                 <div class="round-value" id="round-display">1 / 10</div>
             </div>
             <div class="score-display">
-                <div class="score-box cpu-score">
-                    <div class="score-label">CPU</div>
+                <div class="score-box cpu-score" id="cpu-score-box">
+                    <div class="score-label" id="cpu-score-label">CPU</div>
                     <div class="score-value" id="score-cpu">0</div>
                 </div>
             </div>
@@ -157,6 +155,41 @@
             <button class="footer-btn" id="btn-skip">スキップ</button>
             <button class="footer-btn" id="btn-pause">一時停止</button>
         </footer>
+    </div>
+
+    <!-- 資料画面（新規追加） -->
+    <div id="screen-reference" class="screen">
+        <button class="back-btn" data-back="screen-title">
+            <svg viewBox="0 0 24 24" width="24" height="24">
+                <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+            </svg>
+        </button>
+        <div class="reference-container">
+            <h2 class="section-title">資料</h2>
+            <p class="section-subtitle">収録化合物の一覧（タップで詳細表示）</p>
+            
+            <div class="reference-category-tabs" id="reference-tabs"></div>
+            
+            <div class="reference-list" id="reference-list"></div>
+        </div>
+    </div>
+
+    <!-- 資料詳細モーダル -->
+    <div id="reference-detail-modal" class="modal-overlay">
+        <div class="modal-content reference-modal">
+            <button class="modal-close-btn" id="modal-close-btn">
+                <svg viewBox="0 0 24 24" width="24" height="24">
+                    <path d="M19 6.41L17.59 5 12 10.59 6.41 5 5 6.41 10.59 12 5 17.59 6.41 19 12 13.41 17.59 19 19 17.59 13.41 12z" fill="currentColor"/>
+                </svg>
+            </button>
+            <div class="reference-detail-header">
+                <div class="reference-detail-name" id="detail-name"></div>
+                <div class="reference-detail-formula" id="detail-formula"></div>
+            </div>
+            <div class="reference-detail-structure" id="detail-structure"></div>
+            <div class="reference-detail-stages" id="detail-stages"></div>
+            <div class="reference-detail-explanation" id="detail-explanation"></div>
+        </div>
     </div>
 
     <!-- 設定画面 -->

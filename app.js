@@ -8,6 +8,8 @@
  * - compounds.json キー名空白対応
  * - 全画面共通背景（畳）
  * - 得点常時表示 / タイマー削除 / 一口解説表示
+ * - 資料機能（単元別一覧 + タップで詳細モーダル）
+ * - 練習モード（CPUなし・点数のみ）
  */
 class App {
     constructor() {
@@ -16,6 +18,8 @@ class App {
         this.selectedDifficulty = 3;
         this.selectedCategories = [];
         this.allCategoriesSelected = true;
+        this.isPracticeMode = false;
+        this.referenceCurrentCategory = 'all';
         
         this.init();
     }
@@ -78,6 +82,7 @@ class App {
                 if (mode) this.currentMode = mode;
                 if (nextScreen === 'screen-difficulty') this.updateDifficultySelection();
                 else if (nextScreen === 'screen-stats') this.updateStats();
+                else if (nextScreen === 'screen-reference') this.renderReference();
                 this.showScreen(nextScreen);
             });
         });
@@ -130,6 +135,24 @@ class App {
 
         const nextClueBtn = document.getElementById('btn-next-clue');
         if (nextClueBtn) nextClueBtn.addEventListener('click', () => this.engine.nextClue());
+
+        // 資料モーダル閉じるボタン
+        const modalCloseBtn = document.getElementById('modal-close-btn');
+        if (modalCloseBtn) {
+            modalCloseBtn.addEventListener('click', () => {
+                document.getElementById('reference-detail-modal').classList.remove('active');
+            });
+        }
+
+        // モーダル外クリックで閉じる
+        const modalOverlay = document.getElementById('reference-detail-modal');
+        if (modalOverlay) {
+            modalOverlay.addEventListener('click', (e) => {
+                if (e.target === modalOverlay) {
+                    modalOverlay.classList.remove('active');
+                }
+            });
+        }
 
         const voiceToggle = document.getElementById('setting-voice');
         if (voiceToggle) {
@@ -223,22 +246,39 @@ class App {
     }
 
     startGame() {
+        // 練習モード判定（難易度0 = 練習）
+        this.isPracticeMode = (this.selectedDifficulty === 0);
+        
         const settings = {
-            mode: this.currentMode,
-            cpuLevel: this.selectedDifficulty,
+            mode: this.isPracticeMode ? 'practice' : 'cpu',
+            cpuLevel: this.isPracticeMode ? 0 : this.selectedDifficulty,
             cardCount: StorageManager.loadSettings().cardCount || 9,
             categories: this.selectedCategories.length > 0 ? this.selectedCategories : []
         };
+        
         this.engine.configure(settings);
         this.engine.startGame(10);
+        
+        // ゲーム画面のモード切替クラス
+        const gameScreen = document.getElementById('screen-game');
+        if (gameScreen) {
+            if (this.isPracticeMode) {
+                gameScreen.classList.add('practice-mode');
+            } else {
+                gameScreen.classList.remove('practice-mode');
+            }
+        }
+        
+        // ラベル変更
+        const playerLabel = document.getElementById('player-score-label');
+        const cpuLabel = document.getElementById('cpu-score-label');
+        if (playerLabel) playerLabel.textContent = '得点';
+        if (cpuLabel) cpuLabel.textContent = this.isPracticeMode ? '' : 'CPU';
+        
         this.showScreen('screen-game');
     }
 
-    /**
-     * ゲーム中のUI更新（得点・ラウンド数・読み札）
-     */
     async updateGameUI(data) {
-        // 得点とラウンド数を常時更新
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
         const roundDisplayEl = document.getElementById('round-display');
@@ -265,7 +305,6 @@ class App {
                 break;
 
             case 'RESULT':
-                // 結果表示時は何もしない（モーダルで処理）
                 break;
         }
 
@@ -376,9 +415,6 @@ class App {
         }
     }
 
-    /**
-     * 正解/不正解モーダル（一口解説付き）
-     */
     showRoundResult(data) {
         const playerWon = data.playerWon;
         const compound = data.target;
@@ -387,9 +423,16 @@ class App {
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
+        
+        // 練習モード時は「正解/不正解」ではなく「確認」として表示
+        const resultTitle = this.isPracticeMode 
+            ? (playerWon ? '正解' : '確認') 
+            : (playerWon ? '正解' : '不正解');
+        const resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
+        
         modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid ${playerWon ? '#22c55e' : 'var(--accent-red)'}; border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
-                <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: ${playerWon ? '#22c55e' : 'var(--accent-red)'}; font-family: var(--font-display); letter-spacing: 0.15em;">${playerWon ? '正解' : '不正解'}</h2>
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid ${resultColor}; border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: ${resultColor}; font-family: var(--font-display); letter-spacing: 0.15em;">${resultTitle}</h2>
                 <div style="background: var(--tatami-light); border-radius: 2px; padding: 15px; margin-bottom: 15px; min-height: 130px; border: 2px solid var(--card-border);">
                     <div id="modal-structure" style="width: 100%; height: 100%;"></div>
                 </div>
@@ -423,33 +466,45 @@ class App {
         }
     }
 
-    /**
-     * ゲーム終了モーダル（得点表示）
-     */
     showGameEnd(data) {
-        const message = data.winner === 'player' ? '勝利' : 
-                       data.winner === 'cpu' ? '敗北' : '引き分け';
-        
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
-        modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
-                <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">ゲーム終了</h2>
-                <div style="font-size: 1.4rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${message}</div>
-                <div style="display: flex; justify-content: space-around; margin-bottom: 25px; gap: 15px;">
-                    <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                        <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">PLAYER</div>
-                        <div style="font-size: 1.8rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore}</div>
+        
+        // 練習モード時は結果表示を簡素化
+        if (this.isPracticeMode) {
+            modal.innerHTML = `
+                <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                    <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">練習終了</h2>
+                    <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 25px;">
+                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 8px; letter-spacing: 0.1em; font-family: var(--font-display);">TOTAL SCORE</div>
+                        <div style="font-size: 2.5rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore}</div>
                     </div>
-                    <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                        <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">CPU</div>
-                        <div style="font-size: 1.8rem; color: var(--accent-red); font-family: var(--font-display); font-weight: 900;">${data.cpuScore}</div>
-                    </div>
+                    <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
                 </div>
-                <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
-            </div>
-        `;
+            `;
+        } else {
+            const message = data.winner === 'player' ? '勝利' : 
+                           data.winner === 'cpu' ? '敗北' : '引き分け';
+            
+            modal.innerHTML = `
+                <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
+                    <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">ゲーム終了</h2>
+                    <div style="font-size: 1.4rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${message}</div>
+                    <div style="display: flex; justify-content: space-around; margin-bottom: 25px; gap: 15px;">
+                        <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
+                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">PLAYER</div>
+                            <div style="font-size: 1.8rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore}</div>
+                        </div>
+                        <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
+                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">CPU</div>
+                            <div style="font-size: 1.8rem; color: var(--accent-red); font-family: var(--font-display); font-weight: 900;">${data.cpuScore}</div>
+                        </div>
+                    </div>
+                    <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
+                </div>
+            `;
+        }
         
         document.body.appendChild(modal);
         
@@ -472,12 +527,213 @@ class App {
         if (gamesEl) gamesEl.textContent = stats.totalGames;
     }
 
+    /**
+     * 資料画面：単元別タブ + 化合物グリッド
+     */
+    renderReference() {
+        const tabsContainer = document.getElementById('reference-tabs');
+        const listContainer = document.getElementById('reference-list');
+        if (!tabsContainer || !listContainer) return;
+
+        const categories = this.engine.getCategories();
+        
+        // タブ生成（「すべて」+ 各単元）
+        tabsContainer.innerHTML = '';
+        
+        const allTab = document.createElement('button');
+        allTab.className = 'reference-tab' + (this.referenceCurrentCategory === 'all' ? ' selected' : '');
+        allTab.textContent = 'すべて';
+        allTab.dataset.category = 'all';
+        allTab.addEventListener('click', () => {
+            this.referenceCurrentCategory = 'all';
+            this.renderReference();
+        });
+        tabsContainer.appendChild(allTab);
+        
+        categories.forEach(cat => {
+            const tab = document.createElement('button');
+            tab.className = 'reference-tab' + (this.referenceCurrentCategory === cat ? ' selected' : '');
+            tab.textContent = this.getCategoryDisplayName(cat);
+            tab.dataset.category = cat;
+            tab.addEventListener('click', () => {
+                this.referenceCurrentCategory = cat;
+                this.renderReference();
+            });
+            tabsContainer.appendChild(tab);
+        });
+
+        // 化合物リスト生成
+        listContainer.innerHTML = '';
+        
+        let filteredCompounds = this.engine.compounds;
+        if (this.referenceCurrentCategory !== 'all') {
+            filteredCompounds = filteredCompounds.filter(c => c.category === this.referenceCurrentCategory);
+        }
+
+        if (filteredCompounds.length === 0) {
+            listContainer.innerHTML = '<div class="reference-empty">この単元には化合物がありません</div>';
+            return;
+        }
+
+        // 単元別にグループ化
+        const grouped = {};
+        filteredCompounds.forEach(c => {
+            const cat = c.category || 'other';
+            if (!grouped[cat]) grouped[cat] = [];
+            grouped[cat].push(c);
+        });
+
+        // 各単元セクションを生成
+        Object.keys(grouped).sort().forEach(cat => {
+            const section = document.createElement('div');
+            section.className = 'reference-category-section';
+            
+            const header = document.createElement('div');
+            header.className = 'reference-category-header';
+            header.textContent = `${this.getCategoryDisplayName(cat)}（${grouped[cat].length}）`;
+            section.appendChild(header);
+            
+            const grid = document.createElement('div');
+            grid.className = 'reference-grid';
+            
+            grouped[cat].forEach(compound => {
+                const item = document.createElement('div');
+                item.className = 'reference-item';
+                item.dataset.id = (compound.id || '').trim();
+                
+                item.innerHTML = `
+                    <div class="reference-item-structure" data-smiles="${compound.smiles || ''}"></div>
+                    <div class="reference-item-name">${compound.name || ''}</div>
+                    <div class="reference-item-formula">${compound.formula || ''}</div>
+                `;
+                
+                item.addEventListener('click', () => {
+                    this.showReferenceDetail(compound);
+                });
+                
+                grid.appendChild(item);
+            });
+            
+            section.appendChild(grid);
+            listContainer.appendChild(section);
+        });
+
+        // 構造式を非同期で描画
+        requestAnimationFrame(() => {
+            const structures = listContainer.querySelectorAll('.reference-item-structure');
+            structures.forEach((el, index) => {
+                const smiles = el.dataset.smiles;
+                if (smiles) {
+                    setTimeout(() => {
+                        StructureRenderer.render(el, smiles, 'light', {});
+                    }, index * 30);
+                }
+            });
+        });
+    }
+
+    /**
+     * 資料詳細モーダル表示
+     */
+    showReferenceDetail(compound) {
+        const modal = document.getElementById('reference-detail-modal');
+        if (!modal) return;
+        
+        const clueData = this.engine.clues[(compound.id || '').trim()];
+        
+        // 名前・分子式
+        document.getElementById('detail-name').textContent = compound.name || '';
+        document.getElementById('detail-formula').textContent = compound.formula || '';
+        
+        // 構造式
+        const structureDiv = document.getElementById('detail-structure');
+        structureDiv.innerHTML = '';
+        if (compound.smiles) {
+            StructureRenderer.render(structureDiv, compound.smiles, 'light', {
+                name: compound.name,
+                name_en: compound.name_en,
+                formula: compound.formula
+            });
+        }
+        
+        // 読み札（stages）
+        const stagesDiv = document.getElementById('detail-stages');
+        stagesDiv.innerHTML = '';
+        
+        if (clueData && clueData.stages && clueData.stages.length > 0) {
+            const title = document.createElement('div');
+            title.className = 'reference-detail-stages-title';
+            title.textContent = '読み札';
+            stagesDiv.appendChild(title);
+            
+            clueData.stages.forEach(stage => {
+                const item = document.createElement('div');
+                item.className = 'reference-stage-item';
+                item.innerHTML = `<span class="stage-num">STEP ${stage.stage}</span>${stage.text}`;
+                stagesDiv.appendChild(item);
+            });
+            
+            // 読み上げボタン
+            const playBtn = document.createElement('button');
+            playBtn.className = 'btn btn-primary';
+            playBtn.style.cssText = 'width: 100%; margin-top: 12px; font-size: 0.9rem; padding: 10px;';
+            playBtn.textContent = '読み上げる';
+            playBtn.addEventListener('click', () => {
+                this.playAllStages(clueData.stages);
+            });
+            stagesDiv.appendChild(playBtn);
+        } else {
+            stagesDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem; padding: 10px;">読み札データがありません</div>';
+        }
+        
+        // 解説
+        const explanationDiv = document.getElementById('detail-explanation');
+        explanationDiv.innerHTML = '';
+        
+        if (clueData && clueData.explanation) {
+            const title = document.createElement('div');
+            title.className = 'reference-detail-explanation-title';
+            title.textContent = '構造決定のポイント';
+            explanationDiv.appendChild(title);
+            
+            const content = document.createElement('div');
+            content.textContent = clueData.explanation;
+            explanationDiv.appendChild(content);
+        } else {
+            explanationDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem;">解説データがありません</div>';
+        }
+        
+        modal.classList.add('active');
+    }
+
+    /**
+     * 読み札を順番に読み上げ
+     */
+    playAllStages(stages) {
+        if (!stages || stages.length === 0) return;
+        
+        let index = 0;
+        const playNext = () => {
+            if (index >= stages.length) return;
+            const stage = stages[index];
+            AudioManager.speak(stage.text, {
+                onEnd: () => {
+                    index++;
+                    if (index < stages.length) {
+                        setTimeout(playNext, 500);
+                    }
+                }
+            });
+        };
+        playNext();
+    }
+
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         const target = document.getElementById(screenId);
         if (target) {
             target.classList.add('active');
-            const scrollables = target.querySelectorAll('.clue-display, .card-field, .settings-container, .stats-container, .difficulty-container, .title-container');
+            const scrollables = target.querySelectorAll('.clue-display, .card-field, .settings-container, .stats-container, .difficulty-container, .title-container, .reference-list');
             scrollables.forEach(el => { el.scrollTop = 0; });
         }
     }
