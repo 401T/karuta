@@ -1,3 +1,7 @@
+/**
+ * App - メインアプリケーションクラス
+ * 画面遷移、ゲーム制御、UI更新を統合管理
+ */
 class App {
     constructor() {
         this.engine = new GameEngine();
@@ -53,13 +57,14 @@ class App {
         loadingScreen.innerHTML = `
             <div class="loading-content">
                 <h1 style="color: var(--danger); font-size: 1.5rem; margin-bottom: 20px;">エラー</h1>
-                <p style="color: var(--text-white); margin-bottom: 20px;">${message}</p>
-                <p style="color: var(--text-gray); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
+                <p style="color: var(--text-dark); margin-bottom: 20px;">${message}</p>
+                <p style="color: var(--text-light); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
             </div>
         `;
     }
 
     bindEvents() {
+        // 画面遷移 (data-next)
         document.querySelectorAll('[data-next]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const nextScreen = e.currentTarget.dataset.next;
@@ -69,18 +74,22 @@ class App {
                 
                 if (nextScreen === 'screen-difficulty') {
                     this.updateDifficultySelection();
+                } else if (nextScreen === 'screen-stats') {
+                    this.updateStats();
                 }
                 
                 this.showScreen(nextScreen);
             });
         });
 
+        // 戻るボタン (data-back)
         document.querySelectorAll('[data-back]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.showScreen(e.currentTarget.dataset.back);
             });
         });
 
+        // 難易度カード (シングルタップで選択、ダブルタップで開始)
         document.querySelectorAll('.diff-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 const now = Date.now();
@@ -91,6 +100,7 @@ class App {
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
                 
                 if (timeDiff < 300 && timeDiff > 0) {
+                    // ダブルタップ detected
                     this.startGame();
                 }
                 
@@ -98,6 +108,7 @@ class App {
             });
         });
 
+        // ゲーム画面の操作
         document.getElementById('card-grid').addEventListener('click', (e) => {
             const card = e.target.closest('.card');
             if (card && !card.classList.contains('taken')) {
@@ -115,14 +126,7 @@ class App {
             this.showScreen('screen-title');
         });
 
-        document.getElementById('btn-hint').addEventListener('click', () => {
-            this.showHint();
-        });
-
-        document.getElementById('btn-next-clue').addEventListener('click', () => {
-            this.engine.nextClue();
-        });
-
+        // 設定
         document.getElementById('setting-voice').addEventListener('change', (e) => {
             StorageManager.updateSetting('voiceEnabled', e.target.checked);
             AudioManager.updateSettings({ enabled: e.target.checked });
@@ -170,14 +174,11 @@ class App {
     }
 
     async updateGameUI(data) {
-        document.getElementById('score-player').textContent = data.scores.player;
-        document.getElementById('score-cpu').textContent = data.scores.cpu;
-        document.getElementById('round-info').textContent = `${data.roundNumber} / ${data.totalRounds}`;
+        document.getElementById('timer').textContent = this.formatTime(Date.now() - this.gameStartTime);
 
         switch (data.state) {
             case 'DEAL':
                 await this.renderCards(data.round.cards);
-                document.getElementById('clue-history').innerHTML = '';
                 document.getElementById('clue-stage').textContent = 'STAGE 1';
                 document.getElementById('clue-text').textContent = '読み札が始まります';
                 break;
@@ -245,37 +246,6 @@ class App {
         if (currentStageData) {
             document.getElementById('clue-stage').textContent = `STAGE ${round.currentStage}`;
             document.getElementById('clue-text').textContent = currentStageData.text;
-
-            const historyDiv = document.getElementById('clue-history');
-            const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
-            const alreadyExists = existingStages.some(item => 
-                item.dataset.stage === String(round.currentStage)
-            );
-
-            if (!alreadyExists && round.currentStage > 1) {
-                const prevStage = round.currentStage - 1;
-                const prevStageData = clueData.stages.find(s => s.stage === prevStage);
-                
-                if (prevStageData) {
-                    const historyItem = document.createElement('div');
-                    historyItem.className = 'clue-history-item';
-                    historyItem.dataset.stage = String(prevStage);
-                    historyItem.innerHTML = `
-                        <span class="stage-label">STAGE ${prevStage}</span>
-                        <div>${prevStageData.text}</div>
-                    `;
-                    historyDiv.appendChild(historyItem);
-                    
-                    const cluePanel = document.querySelector('.clue-panel');
-                    if (cluePanel) {
-                        cluePanel.scrollTop = cluePanel.scrollHeight;
-                    }
-                }
-            }
-
-            if (round.currentStage === 1) {
-                historyDiv.innerHTML = '';
-            }
         }
     }
 
@@ -305,15 +275,15 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.innerHTML = `
-            <div class="modal-content" style="background: rgba(15, 20, 25, 0.95); border: 2px solid ${playerWon ? 'var(--success)' : 'var(--danger)'}; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: center;">
-                <h2 style="font-size: 2rem; margin-bottom: 20px; color: ${playerWon ? 'var(--success)' : 'var(--danger)'};">${playerWon ? '正解!' : '不正解...'}</h2>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; min-height: 150px;">
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid ${playerWon ? '#22c55e' : '#ef4444'}; border-radius: 8px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+                <h2 style="font-size: 2rem; margin-bottom: 20px; color: ${playerWon ? '#22c55e' : '#ef4444'}; font-family: var(--font-display);">${playerWon ? '正解!' : '不正解...'}</h2>
+                <div style="background: var(--tatami-light); border-radius: 6px; padding: 20px; margin-bottom: 20px; min-height: 150px;">
                     <div id="modal-structure" style="width: 100%; height: 100%;"></div>
                 </div>
-                <div style="font-size: 1.2rem; margin-bottom: 10px; color: var(--text-white);">${compound.name}</div>
-                <div style="font-size: 0.9rem; color: var(--text-gray); margin-bottom: 20px;">${compound.formula}</div>
-                <div style="font-size: 0.9rem; color: var(--text-gray); line-height: 1.6; margin-bottom: 30px; text-align: left; background: rgba(0,240,255,0.05); padding: 15px; border-radius: 8px; border-left: 3px solid var(--accent-cyan);">${data.explanation}</div>
-                <button class="btn btn-primary" id="modal-next-btn" style="width: 100%;">次の問題へ</button>
+                <div style="font-size: 1.3rem; margin-bottom: 10px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700;">${compound.name}</div>
+                <div style="font-size: 0.95rem; color: var(--text-light); margin-bottom: 20px;">${compound.formula}</div>
+                <div style="font-size: 0.9rem; color: var(--text-dark); line-height: 1.8; margin-bottom: 30px; text-align: left; background: var(--tatami-light); padding: 15px; border-radius: 6px; border-left: 4px solid var(--accent-green);">${data.explanation}</div>
+                <button class="btn btn-primary" id="modal-next-btn" style="width: 100%; font-family: var(--font-display);">次の問題へ</button>
             </div>
         `;
         
@@ -342,20 +312,20 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.innerHTML = `
-            <div class="modal-content" style="background: rgba(15, 20, 25, 0.95); border: 2px solid var(--accent-cyan); border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: center;">
-                <h2 style="font-size: 2rem; margin-bottom: 20px; color: var(--accent-cyan);">ゲーム終了</h2>
-                <div style="font-size: 1.5rem; margin-bottom: 20px; color: var(--text-white);">${message}</div>
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-green); border-radius: 8px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.3);">
+                <h2 style="font-size: 2rem; margin-bottom: 20px; color: var(--accent-green); font-family: var(--font-display);">ゲーム終了</h2>
+                <div style="font-size: 1.5rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700;">${message}</div>
                 <div style="display: flex; justify-content: space-around; margin-bottom: 30px;">
-                    <div>
-                        <div style="font-size: 0.8rem; color: var(--text-gray);">PLAYER</div>
-                        <div style="font-size: 1.8rem; color: var(--accent-cyan); font-family: 'Orbitron';">${data.playerScore}</div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px;">PLAYER</div>
+                        <div style="font-size: 2rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 700;">${data.playerScore}</div>
                     </div>
-                    <div>
-                        <div style="font-size: 0.8rem; color: var(--text-gray);">CPU</div>
-                        <div style="font-size: 1.8rem; color: var(--accent-pink); font-family: 'Orbitron';">${data.cpuScore}</div>
+                    <div style="text-align: center;">
+                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 5px;">CPU</div>
+                        <div style="font-size: 2rem; color: #ef4444; font-family: var(--font-display); font-weight: 700;">${data.cpuScore}</div>
                     </div>
                 </div>
-                <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%;">タイトルへ戻る</button>
+                <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
             </div>
         `;
         
@@ -367,9 +337,12 @@ class App {
         });
     }
 
-    showHint() {
-        const target = this.engine.currentRound.target;
-        alert(`ヒント: ${target.category} / 分子式: ${target.formula}`);
+    updateStats() {
+        const stats = StorageManager.getSummary();
+        
+        document.getElementById('stat-winrate').textContent = stats.accuracy + '%';
+        document.getElementById('stat-accuracy').textContent = stats.accuracy + '%';
+        document.getElementById('stat-games').textContent = stats.totalGames;
     }
 
     showScreen(screenId) {
@@ -384,17 +357,28 @@ class App {
         this.stopTimer();
         this.gameStartTime = Date.now();
         this.timerInterval = setInterval(() => {
-            const elapsed = Math.floor((Date.now() - this.gameStartTime) / 1000);
-            const minutes = Math.floor(elapsed / 60).toString().padStart(2, '0');
-            const seconds = (elapsed % 60).toString().padStart(2, '0');
-            document.getElementById('timer').textContent = `${minutes}:${seconds}`;
-        }, 1000);
+            const elapsed = Date.now() - this.gameStartTime;
+            document.getElementById('timer').textContent = this.formatTime(elapsed);
+        }, 100);
     }
 
     stopTimer() {
         if (this.timerInterval) {
             clearInterval(this.timerInterval);
             this.timerInterval = null;
+        }
+    }
+
+    formatTime(ms) {
+        const seconds = Math.floor(ms / 1000);
+        const minutes = Math.floor(seconds / 60);
+        const remainingSeconds = seconds % 60;
+        const remainingMs = Math.floor((ms % 1000) / 10);
+        
+        if (minutes > 0) {
+            return `+${minutes}:${remainingSeconds.toString().padStart(2, '0')}.${remainingMs.toString().padStart(2, '0')}秒`;
+        } else {
+            return `+${seconds}.${remainingMs.toString().padStart(2, '0')}秒`;
         }
     }
 

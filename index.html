@@ -5,123 +5,69 @@
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
     <title>化学構造式かるた</title>
     <link rel="stylesheet" href="style.css">
-    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&family=Orbitron:wght@500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <div class="bg-decoration">
-        <div class="bg-blur blur-1"></div>
-        <div class="bg-blur blur-2"></div>
-        <div class="bg-blur blur-3"></div>
-        <div class="bg-grid"></div>
-    </div>
-
+    <!-- ローディング -->
     <div id="loading-screen" class="screen active">
         <div class="loading-content">
-            <svg class="loading-molecule" viewBox="0 0 120 120" width="120" height="120">
-                <circle class="load-atom" cx="60" cy="20" r="8"/>
-                <circle class="load-atom" cx="25" cy="85" r="8"/>
-                <circle class="load-atom" cx="95" cy="85" r="8"/>
-                <line class="load-bond" x1="60" y1="20" x2="25" y2="85"/>
-                <line class="load-bond" x1="60" y1="20" x2="95" y2="85"/>
-                <line class="load-bond" x1="25" y1="85" x2="95" y2="85"/>
-            </svg>
-            <h1 class="loading-title">LOADING</h1>
+            <div class="loading-logo">化学</div>
+            <h1 class="loading-title">構造式かるた</h1>
             <div class="loading-bar"><div class="loading-progress"></div></div>
         </div>
     </div>
 
+    <!-- タイトル画面 -->
     <div id="screen-title" class="screen">
-        <div class="version-tag">ver.2.0.0</div>
+        <div class="title-bg"></div>
         <div class="title-container">
             <div class="title-logo">
                 <h1 class="title-main">化学構造式かるた</h1>
-                <p class="title-sub">Chemical structure formula Karuta</p>
+                <p class="title-sub">ONLINE</p>
             </div>
-            <div class="title-menu">
-                <button class="menu-icon-btn" data-next="screen-difficulty">
-                    <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
-                        <rect x="8" y="12" width="32" height="44" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                        <rect x="24" y="8" width="32" height="44" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="16" y1="24" x2="32" y2="24" stroke="currentColor" stroke-width="2"/>
-                        <line x1="16" y1="32" x2="32" y2="32" stroke="currentColor" stroke-width="2"/>
-                        <line x1="16" y1="40" x2="28" y2="40" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                    <span>プレイ</span>
+            <nav class="title-menu">
+                <button class="menu-btn" data-next="screen-difficulty">
+                    <span class="menu-text">対戦</span>
                 </button>
-                <button class="menu-icon-btn" data-next="screen-settings">
-                    <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
-                        <circle cx="32" cy="32" r="10" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                        <path d="M32 14 L32 20 M32 44 L32 50 M14 32 L20 32 M44 32 L50 32 M19 19 L23 23 M41 41 L45 45 M19 45 L23 41 M41 23 L45 19" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                    </svg>
-                    <span>設定</span>
+                <button class="menu-btn" data-next="screen-stats">
+                    <span class="menu-text">記録</span>
                 </button>
-            </div>
+                <button class="menu-btn">
+                    <span class="menu-text">資料</span>
+                </button>
+                <button class="menu-btn" data-next="screen-settings">
+                    <span class="menu-text">設定</span>
+                </button>
+            </nav>
         </div>
     </div>
 
+    <!-- 難易度選択 -->
     <div id="screen-difficulty" class="screen">
-        <button class="back-btn" data-back="screen-title">戻る</button>
+        <button class="back-btn" data-back="screen-title">×</button>
         <div class="difficulty-container">
             <h2 class="section-title">難易度</h2>
             <p class="section-subtitle">対戦する難易度を選択してください</p>
             <div class="difficulty-grid">
                 <button class="diff-card" data-level="7">
-                    <div class="card-corner tl"></div>
-                    <div class="card-corner tr"></div>
-                    <div class="card-corner bl"></div>
-                    <div class="card-corner br"></div>
-                    <svg class="diff-svg" viewBox="0 0 64 64" width="56" height="56">
-                        <circle cx="32" cy="16" r="5" fill="currentColor"/>
-                        <circle cx="16" cy="40" r="5" fill="currentColor"/>
-                        <circle cx="48" cy="40" r="5" fill="currentColor"/>
-                        <ellipse cx="32" cy="32" rx="20" ry="10" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                        <ellipse cx="32" cy="32" rx="20" ry="10" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(60 32 32)"/>
-                        <ellipse cx="32" cy="32" rx="20" ry="10" fill="none" stroke="currentColor" stroke-width="1.5" transform="rotate(-60 32 32)"/>
-                    </svg>
+                    <div class="diff-icon">⚛</div>
                     <h3>難しい</h3>
                     <div class="diff-line"></div>
                     <p>読みの途中でも<br>札が確定した時に<br>素早く取ってきます</p>
                 </button>
                 <button class="diff-card selected" data-level="3">
-                    <div class="card-corner tl"></div>
-                    <div class="card-corner tr"></div>
-                    <div class="card-corner bl"></div>
-                    <div class="card-corner br"></div>
-                    <svg class="diff-svg" viewBox="0 0 64 64" width="56" height="56">
-                        <circle cx="20" cy="20" r="6" fill="currentColor"/>
-                        <circle cx="44" cy="20" r="6" fill="currentColor"/>
-                        <circle cx="32" cy="44" r="6" fill="currentColor"/>
-                        <line x1="20" y1="20" x2="44" y2="20" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="20" y1="20" x2="32" y2="44" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="44" y1="20" x2="32" y2="44" stroke="currentColor" stroke-width="2.5"/>
-                    </svg>
+                    <div class="diff-icon">⚗</div>
                     <h3>普通</h3>
                     <div class="diff-line"></div>
                     <p>読みの途中でも<br>札が確定した時に<br>取ってきます</p>
                 </button>
                 <button class="diff-card" data-level="1">
-                    <div class="card-corner tl"></div>
-                    <div class="card-corner tr"></div>
-                    <div class="card-corner bl"></div>
-                    <div class="card-corner br"></div>
-                    <svg class="diff-svg" viewBox="0 0 64 64" width="56" height="56">
-                        <circle cx="24" cy="24" r="6" fill="currentColor"/>
-                        <circle cx="40" cy="40" r="6" fill="currentColor"/>
-                        <line x1="24" y1="24" x2="40" y2="40" stroke="currentColor" stroke-width="2.5"/>
-                    </svg>
+                    <div class="diff-icon">⚗</div>
                     <h3>易しい</h3>
                     <div class="diff-line"></div>
                     <p>読みを最後まで<br>聞いてから<br>取ってきます</p>
                 </button>
                 <button class="diff-card" data-level="0">
-                    <div class="card-corner tl"></div>
-                    <div class="card-corner tr"></div>
-                    <div class="card-corner bl"></div>
-                    <div class="card-corner br"></div>
-                    <svg class="diff-svg" viewBox="0 0 64 64" width="56" height="56">
-                        <circle cx="32" cy="20" r="8" fill="currentColor"/>
-                        <path d="M16 52 Q16 36 32 36 Q48 36 48 52" fill="currentColor"/>
-                    </svg>
+                    <div class="diff-icon">👤</div>
                     <h3>練習</h3>
                     <div class="diff-line"></div>
                     <p>1人で練習できます</p>
@@ -130,53 +76,37 @@
         </div>
     </div>
 
+    <!-- ゲーム画面 -->
     <div id="screen-game" class="screen">
+        <div class="game-bg"></div>
         <header class="game-header">
-            <div class="score-board">
-                <div class="score-item player">
-                    <span class="score-label">PLAYER</span>
-                    <span class="score-value" id="score-player">0</span>
-                </div>
-                <div class="vs-text">VS</div>
-                <div class="score-item cpu">
-                    <span class="score-label">CPU</span>
-                    <span class="score-value" id="score-cpu">0</span>
-                </div>
+            <div class="player-info">
+                <div class="player-name">出札 自陣</div>
             </div>
-            <div class="game-info">
-                <div class="timer" id="timer">00:00</div>
-                <div class="round-info" id="round-info">1 / 10</div>
+            <div class="game-timer">
+                <div class="timer-label">TIME</div>
+                <div class="timer-value" id="timer">+0.000秒</div>
             </div>
         </header>
-        <div class="clue-panel">
-            <div class="clue-history" id="clue-history"></div>
-            <div class="clue-current">
+        
+        <div class="clue-display">
+            <div class="clue-card">
                 <div class="clue-stage" id="clue-stage">STAGE 1</div>
                 <div class="clue-text" id="clue-text">読み札がここに表示されます</div>
             </div>
-            <div class="clue-controls">
-                <button class="clue-btn" id="btn-hint" title="ヒント">
-                    <svg viewBox="0 0 24 24" width="20" height="20">
-                        <path d="M12 2 L15 8 L22 9 L17 14 L18 21 L12 18 L6 21 L7 14 L2 9 L9 8 Z" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                </button>
-                <button class="clue-btn" id="btn-next-clue" title="次の情報">
-                    <svg viewBox="0 0 24 24" width="20" height="20">
-                        <path d="M5 4 L15 12 L5 20 Z" fill="currentColor"/>
-                        <path d="M15 4 L20 12 L15 20 Z" fill="currentColor" opacity="0.5"/>
-                    </svg>
-                </button>
-            </div>
         </div>
-        <main class="card-grid" id="card-grid"></main>
+
+        <main class="card-field" id="card-grid"></main>
+
         <footer class="game-footer">
             <button class="footer-btn" id="btn-skip">スキップ</button>
             <button class="footer-btn" id="btn-pause">一時停止</button>
         </footer>
     </div>
 
+    <!-- 設定画面 -->
     <div id="screen-settings" class="screen">
-        <button class="back-btn" data-back="screen-title">戻る</button>
+        <button class="back-btn" data-back="screen-title">×</button>
         <div class="settings-container">
             <h2 class="section-title">設定</h2>
             <div class="setting-item">
@@ -204,7 +134,34 @@
                     <option value="16">16枚</option>
                 </select>
             </div>
-            <button class="btn btn-danger" id="btn-reset-stats" style="margin-top: 20px; width: 100%;">統計データを初期化</button>
+            <button class="btn btn-danger" id="btn-reset-stats">統計データを初期化</button>
+        </div>
+    </div>
+
+    <!-- 統計画面 -->
+    <div id="screen-stats" class="screen">
+        <button class="back-btn" data-back="screen-title">×</button>
+        <div class="stats-container">
+            <h2 class="section-title">記録</h2>
+            <div class="profile-card">
+                <div class="profile-name">Player</div>
+                <div class="profile-rank">段位: 初心者</div>
+                <div class="profile-points">3000 pt</div>
+            </div>
+            <div class="stats-grid">
+                <div class="stat-item">
+                    <div class="stat-label">勝率</div>
+                    <div class="stat-value" id="stat-winrate">0%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">取得率</div>
+                    <div class="stat-value" id="stat-accuracy">0%</div>
+                </div>
+                <div class="stat-item">
+                    <div class="stat-label">プレイ回数</div>
+                    <div class="stat-value" id="stat-games">0</div>
+                </div>
+            </div>
         </div>
     </div>
 
