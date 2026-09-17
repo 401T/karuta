@@ -13,9 +13,6 @@
         <div class="bg-blur blur-2"></div>
         <div class="bg-blur blur-3"></div>
         <div class="bg-grid"></div>
-        <div class="lab-item flask"></div>
-        <div class="lab-item magnifier"></div>
-        <div class="lab-item card-stack"></div>
     </div>
 
     <div id="loading-screen" class="screen active">
@@ -41,7 +38,7 @@
                 <p class="title-sub">Chemical structure formula Karuta</p>
             </div>
             <div class="title-menu">
-                <button class="menu-icon-btn" data-next="screen-mode">
+                <button class="menu-icon-btn" data-next="screen-difficulty">
                     <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
                         <rect x="8" y="12" width="32" height="44" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
                         <rect x="24" y="8" width="32" height="44" rx="3" fill="none" stroke="currentColor" stroke-width="2.5"/>
@@ -50,23 +47,6 @@
                         <line x1="16" y1="40" x2="28" y2="40" stroke="currentColor" stroke-width="2"/>
                     </svg>
                     <span>プレイ</span>
-                </button>
-                <button class="menu-icon-btn">
-                    <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
-                        <circle cx="28" cy="28" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="38" y1="38" x2="54" y2="54" stroke="currentColor" stroke-width="3" stroke-linecap="round"/>
-                        <circle cx="28" cy="28" r="6" fill="none" stroke="currentColor" stroke-width="1.5"/>
-                    </svg>
-                    <span>構造式一覧</span>
-                </button>
-                <button class="menu-icon-btn">
-                    <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
-                        <path d="M20 32 L44 32" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                        <path d="M32 20 L32 44" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                        <circle cx="20" cy="32" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
-                        <circle cx="44" cy="32" r="4" fill="none" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                    <span>外部リンク</span>
                 </button>
                 <button class="menu-icon-btn" data-next="screen-settings">
                     <svg class="menu-svg" viewBox="0 0 64 64" width="48" height="48">
@@ -79,71 +59,8 @@
         </div>
     </div>
 
-    <div id="screen-mode" class="screen">
-        <button class="back-btn" data-back="screen-title">戻る</button>
-        <div class="network-container">
-            <svg class="network-lines" viewBox="0 0 100 100" preserveAspectRatio="none">
-                <line x1="50" y1="50" x2="20" y2="20" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-                <line x1="50" y1="50" x2="20" y2="80" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-                <line x1="50" y1="50" x2="80" y2="80" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-                <line x1="50" y1="50" x2="80" y2="20" stroke="rgba(255,255,255,0.3)" stroke-width="0.3"/>
-            </svg>
-            <div class="network-center">
-                <div class="center-circle">
-                    <svg class="center-molecule" viewBox="0 0 80 80" width="60" height="60">
-                        <circle cx="40" cy="20" r="6" fill="currentColor"/>
-                        <circle cx="20" cy="50" r="6" fill="currentColor"/>
-                        <circle cx="60" cy="50" r="6" fill="currentColor"/>
-                        <line x1="40" y1="20" x2="20" y2="50" stroke="currentColor" stroke-width="2"/>
-                        <line x1="40" y1="20" x2="60" y2="50" stroke="currentColor" stroke-width="2"/>
-                        <line x1="20" y1="50" x2="60" y2="50" stroke="currentColor" stroke-width="2"/>
-                    </svg>
-                    <h2>基本構造編</h2>
-                    <p>出題範囲を変更</p>
-                </div>
-            </div>
-            <div class="satellite-btn top-left" data-mode="cpu" data-next="screen-difficulty">
-                <div class="sat-circle">
-                    <svg class="sat-svg" viewBox="0 0 48 48" width="32" height="32">
-                        <path d="M10 38 L24 10 L28 14 L18 24 L28 24 L28 28 L18 28 L28 38 Z" fill="currentColor"/>
-                    </svg>
-                    <span class="sat-text">CPU対戦<br><small>VS CPU</small></span>
-                </div>
-            </div>
-            <div class="satellite-btn bottom-left" data-mode="challenge">
-                <div class="sat-circle">
-                    <svg class="sat-svg star-svg" viewBox="0 0 48 48" width="32" height="32">
-                        <path d="M24 6 L29 18 L42 18 L31 26 L35 39 L24 31 L13 39 L17 26 L6 18 L19 18 Z" fill="currentColor"/>
-                    </svg>
-                    <span class="sat-text">チャレンジ<br><small>CHALLENGE</small></span>
-                </div>
-            </div>
-            <div class="satellite-btn bottom-right" data-mode="timeattack">
-                <div class="sat-circle">
-                    <svg class="sat-svg" viewBox="0 0 48 48" width="32" height="32">
-                        <circle cx="24" cy="26" r="14" fill="none" stroke="currentColor" stroke-width="2.5"/>
-                        <line x1="24" y1="26" x2="24" y2="16" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                        <line x1="24" y1="26" x2="32" y2="26" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                        <line x1="20" y1="8" x2="28" y2="8" stroke="currentColor" stroke-width="2.5" stroke-linecap="round"/>
-                        <line x1="24" y1="4" x2="24" y2="8" stroke="currentColor" stroke-width="2.5"/>
-                    </svg>
-                    <span class="sat-text">タイムアタック<br><small>TIME ATTACK</small></span>
-                </div>
-            </div>
-            <div class="satellite-btn top-right" data-mode="ranking">
-                <div class="sat-circle">
-                    <svg class="sat-svg" viewBox="0 0 48 48" width="32" height="32">
-                        <path d="M10 16 L14 8 L20 12 L24 4 L28 12 L34 8 L38 16 L34 22 L38 30 L34 38 L24 42 L14 38 L10 30 L14 22 Z" fill="none" stroke="currentColor" stroke-width="2"/>
-                        <circle cx="24" cy="24" r="4" fill="currentColor"/>
-                    </svg>
-                    <span class="sat-text">ランキング<br><small>RANKING</small></span>
-                </div>
-            </div>
-        </div>
-    </div>
-
     <div id="screen-difficulty" class="screen">
-        <button class="back-btn" data-back="screen-mode">戻る</button>
+        <button class="back-btn" data-back="screen-title">戻る</button>
         <div class="difficulty-container">
             <h2 class="section-title">難易度</h2>
             <p class="section-subtitle">対戦する難易度を選択してください</p>
@@ -299,4 +216,3 @@
     <script src="app.js"></script>
 </body>
 </html>
-
