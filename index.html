@@ -113,12 +113,21 @@
     <div id="screen-game" class="screen">
         <div class="game-bg"></div>
         <header class="game-header">
-            <div class="player-info">
-                <div class="player-name">出札 自陣</div>
+            <div class="score-display">
+                <div class="score-box player-score">
+                    <div class="score-label">PLAYER</div>
+                    <div class="score-value" id="score-player">0</div>
+                </div>
             </div>
-            <div class="game-timer">
-                <div class="timer-label">TIME</div>
-                <div class="timer-value" id="timer">+0.000秒</div>
+            <div class="round-display">
+                <div class="round-label">出札</div>
+                <div class="round-value" id="round-display">1 / 10</div>
+            </div>
+            <div class="score-display">
+                <div class="score-box cpu-score">
+                    <div class="score-label">CPU</div>
+                    <div class="score-value" id="score-cpu">0</div>
+                </div>
             </div>
         </header>
         

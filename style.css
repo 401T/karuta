@@ -554,11 +554,105 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 10px 15px;
-    background: rgba(0,0,0,0.7);
+    padding: 10px 12px;
+    background: rgba(0,0,0,0.75);
     border-bottom: 2px solid var(--card-border);
     backdrop-filter: blur(8px);
     flex-shrink: 0;
+    gap: 10px;
+}
+
+.score-display {
+    display: flex;
+    align-items: center;
+    flex: 1;
+}
+
+.score-display:first-child {
+    justify-content: flex-start;
+}
+
+.score-display:last-child {
+    justify-content: flex-end;
+}
+
+.score-box {
+    background: var(--card-bg);
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    padding: 6px 14px;
+    min-width: 80px;
+    text-align: center;
+    box-shadow: 0 2px 6px rgba(0,0,0,0.25);
+}
+
+.score-box.player-score {
+    border-left: 5px solid var(--accent-green);
+}
+
+.score-box.cpu-score {
+    border-left: 5px solid var(--accent-red);
+}
+
+.score-label {
+    font-family: var(--font-display);
+    font-size: 0.65rem;
+    font-weight: 700;
+    letter-spacing: 0.15em;
+    color: var(--text-light);
+    margin-bottom: 2px;
+}
+
+.score-value {
+    font-family: var(--font-display);
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
+    font-weight: 900;
+    color: var(--text-dark);
+    line-height: 1.2;
+}
+
+.round-display {
+    text-align: center;
+    flex: 1.2;
+    padding: 0 5px;
+}
+
+.round-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    color: var(--card-bg);
+    margin-bottom: 2px;
+}
+
+.round-value {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 3vw, 1.3rem);
+    font-weight: 700;
+    color: var(--accent-gold);
+    line-height: 1.2;
+}
+
+/* スマホ向け調整 */
+@media (max-width: 480px) {
+    .game-header {
+        padding: 8px 10px;
+        gap: 6px;
+    }
+    
+    .score-box {
+        padding: 4px 10px;
+        min-width: 65px;
+    }
+    
+    .score-label {
+        font-size: 0.6rem;
+    }
+    
+    .round-label {
+        font-size: 0.65rem;
+    }
 }
 
 .player-info {
