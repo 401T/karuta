@@ -1983,3 +1983,16 @@ input:checked + .toggle-slider:before {
         font-size: 0.7rem;
     }
 }
+/* ローディングスピナー */
+.loading-spinner {
+    width: 40px;
+    height: 40px;
+    border: 4px solid var(--card-border);
+    border-top-color: var(--accent-gold);
+    border-radius: 50%;
+    animation: spin 1s linear infinite;
+}
+
+@keyframes spin {
+    to { transform: rotate(360deg); }
+}

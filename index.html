@@ -13,6 +13,9 @@
     <link rel="manifest" href="/site.webmanifest" />
 
     <link rel="stylesheet" href="style.css">
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-app-compat.js"></script>
+    <script src="https://www.gstatic.com/firebasejs/9.23.0/firebase-database-compat.js"></script>
+    <script src="online.js"></script>
 </head>
 <body>
     <!-- 全画面共通の畳背景 -->
@@ -38,6 +41,9 @@
             <nav class="title-menu">
                 <button class="menu-btn" data-next="screen-difficulty">
                     <span class="menu-text">対戦</span>
+                </button>
+                <button class="menu-btn" id="btn-online">
+                    <span class="menu-text">オンライン</span>
                 </button>
                 <button class="menu-btn" data-next="screen-stats">
                     <span class="menu-text">記録</span>
@@ -349,6 +355,8 @@
         </div>
     </div>
 
+    <script src="firebase-config.js"></script>
+    <script src="online.js"></script>
     <script src="renderer.js"></script>
     <script src="audio.js"></script>
     <script src="storage.js"></script>
