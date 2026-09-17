@@ -1,6 +1,8 @@
 /**
- * OnlineManager - オンライン対戦管理（改訂版）
- * ホストがゲーム状態を管理、ゲストは同期する
+ * OnlineManager - オンライン対戦管理（修正版）
+ * - ゲストはホストのゲーム開始を待つ
+ * - ルーム状態のクリーンアップ処理を追加
+ * - タイムアウト処理で「対戦中です」問題を解消
  */
 const OnlineManager = {
     db: null,
@@ -9,8 +11,9 @@ const OnlineManager = {
     playerId: null,
     roomRef: null,
     listeners: [],
-    onStateChange: null, // ゲーム状態変更コールバック
-    onOpponentTap: null, // 相手のタップコールバック
+    onStateChange: null,
+    onOpponentTap: null,
+    joinTimestamp: null, // 参加時刻（タイムアウト用）
 
     init() {
         if (typeof firebase === 'undefined') {
@@ -19,14 +22,13 @@ const OnlineManager = {
         }
         if (!firebase.apps.length) {
             const firebaseConfig = {
-            apiKey: "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8",
-            authDomain: "chem-karut.firebaseapp.com",
-            databaseURL: "https://chem-karut-default-rtdb.asia-southeast1.firebasedatabase.app",
-            projectId: "chem-karut",
-            storageBucket: "chem-karut.firebasestorage.app",
-            messagingSenderId: "283699409494",
-            appId: "1:283699409494:web:41a17f4c8551d0224c81f7",
-            measurementId: "G-8N22NYHZQZ"
+                apiKey: "YOUR_API_KEY",
+                authDomain: "YOUR_PROJECT.firebaseapp.com",
+                databaseURL: "https://YOUR_PROJECT-default-rtdb.firebaseio.com",
+                projectId: "YOUR_PROJECT_ID",
+                storageBucket: "YOUR_PROJECT.appspot.com",
+                messagingSenderId: "YOUR_SENDER_ID",
+                appId: "YOUR_APP_ID"
             };
             firebase.initializeApp(firebaseConfig);
         }
@@ -47,7 +49,6 @@ const OnlineManager = {
             guest: null,
             status: 'waiting',
             settings: settings,
-            // ゲーム状態（ホストが更新）
             gameState: {
                 round: 0,
                 totalRounds: 10,
@@ -55,9 +56,8 @@ const OnlineManager = {
                 cards: [],
                 target: null,
                 scores: { player: 0, opponent: 0 },
-                phase: 'waiting' // waiting, dealing, reading, result, finished
+                phase: 'waiting'
             },
-            // タップ履歴
             taps: {},
             createdAt: firebase.database.ServerValue.TIMESTAMP,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
@@ -68,6 +68,7 @@ const OnlineManager = {
         this.currentRoom = roomId;
         this.isHost = true;
         this.roomRef = roomRef;
+        this.joinTimestamp = Date.now();
 
         console.log('Room created:', roomId);
         return roomId;
@@ -84,7 +85,15 @@ const OnlineManager = {
 
         const roomData = snapshot.val();
 
-        if (roomData.status !== 'waiting') {
+        // ルーム状態のチェックとクリーンアップ
+        if (roomData.status === 'playing' && !roomData.guest) {
+            // ゲストがいないのにplaying状態 → クリーンアップ
+            console.warn('Room is in playing state but no guest. Cleaning up...');
+            await roomRef.update({
+                status: 'waiting',
+                updatedAt: firebase.database.ServerValue.TIMESTAMP
+            });
+        } else if (roomData.status === 'playing' && roomData.guest) {
             throw new Error('このルームは対戦中です');
         }
 
@@ -101,6 +110,7 @@ const OnlineManager = {
         this.currentRoom = roomId;
         this.isHost = false;
         this.roomRef = roomRef;
+        this.joinTimestamp = Date.now();
 
         console.log('Joined room:', roomId);
         return true;
@@ -114,16 +124,63 @@ const OnlineManager = {
         const roomData = snapshot.val();
 
         if (this.isHost) {
+            // ホストが退出 → ルームを削除
             await this.roomRef.remove();
         } else {
+            // ゲストが退出 → ステータスをwaitingに戻す
             await this.roomRef.update({
                 guest: null,
                 status: 'waiting',
+                gameState: {
+                    phase: 'waiting'
+                },
+                taps: {},
                 updatedAt: firebase.database.ServerValue.TIMESTAMP
             });
         }
 
         this.cleanup();
+    },
+
+    /**
+     * ルーム状態の監視（ゲーム状態変更）
+     */
+    onRoomUpdate(callback) {
+        if (!this.roomRef) return;
+        this.onStateChange = callback;
+
+        const listener = this.roomRef.child('gameState').on('value', (snapshot) => {
+            if (snapshot.exists() && callback) {
+                callback(snapshot.val());
+            }
+        });
+
+        this.listeners.push({ ref: this.roomRef.child('gameState'), event: 'value', callback: listener });
+    },
+
+    /**
+     * タップの監視
+     */
+    onTaps(callback) {
+        if (!this.roomRef) return;
+        this.onOpponentTap = callback;
+
+        const listener = this.roomRef.child('taps').on('value', (snapshot) => {
+            if (snapshot.exists() && callback) {
+                const taps = snapshot.val();
+                const opponentTaps = {};
+                for (const pid in taps) {
+                    if (pid !== this.playerId) {
+                        opponentTaps[pid] = taps[pid];
+                    }
+                }
+                if (Object.keys(opponentTaps).length > 0) {
+                    callback(opponentTaps);
+                }
+            }
+        });
+
+        this.listeners.push({ ref: this.roomRef.child('taps'), event: 'value', callback: listener });
     },
 
     /**
@@ -215,50 +272,6 @@ const OnlineManager = {
         await this.roomRef.child('taps').remove();
     },
 
-    /**
-     * ルーム状態の監視（ゲーム状態変更）
-     */
-    onRoomUpdate(callback) {
-        if (!this.roomRef) return;
-        this.onStateChange = callback;
-
-        const listener = this.roomRef.child('gameState').on('value', (snapshot) => {
-            if (snapshot.exists() && callback) {
-                callback(snapshot.val());
-            }
-        });
-
-        this.listeners.push({ ref: this.roomRef.child('gameState'), event: 'value', callback: listener });
-    },
-
-    /**
-     * タップの監視
-     */
-    onTaps(callback) {
-        if (!this.roomRef) return;
-        this.onOpponentTap = callback;
-
-        const listener = this.roomRef.child('taps').on('value', (snapshot) => {
-            if (snapshot.exists() && callback) {
-                const taps = snapshot.val();
-                // 自分のタップ以外のものを検出
-                const opponentId = this.isHost ? 'guest' : 'host';
-                // 実際にはplayerIdで判断
-                const opponentTaps = {};
-                for (const pid in taps) {
-                    if (pid !== this.playerId) {
-                        opponentTaps[pid] = taps[pid];
-                    }
-                }
-                if (Object.keys(opponentTaps).length > 0) {
-                    callback(opponentTaps);
-                }
-            }
-        });
-
-        this.listeners.push({ ref: this.roomRef.child('taps'), event: 'value', callback: listener });
-    },
-
     generateRoomId() {
         return Math.random().toString(36).substr(2, 6).toUpperCase();
     },
@@ -272,5 +285,6 @@ const OnlineManager = {
         this.roomRef = null;
         this.onStateChange = null;
         this.onOpponentTap = null;
+        this.joinTimestamp = null;
     }
 };

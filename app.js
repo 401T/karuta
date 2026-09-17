@@ -270,7 +270,7 @@ class App {
     }
 
     /**
-     * オンラインルーム参加（ゲスト）
+     * オンラインルーム参加（ゲスト）- 修正版
      */
     async joinOnlineRoom() {
         try {
@@ -288,10 +288,17 @@ class App {
             const onlineMenu = document.getElementById('online-menu-modal');
             if (onlineMenu) onlineMenu.remove();
 
+            // 待機画面を表示（ホストがゲームを開始するまで待つ）
+            this.showWaitingRoomForGuest(roomId);
+
             // ルーム状態を監視
-            OnlineManager.onRoomUpdate((roomData) => {
-                if (roomData.gameState && roomData.gameState.phase !== 'waiting') {
-                    this.startOnlineGame(roomData);
+            OnlineManager.onRoomUpdate((gameState) => {
+                if (gameState && gameState.phase !== 'waiting') {
+                    // ホストがゲームを開始した
+                    this.startOnlineGame({
+                        gameState: gameState,
+                        settings: OnlineManager.currentRoom ? { cardCount: 9, categories: [] } : {}
+                    });
                 }
             });
 
@@ -302,16 +309,16 @@ class App {
     }
 
     /**
-     * 待機画面表示
+     * ゲスト用待機画面
      */
-    showWaitingRoom(roomId) {
+    showWaitingRoomForGuest(roomId) {
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'waiting-room-modal';
         modal.innerHTML = `
             <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">対戦相手を待っています...</h2>
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">ホストの開始を待っています...</h2>
                 
                 <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
                     <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
@@ -319,7 +326,7 @@ class App {
                 </div>
 
                 <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
-                    上記のルームIDを対戦相手に共有してください
+                    ホストがゲームを開始するまでお待ちください
                 </p>
 
                 <div class="loading-spinner" style="margin: 20px auto;"></div>
@@ -337,7 +344,7 @@ class App {
     }
 
     /**
-     * オンラインゲーム開始
+     * オンラインゲーム開始 - 修正版
      */
     startOnlineGame(roomData) {
         const waitingModal = document.getElementById('waiting-room-modal');
@@ -361,7 +368,7 @@ class App {
         if (playerLabel) playerLabel.textContent = 'あなた';
         if (cpuLabel) cpuLabel.textContent = '相手';
 
-        // ホストの場合、ゲームを開始
+        // ホストの場合のみゲームを開始
         if (this.isHost) {
             const settings = {
                 mode: 'online',
