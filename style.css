@@ -1,6 +1,29 @@
 /* ========================================
    化学構造式かるた - ダーク×ネオンテーマ
+   筑紫ゴシック適用版
    ======================================== */
+
+/* ========================================
+   筑紫ゴシックの読み込み設定
+   ======================================== */
+
+/* 本文用（Regular: 標準の太さ） */
+@font-face {
+    font-family: 'TsukuGo';
+    src: url('./fonts/FOT-TsukuGoPro-R.otf') format('opentype');
+    font-weight: normal;
+    font-style: normal;
+    font-display: swap;
+}
+
+/* 見出し用（Bold: 太字） */
+@font-face {
+    font-family: 'TsukuGo';
+    src: url('./fonts/FOT-TsukuGoPro-B.otf') format('opentype');
+    font-weight: bold;
+    font-style: normal;
+    font-display: swap;
+}
 
 * {
     margin: 0;
@@ -10,6 +33,7 @@
 }
 
 :root {
+    /* カラーパレット：ダーク×ネオンテーマ */
     --bg-dark: #1a202c;
     --bg-darker: #0f1419;
     --accent-cyan: #00f0ff;
@@ -21,6 +45,10 @@
     --card-border: rgba(255, 255, 255, 0.2);
     --success: #00ff88;
     --danger: #ff3366;
+
+    /* フォント設定：筑紫ゴシックを最優先 */
+    --font-main: 'TsukuGo', 'Hiragino Kaku Gothic ProN', 'Yu Gothic', 'Meiryo', sans-serif;
+    --font-display: 'TsukuGo', 'Orbitron', 'Hiragino Sans', sans-serif;
 }
 
 html, body {
@@ -29,14 +57,35 @@ html, body {
 }
 
 body {
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: var(--font-main);
+    font-weight: normal;
     background: var(--bg-dark);
     color: var(--text-white);
     overflow: hidden;
     position: relative;
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
-/* 背景装飾 */
+/* 見出し・強調要素には自動的に Bold を適用 */
+h1, h2, h3, h4,
+.score-value,
+.timer,
+.section-title,
+.title-main,
+.diff-card h3,
+.center-circle h2,
+.btn,
+.modal-title,
+.result-title {
+    font-family: var(--font-display);
+    font-weight: bold;
+}
+
+/* ========================================
+   背景装飾
+   ======================================== */
+
 .bg-decoration {
     position: fixed;
     top: 0;
@@ -105,50 +154,10 @@ body {
     background-size: 60px 60px;
 }
 
-.lab-item {
-    position: absolute;
-    opacity: 0.08;
-}
+/* ========================================
+   画面共通
+   ======================================== */
 
-.flask {
-    width: 150px;
-    height: 200px;
-    bottom: 50px;
-    right: 100px;
-    background: linear-gradient(135deg, transparent 40%, rgba(0,240,255,0.3) 50%, transparent 60%);
-    clip-path: polygon(30% 0%, 70% 0%, 100% 100%, 0% 100%);
-    animation: rotate 30s infinite linear;
-}
-
-.magnifier {
-    width: 200px;
-    height: 200px;
-    top: 100px;
-    left: 50px;
-    border: 8px solid rgba(255,255,255,0.3);
-    border-radius: 50%;
-    animation: float 15s infinite ease-in-out;
-}
-
-.card-stack {
-    width: 120px;
-    height: 160px;
-    top: 50%;
-    right: 150px;
-    background: rgba(255,255,255,0.1);
-    border-radius: 8px;
-    transform: rotate(15deg);
-    box-shadow: 
-        -10px 10px 0 rgba(255,255,255,0.05),
-        -20px 20px 0 rgba(255,255,255,0.03);
-}
-
-@keyframes rotate {
-    from { transform: rotate(0deg); }
-    to { transform: rotate(360deg); }
-}
-
-/* 画面共通 */
 .screen {
     position: fixed;
     top: 0;
@@ -169,7 +178,10 @@ body {
     to { opacity: 1; transform: translateY(0); }
 }
 
-/* ローディング */
+/* ========================================
+   ローディング
+   ======================================== */
+
 .loading-content {
     display: flex;
     flex-direction: column;
@@ -198,7 +210,7 @@ body {
 }
 
 .loading-title {
-    font-family: 'Orbitron', sans-serif;
+    font-family: var(--font-display);
     font-size: 2rem;
     letter-spacing: 0.3em;
     color: var(--accent-cyan);
@@ -224,7 +236,15 @@ body {
     to { width: 100%; }
 }
 
-/* タイトル画面 */
+@keyframes rotate {
+    from { transform: rotate(0deg); }
+    to { transform: rotate(360deg); }
+}
+
+/* ========================================
+   タイトル画面
+   ======================================== */
+
 .version-tag {
     position: absolute;
     top: 20px;
@@ -265,7 +285,7 @@ body {
     font-size: 1rem;
     color: var(--text-gray);
     letter-spacing: 0.3em;
-    font-weight: 300;
+    font-weight: 400;
 }
 
 .title-menu {
@@ -289,6 +309,7 @@ body {
     cursor: pointer;
     transition: all 0.3s;
     padding: 10px;
+    font-family: var(--font-main);
 }
 
 .menu-icon-btn:hover {
@@ -310,7 +331,10 @@ body {
     letter-spacing: 0.1em;
 }
 
-/* 戻るボタン */
+/* ========================================
+   戻るボタン
+   ======================================== */
+
 .back-btn {
     position: absolute;
     top: 20px;
@@ -325,6 +349,7 @@ body {
     font-size: 0.9rem;
     transition: all 0.3s;
     backdrop-filter: blur(5px);
+    font-family: var(--font-main);
 }
 
 .back-btn:hover {
@@ -333,125 +358,10 @@ body {
     transform: translateX(-3px);
 }
 
-/* モード選択（分子ネットワーク） */
-.network-container {
-    position: relative;
-    flex: 1;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
+/* ========================================
+   難易度選択
+   ======================================== */
 
-.network-lines {
-    position: absolute;
-    width: 100%;
-    height: 100%;
-    pointer-events: none;
-}
-
-.network-center {
-    position: absolute;
-    z-index: 2;
-}
-
-.center-circle {
-    width: 220px;
-    height: 220px;
-    background: rgba(0,0,0,0.7);
-    border: 3px solid var(--text-white);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    box-shadow: 0 0 40px rgba(255,255,255,0.2);
-    cursor: pointer;
-    transition: all 0.3s;
-}
-
-.center-circle:hover {
-    transform: scale(1.05);
-    box-shadow: 0 0 60px rgba(0,240,255,0.4);
-    border-color: var(--accent-cyan);
-}
-
-.center-molecule {
-    color: var(--accent-cyan);
-    margin-bottom: 15px;
-}
-
-.center-circle h2 {
-    font-size: 1.5rem;
-    margin-bottom: 8px;
-    font-weight: 700;
-}
-
-.center-circle p {
-    font-size: 0.85rem;
-    color: var(--text-gray);
-}
-
-.satellite-btn {
-    position: absolute;
-    cursor: pointer;
-    transition: all 0.3s;
-    z-index: 3;
-}
-
-.satellite-btn:hover {
-    transform: scale(1.15);
-}
-
-.top-left { top: 8%; left: 8%; }
-.bottom-left { bottom: 8%; left: 8%; }
-.bottom-right { bottom: 8%; right: 8%; }
-.top-right { top: 8%; right: 8%; }
-
-.sat-circle {
-    width: 140px;
-    height: 140px;
-    background: rgba(0,0,0,0.7);
-    border: 2.5px solid var(--text-white);
-    border-radius: 50%;
-    display: flex;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 15px;
-    box-shadow: 0 0 20px rgba(255,255,255,0.1);
-    transition: all 0.3s;
-}
-
-.satellite-btn:hover .sat-circle {
-    border-color: var(--accent-cyan);
-    box-shadow: 0 0 30px rgba(0,240,255,0.3);
-}
-
-.sat-svg {
-    color: var(--text-white);
-    margin-bottom: 10px;
-}
-
-.star-svg {
-    color: var(--accent-yellow);
-}
-
-.sat-text {
-    font-size: 0.95rem;
-    line-height: 1.4;
-    font-weight: 600;
-}
-
-.sat-text small {
-    font-size: 0.7rem;
-    color: var(--text-gray);
-    font-weight: 400;
-    letter-spacing: 0.05em;
-}
-
-/* 難易度選択 */
 .difficulty-container {
     flex: 1;
     display: flex;
@@ -499,6 +409,7 @@ body {
     transition: all 0.3s;
     color: var(--text-white);
     overflow: hidden;
+    font-family: var(--font-main);
 }
 
 .card-corner {
@@ -565,7 +476,10 @@ body {
     line-height: 1.8;
 }
 
-/* ゲーム画面 */
+/* ========================================
+   ゲーム画面
+   ======================================== */
+
 .game-header {
     display: flex;
     justify-content: space-between;
@@ -600,7 +514,7 @@ body {
 .score-value {
     font-size: 1.8rem;
     font-weight: 700;
-    font-family: 'Orbitron', sans-serif;
+    font-family: var(--font-display);
 }
 
 .player .score-value { color: var(--accent-cyan); text-shadow: 0 0 10px var(--accent-cyan); }
@@ -620,7 +534,7 @@ body {
 }
 
 .timer {
-    font-family: 'Orbitron', sans-serif;
+    font-family: var(--font-display);
     font-size: 1.4rem;
     font-weight: 700;
     color: var(--accent-yellow);
@@ -901,7 +815,7 @@ body {
     padding: 12px 28px;
     border-radius: 8px;
     cursor: pointer;
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: var(--font-main);
     font-size: 0.9rem;
     font-weight: 600;
     transition: all 0.3s;
@@ -913,7 +827,10 @@ body {
     transform: translateY(-2px);
 }
 
-/* 設定画面 */
+/* ========================================
+   設定画面
+   ======================================== */
+
 .settings-container {
     flex: 1;
     padding: 100px 40px 40px;
@@ -996,7 +913,7 @@ input:checked + .toggle-slider:before {
     padding: 10px 16px;
     color: var(--text-white);
     font-size: 0.95rem;
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: var(--font-main);
     cursor: pointer;
     transition: all 0.3s;
 }
@@ -1011,14 +928,17 @@ input:checked + .toggle-slider:before {
     box-shadow: 0 0 10px rgba(0,240,255,0.3);
 }
 
-/* ボタン */
+/* ========================================
+   ボタン
+   ======================================== */
+
 .btn {
     padding: 14px 32px;
     border: none;
     border-radius: 8px;
     font-size: 1rem;
     font-weight: 600;
-    font-family: 'Noto Sans JP', sans-serif;
+    font-family: var(--font-main);
     cursor: pointer;
     transition: all 0.3s;
     display: inline-flex;
@@ -1066,7 +986,10 @@ input:checked + .toggle-slider:before {
     margin-top: 30px;
 }
 
-/* スクロールバー */
+/* ========================================
+   スクロールバー
+   ======================================== */
+
 ::-webkit-scrollbar {
     width: 8px;
 }
@@ -1084,7 +1007,10 @@ input:checked + .toggle-slider:before {
     background: var(--accent-cyan);
 }
 
-/* レスポンシブ */
+/* ========================================
+   レスポンシブ
+   ======================================== */
+
 @media (max-width: 768px) {
     .title-main {
         font-size: 2.5rem;
@@ -1104,16 +1030,6 @@ input:checked + .toggle-slider:before {
     .diff-card {
         padding: 25px 15px;
     }
-    
-    .sat-circle {
-        width: 110px;
-        height: 110px;
-    }
-    
-    .center-circle {
-        width: 180px;
-        height: 180px;
-    }
 }
 
 @media (max-width: 480px) {
@@ -1127,20 +1043,6 @@ input:checked + .toggle-slider:before {
     
     .difficulty-grid {
         grid-template-columns: 1fr;
-    }
-    
-    .satellite-btn {
-        position: relative;
-        top: auto !important;
-        left: auto !important;
-        right: auto !important;
-        bottom: auto !important;
-        margin: 10px;
-    }
-    
-    .network-container {
-        flex-direction: column;
-        padding: 20px;
     }
 }
 
