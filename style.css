@@ -1,6 +1,6 @@
 /* ========================================
    化学構造式かるた - 競技かるたONLINE風
-   筑紫ゴシック適用版
+   筑紫ゴシック完全適用版
    ======================================== */
 
 /* ========================================
@@ -23,11 +23,16 @@
     font-display: swap;
 }
 
+/* ========================================
+   リセット・ベース
+   ======================================== */
+
 * {
     margin: 0;
     padding: 0;
     box-sizing: border-box;
     -webkit-tap-highlight-color: transparent;
+    font-family: 'TsukuGo', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 }
 
 :root {
@@ -43,9 +48,9 @@
     --accent-red: #8b2020;
     --text-dark: #1a1a1a;
     --text-light: #555;
-    --overlay-dark: rgba(10, 15, 20, 0.85);
+    --overlay-dark: rgba(10, 15, 20, 0.88);
     
-    /* フォント設定 */
+    /* 筑紫ゴシック（全要素に適用） */
     --font-main: 'TsukuGo', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
     --font-display: 'TsukuGo', 'Hiragino Kaku Gothic ProN', sans-serif;
 }
@@ -53,15 +58,16 @@
 html, body {
     height: 100%;
     overflow: hidden;
+    font-family: var(--font-main);
 }
 
 body {
-    font-family: var(--font-main);
     background: #1a1a1a;
     color: var(--text-dark);
     overflow: hidden;
     position: relative;
     -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
 }
 
 /* ========================================
@@ -117,6 +123,7 @@ body {
     display: none;
     flex-direction: column;
     animation: fadeIn 0.4s ease-out;
+    font-family: var(--font-main);
 }
 
 .screen.active {
@@ -270,6 +277,7 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    font-family: var(--font-display);
 }
 
 .menu-btn::before {
@@ -320,20 +328,23 @@ body {
     border: 2px solid var(--card-bg);
     border-radius: 2px;
     color: var(--card-bg);
-    font-size: 1.5rem;
     cursor: pointer;
     z-index: 10;
     transition: all 0.3s;
     display: flex;
     align-items: center;
     justify-content: center;
-    font-family: var(--font-display);
 }
 
 .back-btn:hover {
     background: var(--accent-red);
     border-color: var(--accent-red);
     transform: scale(1.05);
+}
+
+.back-btn svg {
+    width: 24px;
+    height: 24px;
 }
 
 /* ========================================
@@ -368,35 +379,39 @@ body {
     margin-bottom: 50px;
     font-size: 1rem;
     letter-spacing: 0.1em;
+    font-family: var(--font-main);
 }
 
-.difficulty-grid {
-    display: grid;
-    grid-template-columns: repeat(2, 1fr);
-    gap: 20px;
-    max-width: 600px;
+.difficulty-list {
+    display: flex;
+    flex-direction: column;
+    gap: 16px;
     width: 100%;
+    max-width: 400px;
+    margin-bottom: 30px;
 }
 
-.diff-card {
-    position: relative;
+.diff-btn {
+    display: flex;
+    align-items: center;
+    gap: 20px;
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-border);
     border-radius: 2px;
-    padding: 30px 20px;
-    text-align: center;
+    padding: 20px 30px;
+    color: var(--card-bg);
     cursor: pointer;
     transition: all 0.3s;
-    color: var(--card-bg);
+    font-family: var(--font-display);
 }
 
-.diff-card:hover {
+.diff-btn:hover {
     border-color: var(--accent-gold);
-    transform: translateY(-4px);
-    box-shadow: 0 8px 20px rgba(0,0,0,0.4);
+    transform: translateX(4px);
+    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
 }
 
-.diff-card.selected {
+.diff-btn.selected {
     border-color: var(--accent-gold);
     border-width: 3px;
     background: rgba(74, 106, 58, 0.3);
@@ -404,47 +419,40 @@ body {
 }
 
 .diff-icon {
-    width: 60px;
-    height: 60px;
-    margin: 0 auto 15px;
-    display: flex;
-    align-items: center;
-    justify-content: center;
-}
-
-.diff-icon svg {
-    width: 100%;
-    height: 100%;
+    width: 48px;
+    height: 48px;
+    flex-shrink: 0;
     color: var(--accent-gold);
 }
 
-.diff-card h3 {
+.diff-text {
     font-size: 1.5rem;
-    margin-bottom: 15px;
     font-weight: 700;
-    color: var(--card-bg);
-    letter-spacing: 0.15em;
+    letter-spacing: 0.2em;
 }
 
-.diff-card.selected h3 {
+.diff-btn.selected .diff-text {
     color: var(--accent-gold);
 }
 
-.diff-line {
-    width: 60px;
-    height: 2px;
-    background: var(--card-border);
-    margin: 15px auto;
+.next-btn {
+    background: var(--accent-green);
+    border: 2px solid var(--accent-gold);
+    color: var(--card-bg);
+    padding: 16px 48px;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    font-size: 1.2rem;
+    font-weight: 700;
+    letter-spacing: 0.2em;
+    cursor: pointer;
+    transition: all 0.3s;
 }
 
-.diff-card.selected .diff-line {
+.next-btn:hover {
     background: var(--accent-gold);
-}
-
-.diff-card p {
-    font-size: 0.85rem;
-    color: rgba(255,255,255,0.7);
-    line-height: 1.8;
+    color: var(--text-dark);
+    transform: translateY(-2px);
 }
 
 /* ========================================
@@ -523,6 +531,7 @@ body {
     color: rgba(255,255,255,0.6);
     letter-spacing: 0.15em;
     margin-bottom: 2px;
+    font-family: var(--font-display);
 }
 
 .timer-value {
@@ -533,18 +542,63 @@ body {
     font-variant-numeric: tabular-nums;
 }
 
+/* 読み札表示エリア（履歴付き） */
 .clue-display {
-    padding: 20px 25px;
+    padding: 15px 25px;
     background: rgba(0,0,0,0.6);
     border-bottom: 2px solid var(--card-border);
     backdrop-filter: blur(8px);
+    max-height: 200px;
+    overflow-y: auto;
 }
 
+/* 過去のstage履歴 */
+.clue-history {
+    display: flex;
+    flex-direction: column;
+    gap: 6px;
+    margin-bottom: 10px;
+}
+
+.clue-history-item {
+    background: rgba(250, 248, 240, 0.15);
+    border-left: 3px solid var(--card-border-light);
+    padding: 8px 12px;
+    border-radius: 2px;
+    font-size: 0.85rem;
+    color: rgba(250, 248, 240, 0.7);
+    line-height: 1.6;
+    font-family: var(--font-main);
+    animation: slideIn 0.3s ease-out;
+}
+
+@keyframes slideIn {
+    from { 
+        opacity: 0; 
+        transform: translateX(-10px); 
+    }
+    to { 
+        opacity: 1; 
+        transform: translateX(0); 
+    }
+}
+
+.clue-history-item .stage-label {
+    font-family: var(--font-display);
+    font-size: 0.7rem;
+    font-weight: 700;
+    color: rgba(250, 248, 240, 0.5);
+    letter-spacing: 0.1em;
+    margin-bottom: 3px;
+    display: block;
+}
+
+/* 現在のstage */
 .clue-card {
     background: var(--card-bg);
     border: 3px solid var(--card-border);
     border-radius: 2px;
-    padding: 20px 24px;
+    padding: 16px 20px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     position: relative;
 }
@@ -565,15 +619,47 @@ body {
     font-size: 0.85rem;
     color: var(--accent-green);
     font-weight: 700;
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     letter-spacing: 0.15em;
 }
 
 .clue-text {
-    font-size: 1.15rem;
+    font-size: 1.1rem;
     line-height: 1.8;
     color: var(--text-dark);
     font-weight: 500;
+    font-family: var(--font-main);
+}
+
+.clue-controls {
+    display: flex;
+    gap: 10px;
+    margin-top: 12px;
+    justify-content: flex-end;
+}
+
+.clue-btn {
+    width: 40px;
+    height: 40px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    background: rgba(0,0,0,0.5);
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    color: var(--card-bg);
+    cursor: pointer;
+    transition: all 0.3s;
+}
+
+.clue-btn:hover {
+    background: var(--accent-green);
+    border-color: var(--accent-gold);
+}
+
+.clue-btn svg {
+    width: 20px;
+    height: 20px;
 }
 
 .card-field {
@@ -703,6 +789,7 @@ body {
 .loading-text {
     font-size: 0.7rem;
     color: var(--text-light);
+    font-family: var(--font-main);
 }
 
 .card-fallback {
@@ -720,11 +807,13 @@ body {
     color: var(--text-dark);
     line-height: 1.4;
     margin-bottom: 4px;
+    font-family: var(--font-main);
 }
 
 .card-fallback .compound-formula {
     font-size: 0.7rem;
     color: var(--text-light);
+    font-family: var(--font-main);
 }
 
 .game-footer {
@@ -774,6 +863,8 @@ body {
     border-radius: 2px;
     box-shadow: 0 8px 24px rgba(0,0,0,0.5);
     backdrop-filter: blur(10px);
+    overflow-y: auto;
+    font-family: var(--font-main);
 }
 
 .settings-container .section-title,
@@ -781,21 +872,63 @@ body {
     text-align: center;
     margin-bottom: 30px;
     font-size: 2rem;
+    font-family: var(--font-display);
+}
+
+.setting-section {
+    margin-bottom: 30px;
+}
+
+.setting-section-title {
+    font-family: var(--font-display);
+    font-size: 1.1rem;
+    color: var(--accent-gold);
+    letter-spacing: 0.15em;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
 }
 
 .setting-item {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 18px 20px;
-    border-bottom: 1px solid rgba(255,255,255,0.1);
+    padding: 14px 16px;
+    border-bottom: 1px solid rgba(255,255,255,0.08);
     color: var(--card-bg);
+    font-family: var(--font-main);
 }
 
 .setting-label {
     font-size: 1rem;
     font-weight: 500;
     letter-spacing: 0.1em;
+    font-family: var(--font-main);
+}
+
+/* 音量スライダー */
+.volume-slider {
+    width: 120px;
+    height: 8px;
+    background: rgba(255,255,255,0.1);
+    border: 1px solid var(--card-border);
+    border-radius: 1px;
+    position: relative;
+    margin: 0 15px;
+}
+
+.volume-bar {
+    height: 100%;
+    background: var(--accent-red);
+    border-radius: 1px;
+}
+
+.volume-value {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    color: var(--card-bg);
+    min-width: 20px;
+    text-align: right;
 }
 
 .toggle {
@@ -898,6 +1031,8 @@ input:checked + .toggle-slider:before {
     background: var(--accent-red);
     color: var(--card-bg);
     border: 2px solid #a03030;
+    width: 100%;
+    margin-top: 20px;
 }
 
 .btn-danger:hover {
@@ -935,6 +1070,7 @@ input:checked + .toggle-slider:before {
     color: var(--accent-gold);
     margin-bottom: 10px;
     letter-spacing: 0.1em;
+    font-family: var(--font-main);
 }
 
 .profile-points {
@@ -963,6 +1099,7 @@ input:checked + .toggle-slider:before {
     color: rgba(255,255,255,0.7);
     margin-bottom: 10px;
     letter-spacing: 0.1em;
+    font-family: var(--font-main);
 }
 
 .stat-value {
@@ -977,7 +1114,7 @@ input:checked + .toggle-slider:before {
    ======================================== */
 
 .modal-screen {
-    background: rgba(0,0,0,0.8);
+    background: rgba(0,0,0,0.85);
     backdrop-filter: blur(8px);
     align-items: center;
     justify-content: center;
@@ -1014,8 +1151,7 @@ input:checked + .toggle-slider:before {
         font-size: 2.2rem;
     }
     
-    .difficulty-grid {
-        grid-template-columns: 1fr;
+    .difficulty-list {
         max-width: 320px;
     }
     
@@ -1049,6 +1185,10 @@ input:checked + .toggle-slider:before {
     
     .card-field {
         grid-template-columns: repeat(3, 1fr);
+    }
+    
+    .diff-text {
+        font-size: 1.2rem;
     }
 }
 

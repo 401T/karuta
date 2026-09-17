@@ -1,6 +1,7 @@
 /**
  * App - メインアプリケーションクラス
  * 画面遷移、ゲーム制御、UI更新を統合管理
+ * 絵文字不使用・筑紫ゴシック統一・読み札履歴表示対応
  */
 class App {
     constructor() {
@@ -9,7 +10,6 @@ class App {
         this.selectedDifficulty = 3;
         this.timerInterval = null;
         this.gameStartTime = 0;
-        this.lastTapTime = 0;
         
         this.init();
     }
@@ -89,22 +89,18 @@ class App {
             });
         });
 
-        // 難易度カード (シングルタップで選択、ダブルタップで開始)
-        document.querySelectorAll('.diff-card').forEach(card => {
-            card.addEventListener('click', (e) => {
-                const now = Date.now();
-                const timeDiff = now - this.lastTapTime;
-                
-                document.querySelectorAll('.diff-card').forEach(c => c.classList.remove('selected'));
+        // 難易度ボタン（クリックで選択）
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.addEventListener('click', (e) => {
+                document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
                 e.currentTarget.classList.add('selected');
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
-                
-                if (timeDiff < 300 && timeDiff > 0) {
-                    this.startGame();
-                }
-                
-                this.lastTapTime = now;
             });
+        });
+
+        // 「次へ」ボタンでゲーム開始
+        document.getElementById('btn-start-difficulty').addEventListener('click', () => {
+            this.startGame();
         });
 
         // ゲーム画面の操作
@@ -123,6 +119,14 @@ class App {
         document.getElementById('btn-pause').addEventListener('click', () => {
             this.engine.pause();
             this.showScreen('screen-title');
+        });
+
+        document.getElementById('btn-hint').addEventListener('click', () => {
+            this.showHint();
+        });
+
+        document.getElementById('btn-next-clue').addEventListener('click', () => {
+            this.engine.nextClue();
         });
 
         // 設定
@@ -149,10 +153,10 @@ class App {
     }
 
     updateDifficultySelection() {
-        document.querySelectorAll('.diff-card').forEach(card => {
-            card.classList.remove('selected');
-            if (parseInt(card.dataset.level) === this.selectedDifficulty) {
-                card.classList.add('selected');
+        document.querySelectorAll('.diff-btn').forEach(btn => {
+            btn.classList.remove('selected');
+            if (parseInt(btn.dataset.level) === this.selectedDifficulty) {
+                btn.classList.add('selected');
             }
         });
     }
@@ -178,6 +182,7 @@ class App {
         switch (data.state) {
             case 'DEAL':
                 await this.renderCards(data.round.cards);
+                document.getElementById('clue-history').innerHTML = '';
                 document.getElementById('clue-stage').textContent = 'STAGE 1';
                 document.getElementById('clue-text').textContent = '読み札が始まります';
                 break;
@@ -236,6 +241,9 @@ class App {
         this.engine.startReading();
     }
 
+    /**
+     * 読み札の履歴表示（過去のstageを累積）
+     */
     updateClueWithHistory(round) {
         const clueData = this.engine.clues[round.target.id];
         if (!clueData) return;
@@ -243,8 +251,43 @@ class App {
         const currentStageData = clueData.stages.find(s => s.stage === round.currentStage);
         
         if (currentStageData) {
+            // 現在のstageを表示
             document.getElementById('clue-stage').textContent = `STAGE ${round.currentStage}`;
             document.getElementById('clue-text').textContent = currentStageData.text;
+
+            // 前のstageを履歴に追加（重複チェック）
+            const historyDiv = document.getElementById('clue-history');
+            const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
+            const alreadyExists = existingStages.some(item => 
+                item.dataset.stage === String(round.currentStage)
+            );
+
+            if (!alreadyExists && round.currentStage > 1) {
+                const prevStage = round.currentStage - 1;
+                const prevStageData = clueData.stages.find(s => s.stage === prevStage);
+                
+                if (prevStageData) {
+                    const historyItem = document.createElement('div');
+                    historyItem.className = 'clue-history-item';
+                    historyItem.dataset.stage = String(prevStage);
+                    historyItem.innerHTML = `
+                        <span class="stage-label">STAGE ${prevStage}</span>
+                        <div>${prevStageData.text}</div>
+                    `;
+                    historyDiv.appendChild(historyItem);
+                    
+                    // 履歴を自動スクロール
+                    const cluePanel = document.querySelector('.clue-display');
+                    if (cluePanel) {
+                        cluePanel.scrollTop = cluePanel.scrollHeight;
+                    }
+                }
+            }
+
+            // 初回表示時（Stage 1）は履歴をクリア
+            if (round.currentStage === 1) {
+                historyDiv.innerHTML = '';
+            }
         }
     }
 
@@ -379,6 +422,11 @@ class App {
         } else {
             return `+${seconds}.${remainingMs.toString().padStart(2, '0')}秒`;
         }
+    }
+
+    showHint() {
+        const target = this.engine.currentRound.target;
+        alert(`ヒント: ${target.category} / 分子式: ${target.formula}`);
     }
 
     loadSettings() {
