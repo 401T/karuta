@@ -111,10 +111,11 @@ class GameEngine {
             this.compounds = rawCompounds.map(c => this._trimObject(c));
             const trimmedClues = rawClues.map(c => this._trimObject(c));
             
-            // ClueデータをIDで引ける辞書に変換
+            // ClueデータをIDで引ける辞書に変換（compound_idをトリム）
             trimmedClues.forEach(c => { 
-                if (c.compound_id) {
-                    this.clues[c.compound_id] = c; 
+                const compoundId = (c.compound_id || '').trim();
+                if (compoundId) {
+                    this.clues[compoundId] = c; 
                 }
             });
             
@@ -124,10 +125,11 @@ class GameEngine {
             });
             
             console.log(`✓ Loaded ${this.compounds.length} compounds, ${Object.keys(this.clues).length} clues`);
-            console.log('Sample compound:', this.compounds[0]);
+            console.log('Sample compound id:', this.compounds[0]?.id);
+            console.log('Sample clue key:', Object.keys(this.clues)[0]);
             return true;
         } catch (e) {
-            console.error('✗ Data load error:', e);
+            console.error(' Data load error:', e);
             console.error('Please check:');
             console.error('1. data/compounds.json exists');
             console.error('2. data/clues.json exists');
@@ -407,13 +409,21 @@ class GameEngine {
         this.currentRound.isActive = false;
         this.state = 'RESULT';
         
-        const clueData = this.clues[this.currentRound.target.id];
+        // idを確実にトリムしてclueDataを取得
+        const targetId = (this.currentRound.target.id || '').trim();
+        const clueData = this.clues[targetId];
+        
+        // デバッグ用ログ
+        if (!clueData) {
+            console.warn('clueData not found for id:', targetId);
+            console.log('Available clue keys:', Object.keys(this.clues).slice(0, 5));
+        }
         
         this._notify({ 
             type: 'round_end', 
             playerWon: playerWon,
             target: this.currentRound.target,
-            explanation: clueData ? clueData.explanation : '解説データなし',
+            explanation: clueData && clueData.explanation ? clueData.explanation : '解説はありません。',
             stage: this.currentRound.currentStage,
             combo: this.combo
         });
@@ -421,7 +431,8 @@ class GameEngine {
         if (this.onRoundEnd) {
             this.onRoundEnd({
                 playerWon: playerWon,
-                target: this.currentRound.target
+                target: this.currentRound.target,
+                explanation: clueData && clueData.explanation ? clueData.explanation : '解説はありません。'
             });
         }
     }
