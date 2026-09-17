@@ -1,14 +1,21 @@
 /**
  * GameEngine - ゲームの核となる状態管理とルール適用
- * キー名空白トリム対応版
+ * オンラインモード対応版
  * 
  * 【状態遷移】
  * IDLE → DEAL → (カード画像読み込み完了待ち) → READING → PLAYING → RESULT → (next round or end)
+ * 
+ * 【オンラインモード】
+ * - ホストのみがゲームロジックを実行
+ * - ゲストはFirebaseから状態を取得して同期
+ * - 得点計算・統計記録はホストのみ
  */
 class GameEngine {
     constructor() {
         this.state = 'IDLE';
         this.mode = 'cpu';
+        this.isOnline = false;
+        this.isHost = false;
         
         // データ
         this.compounds = [];
@@ -26,7 +33,7 @@ class GameEngine {
         };
         
         // ゲーム全体状態
-        this.scores = { player: 0, cpu: 0 };
+        this.scores = { player: 0, opponent: 0 };
         this.roundNumber = 0;
         this.totalRounds = 10;
         this.combo = 0;
@@ -39,18 +46,18 @@ class GameEngine {
         this.settings = {
             cardCount: 9,
             cpuLevel: 3,
-            categories: [] // 空 = 全て
+            categories: []
         };
         
         // コールバック
         this.onUpdate = null;
         this.onRoundEnd = null;
         this.onGameEnd = null;
+        this.onOnlineStateChange = null; // オンライン用コールバック
     }
 
     /**
      * オブジェクトのキー名と文字列値を再帰的にトリム
-     * compounds.jsonのキー名に空白が含まれる問題への対応
      */
     _trimObject(obj) {
         if (obj === null || typeof obj !== 'object') return obj;
@@ -107,33 +114,23 @@ class GameEngine {
             const rawCompounds = await compRes.json();
             const rawClues = await clueRes.json();
             
-            // キー名と値のトリム処理
             this.compounds = rawCompounds.map(c => this._trimObject(c));
             const trimmedClues = rawClues.map(c => this._trimObject(c));
             
-            // ClueデータをIDで引ける辞書に変換（compound_idをトリム）
             trimmedClues.forEach(c => { 
-                const compoundId = (c.compound_id || '').trim();
-                if (compoundId) {
-                    this.clues[compoundId] = c; 
+                if (c.compound_id) {
+                    this.clues[c.compound_id] = c; 
                 }
             });
             
-            // カテゴリ一覧を抽出
             this.compounds.forEach(c => {
                 if (c.category) this.categories.add(c.category);
             });
             
             console.log(`✓ Loaded ${this.compounds.length} compounds, ${Object.keys(this.clues).length} clues`);
-            console.log('Sample compound id:', this.compounds[0]?.id);
-            console.log('Sample clue key:', Object.keys(this.clues)[0]);
             return true;
         } catch (e) {
-            console.error(' Data load error:', e);
-            console.error('Please check:');
-            console.error('1. data/compounds.json exists');
-            console.error('2. data/clues.json exists');
-            console.error('3. File paths are correct');
+            console.error('✗ Data load error:', e);
             return false;
         }
     }
@@ -143,6 +140,14 @@ class GameEngine {
      */
     configure(settings) {
         this.settings = { ...this.settings, ...settings };
+        
+        if (settings.isOnline !== undefined) {
+            this.isOnline = settings.isOnline;
+        }
+        
+        if (settings.isHost !== undefined) {
+            this.isHost = settings.isHost;
+        }
         
         if (settings.cpuLevel) {
             this.cpu = new CPUPlayer(settings.cpuLevel);
@@ -159,7 +164,7 @@ class GameEngine {
     startGame(totalRounds = 10) {
         this.totalRounds = totalRounds;
         this.roundNumber = 0;
-        this.scores = { player: 0, cpu: 0 };
+        this.scores = { player: 0, opponent: 0 };
         this.combo = 0;
         this.maxCombo = 0;
         
@@ -169,8 +174,7 @@ class GameEngine {
 
     /**
      * 新ラウンド開始
-     * 【重要】ここでは nextClue() を呼ばない
-     * app.js の renderCards() が全カード画像読み込み完了後に startReading() を呼ぶ
+     * オンラインモード時、ホストのみがカード配列を生成
      */
     startNewRound() {
         if (this.roundNumber >= this.totalRounds) {
@@ -180,7 +184,7 @@ class GameEngine {
         
         this.roundNumber++;
         
-        // 1. 正解をランダムに選ぶ（カテゴリフィルタ適用）
+        // 1. 正解をランダムに選ぶ
         let candidates = this.compounds;
         if (this.settings.categories.length > 0) {
             candidates = candidates.filter(c => 
@@ -195,7 +199,7 @@ class GameEngine {
         
         const target = candidates[Math.floor(Math.random() * candidates.length)];
         
-        // 2. 場のカードを作る（正解含む N 枚）
+        // 2. 場のカードを作る
         const others = this.compounds
             .filter(c => c.id !== target.id)
             .sort(() => Math.random() - 0.5)
@@ -216,13 +220,21 @@ class GameEngine {
         this.state = 'DEAL';
         this._notify();
         
-        // ★ ここでは nextClue() を呼ばない
-        // app.js の renderCards() が全カード画像読み込み完了後に startReading() を呼ぶ
+        // オンラインモード時、ホストは状態をFirebaseに保存
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'round_start',
+                round: this.roundNumber,
+                totalRounds: this.totalRounds,
+                cards: cards,
+                target: target,
+                scores: this.scores
+            });
+        }
     }
 
     /**
-     * 読み札を開始（app.jsから呼ばれる）
-     * 全カード画像の読み込みが完了した後に呼び出される
+     * 読み札を開始
      */
     startReading() {
         if (!this.currentRound.isActive) return;
@@ -230,15 +242,18 @@ class GameEngine {
         
         console.log('All cards loaded - starting reading');
         
-        // 1.5秒の間を置いてから読み上げ開始
         setTimeout(() => this.nextClue(), 1500);
     }
 
     /**
-     * 読み札を1段階進める（音声読み上げ終了後に自動進行）
+     * 読み札を1段階進める
+     * オンラインモード時、ホストのみがstageを進める
      */
     nextClue() {
         if (!this.currentRound.isActive) return;
+        
+        // オンラインモードでゲストの場合は何もしない
+        if (this.isOnline && !this.isHost) return;
         
         this.currentRound.currentStage++;
         this.state = 'READING';
@@ -266,8 +281,17 @@ class GameEngine {
         
         this._notify();
         
-        // ★ 練習モード（mode === 'practice'）時はCPUを起動しない
-        if (this.cpu && this.mode === 'cpu') {
+        // オンラインモード時、ホストは状態をFirebaseに保存
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'stage_update',
+                currentStage: this.currentRound.currentStage,
+                target: this.currentRound.target
+            });
+        }
+        
+        // オンラインモード時はCPUを起動しない
+        if (this.cpu && this.mode === 'cpu' && !this.isOnline) {
             this.cpu.startThinking(
                 this.currentRound.target.id,
                 this.currentRound.cards,
@@ -285,6 +309,7 @@ class GameEngine {
 
     /**
      * プレイヤーのタップ処理
+     * オンラインモード時、ホストのみが正誤判定と得点計算を行う
      */
     handlePlayerTap(cardId) {
         if (!this.currentRound.isActive) return;
@@ -293,70 +318,82 @@ class GameEngine {
         const reactionTime = Date.now() - this.currentRound.startTime;
         
         if (isCorrect) {
-            // 正解
-            if (this.cpu) this.cpu.cancelThinking();
-            
-            this.combo++;
-            if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-            
-            this._calculateScore(true, this.currentRound.currentStage, 'player', reactionTime);
-            AudioManager.playSound(this.combo > 1 ? 'combo' : 'correct');
-            
-            // 統計記録
-            StorageManager.recordGameResult({
-                isCorrect: true,
-                time: reactionTime,
-                compoundId: this.currentRound.target.id,
-                category: this.currentRound.target.category
-            });
-            
-            this._finishRound(true);
+            // オンラインモード時、ホストのみが得点計算
+            if (!this.isOnline || this.isHost) {
+                if (this.cpu) this.cpu.cancelThinking();
+                
+                this.combo++;
+                if (this.combo > this.maxCombo) this.maxCombo = this.combo;
+                
+                this._calculateScore(true, this.currentRound.currentStage, 'player', reactionTime);
+                AudioManager.playSound(this.combo > 1 ? 'combo' : 'correct');
+                
+                // 統計記録（オフライン時のみ）
+                if (!this.isOnline) {
+                    StorageManager.recordGameResult({
+                        isCorrect: true,
+                        time: reactionTime,
+                        compoundId: this.currentRound.target.id,
+                        category: this.currentRound.target.category
+                    });
+                }
+                
+                this._finishRound(true);
+            }
         } else {
             // 誤答
-            this.combo = 0;
-            this._calculateScore(false, 0, 'player', reactionTime);
-            AudioManager.playSound('wrong');
-            
-            // 統計記録
-            StorageManager.recordGameResult({
-                isCorrect: false,
-                time: reactionTime,
-                compoundId: this.currentRound.target.id,
-                category: this.currentRound.target.category
+            if (!this.isOnline || this.isHost) {
+                this.combo = 0;
+                this._calculateScore(false, 0, 'player', reactionTime);
+                AudioManager.playSound('wrong');
+                
+                if (!this.isOnline) {
+                    StorageManager.recordGameResult({
+                        isCorrect: false,
+                        time: reactionTime,
+                        compoundId: this.currentRound.target.id,
+                        category: this.currentRound.target.category
+                    });
+                }
+                
+                this._notify({ type: 'wrong', id: cardId });
+            }
+        }
+        
+        // オンラインモード時、ホストはタップ結果をFirebaseに保存
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'player_tap',
+                cardId: cardId,
+                isCorrect: isCorrect
             });
-            
-            this._notify({ type: 'wrong', id: cardId });
         }
     }
 
     /**
-     * CPUの回答処理
+     * CPUの回答処理（オンラインモードでは使用しない）
      */
     handleCpuAnswer(cardId, isCorrect) {
         if (!this.currentRound.isActive) return;
         
         if (isCorrect) {
-            // CPU正解 → プレイヤー敗北
             this.currentRound.isActive = false;
             this.combo = 0;
             
-            this._calculateScore(true, this.currentRound.currentStage, 'cpu', 0);
+            this._calculateScore(true, this.currentRound.currentStage, 'opponent', 0);
             AudioManager.playSound('wrong');
             
             this._finishRound(false);
         } else {
-            // CPU誤答 → プレイヤーにチャンス
             this._notify({ type: 'cpu_wrong', id: cardId });
             AudioManager.playSound('wrong');
             
-            // 次のClueへ自動進行
             setTimeout(() => this.nextClue(), 1500);
         }
     }
 
     /**
      * スコア計算
-     * 早いStageほど高得点、コンボボーナスあり
      */
     _calculateScore(isCorrect, stage, who = 'player', reactionTime = 0) {
         if (!isCorrect) {
@@ -366,25 +403,18 @@ class GameEngine {
             return;
         }
         
-        // 基本点 1000点
-        // Stage 1で正解: 1000
-        // Stage 2で正解: 800
-        // Stage 3で正解: 600 ...
         const baseScore = 1000;
         const penalty = (stage - 1) * 200;
         let gained = Math.max(100, baseScore - penalty);
         
-        // 難易度ボーナス
         const diffBonus = (this.currentRound.target.difficulty || 1) * 50;
         gained += diffBonus;
         
-        // コンボボーナス（プレイヤーのみ）
         if (who === 'player' && this.combo > 1) {
             const comboBonus = Math.min(this.combo * 50, 500);
             gained += comboBonus;
         }
         
-        // 高速回答ボーナス（3秒以内）
         if (who === 'player' && reactionTime < 3000) {
             const speedBonus = Math.floor((3000 - reactionTime) / 100) * 10;
             gained += speedBonus;
@@ -393,7 +423,7 @@ class GameEngine {
         if (who === 'player') {
             this.scores.player += gained;
         } else {
-            this.scores.cpu += gained;
+            this.scores.opponent += gained;
         }
         
         this._notify({ type: 'score_update', gained: gained });
@@ -406,30 +436,30 @@ class GameEngine {
         this.currentRound.isActive = false;
         this.state = 'RESULT';
         
-        // idを確実にトリムしてclueDataを取得
-        const targetId = (this.currentRound.target.id || '').trim();
-        const clueData = this.clues[targetId];
-        
-        // デバッグ用ログ
-        if (!clueData) {
-            console.warn('clueData not found for id:', targetId);
-            console.log('Available clue keys:', Object.keys(this.clues).slice(0, 5));
-        }
+        const clueData = this.clues[this.currentRound.target.id];
         
         this._notify({ 
             type: 'round_end', 
             playerWon: playerWon,
             target: this.currentRound.target,
-            explanation: clueData && clueData.explanation ? clueData.explanation : '解説はありません。',
+            explanation: clueData ? clueData.explanation : '解説データなし',
             stage: this.currentRound.currentStage,
             combo: this.combo
         });
         
+        // オンラインモード時、ホストは結果をFirebaseに保存
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'round_end',
+                playerWon: playerWon,
+                scores: this.scores
+            });
+        }
+        
         if (this.onRoundEnd) {
             this.onRoundEnd({
                 playerWon: playerWon,
-                target: this.currentRound.target,
-                explanation: clueData && clueData.explanation ? clueData.explanation : '解説はありません。'
+                target: this.currentRound.target
             });
         }
     }
@@ -443,13 +473,21 @@ class GameEngine {
         const summary = {
             totalRounds: this.totalRounds,
             playerScore: this.scores.player,
-            cpuScore: this.scores.cpu,
+            cpuScore: this.scores.opponent,
             maxCombo: this.maxCombo,
-            winner: this.scores.player > this.scores.cpu ? 'player' : 
-                    this.scores.player < this.scores.cpu ? 'cpu' : 'draw'
+            winner: this.scores.player > this.scores.opponent ? 'player' : 
+                    this.scores.player < this.scores.opponent ? 'opponent' : 'draw'
         };
         
         this._notify({ type: 'game_end', summary: summary });
+        
+        // オンラインモード時、ホストは最終結果をFirebaseに保存
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'game_end',
+                scores: this.scores
+            });
+        }
         
         if (this.onGameEnd) {
             this.onGameEnd(summary);
@@ -457,7 +495,7 @@ class GameEngine {
     }
 
     /**
-     * スキップ（正解を見せる）
+     * スキップ
      */
     skipRound() {
         if (!this.currentRound.isActive) return;
@@ -474,13 +512,6 @@ class GameEngine {
     pause() {
         if (this.cpu) this.cpu.cancelThinking();
         AudioManager.stop();
-    }
-
-    /**
-     * 再開
-     */
-    resume() {
-        // 必要に応じてCPUの思考を再開
     }
 
     /**
