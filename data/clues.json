@@ -3,51 +3,51 @@
     "compound_id": "methane",
     "stages": [
       { "stage": 1, "text": "分子式は CH4 である。", "type": "formula" },
-      { "stage": 2, "text": "最も単純な炭化水素である。", "type": "classification" },
-      { "stage": 3, "text": "正四面体構造をとり、すべての結合角は109.5度である。", "type": "structure" },
-      { "stage": 4, "text": "天然ガスの主成分であり、燃焼すると二酸化炭素と水を生じる。", "type": "property" }
+      { "stage": 2, "text": "最も単純な炭化水素（アルカン）である。", "type": "classification" },
+      { "stage": 3, "text": "正四面体構造をとり、すべての水素原子は等価である。", "type": "structure" },
+      { "stage": 4, "text": "燃焼すると二酸化炭素と水を生じる。臭素水や過マンガン酸カリウム水溶液とは反応しない。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。最も単純なアルカン。正四面体構造で、すべての水素が等価。"
+    "explanation": "【不飽和度】0。最も単純なアルカン。正四面体構造で、すべての水素が等価。臭素水やKMnO4水溶液とは反応しない。燃焼によりCO2とH2Oを生じる。"
   },
   {
     "compound_id": "ethane",
     "stages": [
       { "stage": 1, "text": "分子式は C2H6 である。", "type": "formula" },
       { "stage": 2, "text": "アルカン（飽和炭化水素）に分類される。", "type": "classification" },
-      { "stage": 3, "text": "炭素-炭素間に単結合を1つ持つ。", "type": "structure" },
-      { "stage": 4, "text": "メタンの次に単純なアルカンで、天然ガスに含まれる。", "type": "property" }
+      { "stage": 3, "text": "炭素-炭素間に単結合を1つ持ち、すべての水素原子は等価である。", "type": "structure" },
+      { "stage": 4, "text": "臭素水や過マンガン酸カリウム水溶液とは反応しない。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。C-C単結合のみを持つ飽和炭化水素。すべての水素が等価。"
+    "explanation": "【不飽和度】0。C-C単結合のみを持つ飽和炭化水素。すべての水素が等価。臭素水やKMnO4水溶液とは反応しない。"
   },
   {
     "compound_id": "propane",
     "stages": [
       { "stage": 1, "text": "分子式は C3H8 である。", "type": "formula" },
       { "stage": 2, "text": "アルカン（飽和炭化水素）である。", "type": "classification" },
-      { "stage": 3, "text": "炭素原子が3つ直鎖状に結合している。", "type": "structure" },
+      { "stage": 3, "text": "炭素原子が3つ直鎖状に結合している。両端のメチル基6Hと中央のメチレン基2Hの2種類の水素を持つ。", "type": "structure" },
       { "stage": 4, "text": "LPガスの主成分として家庭用燃料に用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。直鎖アルカン。両端のメチル基6Hと中央のメチレン基2Hの2種類の水素を持つ。"
+    "explanation": "【不飽和度】0。直鎖アルカン。両端のメチル基6Hと中央のメチレン基2Hの2種類の水素を持つ。臭素水やKMnO4水溶液とは反応しない。"
   },
   {
     "compound_id": "butane",
     "stages": [
       { "stage": 1, "text": "分子式は C4H10 である。", "type": "formula" },
       { "stage": 2, "text": "アルカンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "構造異性体としてイソブタンが存在する。", "type": "isomer" },
+      { "stage": 3, "text": "構造異性体としてイソブタン（分岐鎖）が存在する。", "type": "isomer" },
       { "stage": 4, "text": "常温で気体であり、ライターの燃料として用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。直鎖アルカン。イソブタン（分岐鎖）と構造異性体の関係。"
+    "explanation": "【不飽和度】0。直鎖アルカン。イソブタン（分岐鎖）と構造異性体の関係。臭素水やKMnO4水溶液とは反応しない。"
   },
   {
     "compound_id": "isobutane",
     "stages": [
       { "stage": 1, "text": "分子式は C4H10 である。", "type": "formula" },
       { "stage": 2, "text": "ブタンの構造異性体である。", "type": "isomer" },
-      { "stage": 3, "text": "第三級炭素原子を1つ持つ分岐鎖アルカンである。", "type": "structure" },
+      { "stage": 3, "text": "第三級炭素原子を1つ持つ分岐鎖アルカンである。9つの水素はすべて等価。", "type": "structure" },
       { "stage": 4, "text": "2-メチルプロパンとも呼ばれる。", "type": "nomenclature" }
     ],
-    "explanation": "【不飽和度】0。分岐鎖アルカン。中心の第三級炭素に3つのメチル基が結合。9つの水素はすべて等価。"
+    "explanation": "【不飽和度】0。分岐鎖アルカン。中心の第三級炭素に3つのメチル基が結合。9つの水素はすべて等価。2-メチルプロパン。"
   },
   {
     "compound_id": "pentane",
@@ -55,9 +55,9 @@
       { "stage": 1, "text": "分子式は C5H12 である。", "type": "formula" },
       { "stage": 2, "text": "アルカンの一種である。", "type": "classification" },
       { "stage": 3, "text": "炭素原子が5つ直鎖状に結合している。", "type": "structure" },
-      { "stage": 4, "text": "常温で液体であり、石油エーテルの主成分である。", "type": "property" }
+      { "stage": 4, "text": "常温で液体であり、石油エーテルの主成分である。異性体にイソペンタン、ネオペンタンがある。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。直鎖アルカン。異性体にイソペンタン、ネオペンタンがある。"
+    "explanation": "【不飽和度】0。直鎖アルカン。異性体にイソペンタン、ネオペンタンがある。臭素水やKMnO4水溶液とは反応しない。"
   },
   {
     "compound_id": "hexane",
@@ -65,9 +65,9 @@
       { "stage": 1, "text": "分子式は C6H14 である。", "type": "formula" },
       { "stage": 2, "text": "アルカンの一種である。", "type": "classification" },
       { "stage": 3, "text": "炭素原子が6つ直鎖状に結合している。", "type": "structure" },
-      { "stage": 4, "text": "有機溶媒として広く用いられる。", "type": "property" }
+      { "stage": 4, "text": "有機溶媒として広く用いられる。水に不溶で、臭素水や過マンガン酸カリウム水溶液とは反応しない。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。代表的な有機溶媒。水に不溶で、臭素水や過マンガン酸カリウム水溶液とは反応しない。"
+    "explanation": "【不飽和度】0。代表的な有機溶媒。水に不溶で、臭素水やKMnO4水溶液とは反応しない。"
   },
   {
     "compound_id": "cyclohexane",
@@ -75,29 +75,29 @@
       { "stage": 1, "text": "分子式は C6H12 である。", "type": "formula" },
       { "stage": 2, "text": "環状アルカン（シクロアルカン）である。", "type": "classification" },
       { "stage": 3, "text": "六員環構造をとり、いす型配座が最も安定である。", "type": "structure" },
-      { "stage": 4, "text": "ベンゼンの水素添加（還元）で得られる。", "type": "synthesis" }
+      { "stage": 4, "text": "ベンゼンをNi触媒で水素添加（還元）すると得られる。臭素水とは反応しない。", "type": "synthesis" }
     ],
-    "explanation": "【不飽和度】1（環）。ベンゼンをNi触媒で水素添加すると得られる。いす型配座が最も安定。"
+    "explanation": "【不飽和度】1（環）。ベンゼンをNi触媒で水素添加すると得られる。いす型配座が最も安定。臭素水とは反応しない。"
   },
   {
     "compound_id": "cyclopentane",
     "stages": [
       { "stage": 1, "text": "分子式は C5H10 である。", "type": "formula" },
       { "stage": 2, "text": "環状アルカン（シクロアルカン）である。", "type": "classification" },
-      { "stage": 3, "text": "五員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "エンベロープ型配座をとり、環のひずみが小さい。", "type": "property" }
+      { "stage": 3, "text": "五員環構造を持つ。エンベロープ型配座をとり、環のひずみが小さい。", "type": "structure" },
+      { "stage": 4, "text": "臭素水とは反応しない。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（環）。五員環アルカン。環のひずみが小さく安定。"
+    "explanation": "【不飽和度】1（環）。五員環アルカン。環のひずみが小さく安定。臭素水とは反応しない。"
   },
   {
     "compound_id": "methylcyclohexane",
     "stages": [
       { "stage": 1, "text": "分子式は C7H14 である。", "type": "formula" },
       { "stage": 2, "text": "シクロヘキサンの誘導体である。", "type": "classification" },
-      { "stage": 3, "text": "シクロヘキサン環にメチル基が1つ結合している。", "type": "structure" },
-      { "stage": 4, "text": "メチル基はエクアトリアル位にある方が安定である。", "type": "property" }
+      { "stage": 3, "text": "シクロヘキサン環にメチル基が1つ結合している。メチル基はエクアトリアル位にある方が安定である。", "type": "structure" },
+      { "stage": 4, "text": "臭素水とは反応しない。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（環）。シクロヘキサンの水素1つがメチル基に置換。メチル基はエクアトリアル位が安定。"
+    "explanation": "【不飽和度】1（環）。シクロヘキサンの水素1つがメチル基に置換。メチル基はエクアトリアル位が安定。臭素水とは反応しない。"
   },
   {
     "compound_id": "ethylene",
@@ -105,9 +105,9 @@
       { "stage": 1, "text": "分子式は C2H4 である。", "type": "formula" },
       { "stage": 2, "text": "アルケン（不飽和炭化水素）である。", "type": "classification" },
       { "stage": 3, "text": "炭素-炭素間に二重結合を1つ持つ。", "type": "structure" },
-      { "stage": 4, "text": "植物ホルモンの一種であり、果実の成熟を促進する。", "type": "property" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。過マンガン酸カリウム水溶液も脱色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（二重結合）。臭素水を脱色し、過マンガン酸カリウム水溶液も脱色する。"
+    "explanation": "【不飽和度】1（二重結合）。臭素水を加えると脱色する。KMnO4水溶液も脱色する。植物ホルモンとして果実の成熟を促進する。"
   },
   {
     "compound_id": "propylene",
@@ -115,29 +115,29 @@
       { "stage": 1, "text": "分子式は C3H6 である。", "type": "formula" },
       { "stage": 2, "text": "アルケンの一種である。", "type": "classification" },
       { "stage": 3, "text": "末端に二重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "ポリプロピレンの原料として工業的に重要である。", "type": "property" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。マルコフニコフ則に従ってHBrを付加すると2-ブロモプロパンが主生成物。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（二重結合）。マルコフニコフ則に従ってHBrを付加すると2-ブロモプロパンが主生成物。"
+    "explanation": "【不飽和度】1（二重結合）。臭素水を脱色。マルコフニコフ則に従ってHBrを付加すると2-ブロモプロパンが主生成物。ポリプロピレンの原料。"
   },
   {
     "compound_id": "1-butene",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8 である。", "type": "formula" },
       { "stage": 2, "text": "アルケンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "1位と2位の炭素間に二重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "2-ブテンとは構造異性体の関係にある。", "type": "isomer" }
+      { "stage": 3, "text": "1位と2位の炭素間に二重結合を持つ末端アルケンである。", "type": "structure" },
+      { "stage": 4, "text": "臭素水を加えると脱色する。2-ブテンやシクロブタンと構造異性体の関係にある。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（二重結合）。末端アルケン。2-ブテンやシクロブタンと異性体の関係。"
+    "explanation": "【不飽和度】1（二重結合）。末端アルケン。臭素水を脱色。2-ブテンやシクロブタンと異性体の関係。"
   },
   {
     "compound_id": "2-butene",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8 である。", "type": "formula" },
       { "stage": 2, "text": "アルケンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "2位と3位の炭素間に二重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "シス型とトランス型の幾何異性体が存在する。", "type": "isomer" }
+      { "stage": 3, "text": "2位と3位の炭素間に二重結合を持つ。シス型とトランス型の幾何異性体が存在する。", "type": "structure" },
+      { "stage": 4, "text": "臭素水を加えると脱色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（二重結合）。シス-2-ブテンとトランス-2-ブテンの幾何異性体が存在する。"
+    "explanation": "【不飽和度】1（二重結合）。シス-2-ブテンとトランス-2-ブテンの幾何異性体が存在する。臭素水を脱色。"
   },
   {
     "compound_id": "isobutylene",
@@ -145,9 +145,9 @@
       { "stage": 1, "text": "分子式は C4H8 である。", "type": "formula" },
       { "stage": 2, "text": "ブテンの構造異性体の一つである。", "type": "isomer" },
       { "stage": 3, "text": "2位の炭素にメチル基が分岐した構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "2-メチルプロペンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。酸触媒で重合するとポリイソブチレンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（二重結合）。分岐アルケン。酸触媒で重合するとポリイソブチレンになる。"
+    "explanation": "【不飽和度】1（二重結合）。分岐アルケン。臭素水を脱色。酸触媒で重合するとポリイソブチレンになる。2-メチルプロペン。"
   },
   {
     "compound_id": "cyclohexene",
@@ -155,9 +155,9 @@
       { "stage": 1, "text": "分子式は C6H10 である。", "type": "formula" },
       { "stage": 2, "text": "環状アルケンの一種である。", "type": "classification" },
       { "stage": 3, "text": "六員環に二重結合を1つ持つ。", "type": "structure" },
-      { "stage": 4, "text": "臭素水を脱色する。", "type": "reaction" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。過マンガン酸カリウムで酸化するとアジピン酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（環+二重結合）。臭素水を脱色する。KMnO4で酸化するとアジピン酸になる。"
+    "explanation": "【不飽和度】2（環+二重結合）。臭素水を脱色。KMnO4で酸化するとアジピン酸になる。"
   },
   {
     "compound_id": "1,3-butadiene",
@@ -165,9 +165,9 @@
       { "stage": 1, "text": "分子式は C4H6 である。", "type": "formula" },
       { "stage": 2, "text": "ジエン（二重結合を2つ持つ）である。", "type": "classification" },
       { "stage": 3, "text": "1-2位と3-4位に二重結合が共役している。", "type": "structure" },
-      { "stage": 4, "text": "合成ゴムの原料として工業的に重要である。", "type": "property" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。1,2-付加と1,4-付加が起こる。合成ゴムの原料。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（二重結合×2）。共役ジエン。1,2-付加と1,4-付加が起こる。"
+    "explanation": "【不飽和度】2（二重結合×2）。共役ジエン。臭素水を脱色。1,2-付加と1,4-付加が起こる。合成ゴムの原料。"
   },
   {
     "compound_id": "isoprene",
@@ -175,9 +175,9 @@
       { "stage": 1, "text": "分子式は C5H8 である。", "type": "formula" },
       { "stage": 2, "text": "ジエンの一種である。", "type": "classification" },
       { "stage": 3, "text": "2位にメチル基を持つ共役ジエンである。", "type": "structure" },
-      { "stage": 4, "text": "天然ゴムの構成単位（イソプレン則）である。", "type": "property" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。天然ゴムの構成単位（イソプレン則）である。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（二重結合×2）。天然ゴムの構成単位。イソプレン則の基準となる分子。"
+    "explanation": "【不飽和度】2（二重結合×2）。天然ゴムの構成単位。臭素水を脱色。イソプレン則の基準となる分子。"
   },
   {
     "compound_id": "chloroprene",
@@ -185,9 +185,9 @@
       { "stage": 1, "text": "分子式は C4H5Cl である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲンを含むジエンである。", "type": "classification" },
       { "stage": 3, "text": "2位に塩素原子を持つ共役ジエンである。", "type": "structure" },
-      { "stage": 4, "text": "付加重合するとクロロプレンゴム（ネオプレン）になる。", "type": "polymer" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。付加重合するとクロロプレンゴム（ネオプレン）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2。2-クロロ-1,3-ブタジエン。付加重合でネオプレンゴムになる。"
+    "explanation": "【不飽和度】2。2-クロロ-1,3-ブタジエン。臭素水を脱色。付加重合でネオプレンゴムになる。"
   },
   {
     "compound_id": "acetylene",
@@ -195,9 +195,9 @@
       { "stage": 1, "text": "分子式は C2H2 である。", "type": "formula" },
       { "stage": 2, "text": "アルキン（三重結合を持つ炭化水素）である。", "type": "classification" },
       { "stage": 3, "text": "炭素-炭素間に三重結合を1つ持つ直線分子である。", "type": "structure" },
-      { "stage": 4, "text": "酸素と混合して燃焼させると、3000度以上の高温火焰が得られる。", "type": "property" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液を加えると白色沈殿（アセチリド銀）を生じる。臭素水を脱色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（三重結合）。直線分子。末端アルキンで、アンモニア性硝酸銀水溶液と反応して沈殿を生じる。"
+    "explanation": "【不飽和度】2（三重結合）。直線分子。末端アルキンで、アンモニア性硝酸銀水溶液を加えると白色沈殿を生じる。臭素水を脱色。"
   },
   {
     "compound_id": "propyne",
@@ -205,9 +205,9 @@
       { "stage": 1, "text": "分子式は C3H4 である。", "type": "formula" },
       { "stage": 2, "text": "アルキンの一種である。", "type": "classification" },
       { "stage": 3, "text": "末端に三重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "メチルアセチレンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液を加えると白色沈殿を生じる。HgSO4触媒で水和するとアセトンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（三重結合）。末端アルキン。HgSO4触媒で水和するとアセトンになる。"
+    "explanation": "【不飽和度】2（三重結合）。末端アルキン。アンモニア性硝酸銀水溶液で白色沈殿。HgSO4触媒で水和するとアセトンになる。"
   },
   {
     "compound_id": "benzene",
@@ -215,39 +215,39 @@
       { "stage": 1, "text": "分子式は C6H6 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族炭化水素の代表化合物である。", "type": "classification" },
       { "stage": 3, "text": "六員環構造で、炭素-炭素結合はすべて等しい長さである。", "type": "structure" },
-      { "stage": 4, "text": "ケクレ構造式で表されるが、実際は非局在化したπ電子系を持つ。", "type": "property" }
+      { "stage": 4, "text": "臭素水とは反応しない（付加反応は起こしにくい）。ニトロ化やスルホン化などの置換反応を受けやすい。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4（環+二重結合×3）。芳香族性を持つ。置換反応を受けやすく、付加反応は起こしにくい。"
+    "explanation": "【不飽和度】4（環+二重結合×3）。芳香族性を持つ。臭素水とは反応しない。置換反応（ニトロ化、スルホン化）を受けやすく、付加反応は起こしにくい。"
   },
   {
     "compound_id": "toluene",
     "stages": [
       { "stage": 1, "text": "分子式は C7H8 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族炭化水素である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にメチル基が1つ結合している。", "type": "structure" },
-      { "stage": 4, "text": "メチル基はオルト・パラ配向性を持つ。", "type": "property" }
+      { "stage": 3, "text": "ベンゼン環にメチル基が1つ結合している。メチル基はオルト・パラ配向性を持つ。", "type": "structure" },
+      { "stage": 4, "text": "過マンガン酸カリウムで酸化すると安息香酸を生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。メチル基はオルト・パラ配向性。KMnO4で酸化すると安息香酸になる。"
+    "explanation": "【不飽和度】4。メチル基はオルト・パラ配向性。KMnO4で酸化すると安息香酸を生じる。"
   },
   {
     "compound_id": "xylene_ortho",
     "stages": [
       { "stage": 1, "text": "分子式は C8H10 である。", "type": "formula" },
       { "stage": 2, "text": "キシレンの異性体の一つである。", "type": "isomer" },
-      { "stage": 3, "text": "ベンゼン環に2つのメチル基が隣接して結合している。", "type": "structure" },
-      { "stage": 4, "text": "1,2-ジメチルベンゼンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 3, "text": "ベンゼン環に2つのメチル基が隣接して結合している（オルト位）。", "type": "structure" },
+      { "stage": 4, "text": "過マンガン酸カリウムで酸化するとフタル酸（無水フタル酸）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。オルト置換体。KMnO4酸化でフタル酸（無水フタル酸）になる。"
+    "explanation": "【不飽和度】4。オルト置換体。KMnO4酸化でフタル酸（無水フタル酸）になる。1,2-ジメチルベンゼン。"
   },
   {
     "compound_id": "xylene_meta",
     "stages": [
       { "stage": 1, "text": "分子式は C8H10 である。", "type": "formula" },
       { "stage": 2, "text": "キシレンの異性体の一つである。", "type": "isomer" },
-      { "stage": 3, "text": "ベンゼン環に2つのメチル基が1つ飛ばして結合している。", "type": "structure" },
-      { "stage": 4, "text": "1,3-ジメチルベンゼンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 3, "text": "ベンゼン環に2つのメチル基が1つ飛ばして結合している（メタ位）。", "type": "structure" },
+      { "stage": 4, "text": "過マンガン酸カリウムで酸化するとイソフタル酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。メタ置換体。KMnO4酸化でイソフタル酸になる。"
+    "explanation": "【不飽和度】4。メタ置換体。KMnO4酸化でイソフタル酸になる。1,3-ジメチルベンゼン。"
   },
   {
     "compound_id": "xylene_para",
@@ -255,9 +255,9 @@
       { "stage": 1, "text": "分子式は C8H10 である。", "type": "formula" },
       { "stage": 2, "text": "キシレンの異性体の一つである。", "type": "isomer" },
       { "stage": 3, "text": "ベンゼン環に2つのメチル基が対位に結合している。", "type": "structure" },
-      { "stage": 4, "text": "1,4-ジメチルベンゼンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 4, "text": "過マンガン酸カリウムで酸化するとテレフタル酸（PETの原料）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。パラ置換体。KMnO4酸化でテレフタル酸（PETの原料）になる。"
+    "explanation": "【不飽和度】4。パラ置換体。KMnO4酸化でテレフタル酸（PETの原料）になる。1,4-ジメチルベンゼン。"
   },
   {
     "compound_id": "ethylbenzene",
@@ -265,7 +265,7 @@
       { "stage": 1, "text": "分子式は C8H10 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族炭化水素である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にエチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "キシレンとは構造異性体の関係にある。", "type": "isomer" }
+      { "stage": 4, "text": "キシレンとは構造異性体の関係にある。脱水素するとスチレンになる。", "type": "reaction" }
     ],
     "explanation": "【不飽和度】4。キシレンと異性体。脱水素するとスチレンになる。"
   },
@@ -275,9 +275,9 @@
       { "stage": 1, "text": "分子式は C8H8 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族アルケンである。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にビニル基（-CH=CH2）が結合している。", "type": "structure" },
-      { "stage": 4, "text": "付加重合するとポリスチレン（スチロール樹脂）になる。", "type": "polymer" }
+      { "stage": 4, "text": "臭素水を加えると脱色する。付加重合するとポリスチレン（スチロール樹脂）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5。臭素水を脱色する。付加重合でポリスチレン（PS）になる。"
+    "explanation": "【不飽和度】5。臭素水を脱色。付加重合でポリスチレン（PS）になる。"
   },
   {
     "compound_id": "cumene",
@@ -285,7 +285,7 @@
       { "stage": 1, "text": "分子式は C9H12 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族炭化水素である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にイソプロピル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "クメン法でフェノールとアセトンを製造する原料となる。", "type": "property" }
+      { "stage": 4, "text": "クメン法で酸化・酸分解すると、フェノールとアセトンが得られる。", "type": "reaction" }
     ],
     "explanation": "【不飽和度】4。クメン法で酸化・酸分解すると、フェノールとアセトンが得られる。"
   },
@@ -295,7 +295,7 @@
       { "stage": 1, "text": "分子式は C10H8 である。", "type": "formula" },
       { "stage": 2, "text": "多環芳香族炭化水素である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環が2つ縮合した構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "防虫剤（樟脳丸）の成分として知られる。", "type": "property" }
+      { "stage": 4, "text": "昇華性があり、防虫剤（樟脳丸）の成分として知られる。", "type": "property" }
     ],
     "explanation": "【不飽和度】7。2環縮合芳香族。昇華性があり、防虫剤に用いられる。"
   },
@@ -304,8 +304,8 @@
     "stages": [
       { "stage": 1, "text": "分子式は C14H10 である。", "type": "formula" },
       { "stage": 2, "text": "多環芳香族炭化水素である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環が3つ直線状に縮合した構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "9,10位が反応性が高く、付加反応を受けやすい。", "type": "reaction" }
+      { "stage": 3, "text": "ベンゼン環が3つ直線状に縮合した構造を持つ。9,10位が反応性が高い。", "type": "structure" },
+      { "stage": 4, "text": "無水マレイン酸とディールス・アルダー反応を起こす。", "type": "reaction" }
     ],
     "explanation": "【不飽和度】10。3環直線縮合。9,10位が反応性高く、無水マレイン酸とディールス・アルダー反応を起こす。"
   },
@@ -325,9 +325,9 @@
       { "stage": 1, "text": "分子式は CH4O である。", "type": "formula" },
       { "stage": 2, "text": "最も単純な構造を持つアルコールである。", "type": "classification" },
       { "stage": 3, "text": "ヒドロキシ基（-OH）を1つ持つ。", "type": "structure" },
-      { "stage": 4, "text": "強い毒性を持ち、摂取すると失明や死に至ることがある。", "type": "property" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。酸化するとホルムアルデヒドを経てギ酸になる。毒性が強い。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。Naと反応してH2を発生。酸化するとホルムアルデヒド→ギ酸。毒性が強い。"
+    "explanation": "【不飽和度】0。Naを加えるとH2を発生。酸化するとホルムアルデヒドを経てギ酸になる。毒性が強い。"
   },
   {
     "compound_id": "ethanol",
@@ -335,9 +335,9 @@
       { "stage": 1, "text": "分子式は C2H6O である。", "type": "formula" },
       { "stage": 2, "text": "アルコールの一種である。", "type": "classification" },
       { "stage": 3, "text": "第一級アルコールであり、酸化されるとアルデヒドになる。", "type": "structure" },
-      { "stage": 4, "text": "酒類の主成分であり、消毒用エタノールとしても用いられる。", "type": "property" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。ヨードホルム反応陽性を示す。酸化するとアセトアルデヒドを経て酢酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。ジメチルエーテルと異性体。ヨードホルム反応陽性（CH3CH(OH)-）。"
+    "explanation": "【不飽和度】0。ジメチルエーテルと異性体。NaでH2発生。ヨードホルム反応陽性（CH3CH(OH)-）。酸化でアセトアルデヒド→酢酸。"
   },
   {
     "compound_id": "1-propanol",
@@ -345,9 +345,9 @@
       { "stage": 1, "text": "分子式は C3H8O である。", "type": "formula" },
       { "stage": 2, "text": "アルコールの一種である。", "type": "classification" },
       { "stage": 3, "text": "炭素鎖の末端にヒドロキシ基を持つ（第一級アルコール）。", "type": "structure" },
-      { "stage": 4, "text": "酸化するとプロピオンアルデヒド、さらに酸化するとプロピオン酸になる。", "type": "reaction" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。酸化するとプロピオンアルデヒド、さらに酸化するとプロピオン酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。第一級アルコール。酸化でアルデヒド→カルボン酸。2-プロパノールと異性体。"
+    "explanation": "【不飽和度】0。第一級アルコール。NaでH2発生。酸化でアルデヒド→カルボン酸。2-プロパノールと異性体。"
   },
   {
     "compound_id": "2-propanol",
@@ -355,9 +355,9 @@
       { "stage": 1, "text": "分子式は C3H8O である。", "type": "formula" },
       { "stage": 2, "text": "1-プロパノールの構造異性体である。", "type": "isomer" },
       { "stage": 3, "text": "炭素鎖の中央にヒドロキシ基を持つ（第二級アルコール）。", "type": "structure" },
-      { "stage": 4, "text": "酸化するとアセトン（ケトン）になる。消毒用アルコールの成分。", "type": "reaction" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。ヨードホルム反応陽性を示す。酸化するとアセトンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。第二級アルコール。ヨードホルム反応陽性。酸化でアセトンになる。"
+    "explanation": "【不飽和度】0。第二級アルコール。NaでH2発生。ヨードホルム反応陽性。酸化でアセトンになる。"
   },
   {
     "compound_id": "1-butanol",
@@ -365,9 +365,9 @@
       { "stage": 1, "text": "分子式は C4H10O である。", "type": "formula" },
       { "stage": 2, "text": "アルコールの一種である。", "type": "classification" },
       { "stage": 3, "text": "4つの炭素が直鎖状に並び、末端にヒドロキシ基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "酸化するとブチルアルデヒドになる。", "type": "reaction" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。酸化するとブチルアルデヒドになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。第一級アルコール。ジエチルエーテルと異性体。"
+    "explanation": "【不飽和度】0。第一級アルコール。NaでH2発生。酸化でブチルアルデヒド。ジエチルエーテルと異性体。"
   },
   {
     "compound_id": "2-butanol",
@@ -375,9 +375,9 @@
       { "stage": 1, "text": "分子式は C4H10O である。", "type": "formula" },
       { "stage": 2, "text": "ブタノールの異性体の一つである。", "type": "isomer" },
       { "stage": 3, "text": "2位の炭素にヒドロキシ基を持つ第二級アルコールである。", "type": "structure" },
-      { "stage": 4, "text": "ヨードホルム反応を示し、酸化するとメチルエチルケトンになる。", "type": "reaction" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。ヨードホルム反応陽性を示す。酸化するとメチルエチルケトンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。第二級アルコール。ヨードホルム反応陽性（CH3CH(OH)-）。光学異性体を持つ。"
+    "explanation": "【不飽和度】0。第二級アルコール。NaでH2発生。ヨードホルム反応陽性（CH3CH(OH)-）。光学異性体を持つ。酸化でMEK。"
   },
   {
     "compound_id": "2-methyl-2-propanol",
@@ -385,9 +385,9 @@
       { "stage": 1, "text": "分子式は C4H10O である。", "type": "formula" },
       { "stage": 2, "text": "ブタノールの異性体の一つである。", "type": "isomer" },
       { "stage": 3, "text": "ヒドロキシ基が結合した炭素に他の炭素が3つ結合している（第三級アルコール）。", "type": "structure" },
-      { "stage": 4, "text": "第三級アルコールのため、酸化されにくい。", "type": "property" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。第三級アルコールのため、酸化されにくい。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。第三級アルコール。酸化されにくい。HClと容易に反応してtert-ブチルクロリドになる。"
+    "explanation": "【不飽和度】0。第三級アルコール。NaでH2発生。酸化されにくい。HClと容易に反応してtert-ブチルクロリドになる。"
   },
   {
     "compound_id": "ethylene_glycol",
@@ -395,19 +395,19 @@
       { "stage": 1, "text": "分子式は C2H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "2つのヒドロキシ基を持つジオールである。", "type": "classification" },
       { "stage": 3, "text": "2つの炭素にそれぞれヒドロキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "不凍液の成分として知られ、ポリエチレンテレフタラート（PET）の原料となる。", "type": "property" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。テレフタル酸と縮合重合してPET（ポリエステル）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。1,2-ジオール。テレフタル酸と縮合重合してPET（ポリエステル）になる。"
+    "explanation": "【不飽和度】0。1,2-ジオール。NaでH2発生。テレフタル酸と縮合重合してPETになる。"
   },
   {
     "compound_id": "propylene_glycol",
     "stages": [
       { "stage": 1, "text": "分子式は C3H8O2 である。", "type": "formula" },
       { "stage": 2, "text": "ジオールの一種である。", "type": "classification" },
-      { "stage": 3, "text": "3つの炭素鎖の1位と2位にヒドロキシ基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "食品添加物や化粧品に用いられる。", "type": "property" }
+      { "stage": 3, "text": "3つの炭素鎖の1位と2位にヒドロキシ基を持つ。不斉炭素を持つ。", "type": "structure" },
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。光学異性体が存在する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。1,2-ジオール。不斉炭素を持ち、光学異性体が存在する。"
+    "explanation": "【不飽和度】0。1,2-ジオール。NaでH2発生。不斉炭素を持ち、光学異性体が存在する。"
   },
   {
     "compound_id": "glycerol",
@@ -415,29 +415,29 @@
       { "stage": 1, "text": "分子式は C3H8O3 である。", "type": "formula" },
       { "stage": 2, "text": "3つのヒドロキシ基を持つトリオールである。", "type": "classification" },
       { "stage": 3, "text": "3つの炭素すべてにヒドロキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "油脂を構成する骨格であり、保湿剤としても用いられる。", "type": "property" }
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。油脂はグリセロールと脂肪酸のエステルである。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】0。1,2,3-トリオール。油脂はグリセロールと脂肪酸のエステル。"
+    "explanation": "【不飽和度】0。1,2,3-トリオール。NaでH2発生。油脂はグリセロールと脂肪酸のエステル。"
   },
   {
     "compound_id": "cyclohexanol",
     "stages": [
       { "stage": 1, "text": "分子式は C6H12O である。", "type": "formula" },
       { "stage": 2, "text": "環状アルコールである。", "type": "classification" },
-      { "stage": 3, "text": "シクロヘキサン環の1つの水素がヒドロキシ基に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "酸化するとシクロヘキサノンになり、ナイロンの原料となる。", "type": "reaction" }
+      { "stage": 3, "text": "シクロヘキサン環の1つの水素がヒドロキシ基に置換されている（第二級アルコール）。", "type": "structure" },
+      { "stage": 4, "text": "ナトリウムを加えると水素気体が発生する。酸化するとシクロヘキサノンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（環）。第二級アルコール。酸化でシクロヘキサノン。"
+    "explanation": "【不飽和度】1（環）。第二級アルコール。NaでH2発生。酸化でシクロヘキサノン。"
   },
   {
     "compound_id": "phenol",
     "stages": [
       { "stage": 1, "text": "分子式は C6H6O である。", "type": "formula" },
       { "stage": 2, "text": "ベンゼン環にヒドロキシ基が直接結合した構造を持つ。", "type": "structure" },
-      { "stage": 3, "text": "弱酸性を示し、水酸化ナトリウムと反応して塩を作る。", "type": "property" },
-      { "stage": 4, "text": "塩化鉄(III)水溶液と反応して青紫色を呈する。", "type": "reaction" }
+      { "stage": 3, "text": "弱酸性を示し、水酸化ナトリウム水溶液には溶けるが、炭酸水素ナトリウム水溶液には溶けない。", "type": "property" },
+      { "stage": 4, "text": "塩化鉄(III)水溶液を加えると青紫色を呈する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。ベンゼン環にOHが直接結合。弱酸性（NaOHと反応するがNaHCO3とは反応しない）。FeCl3で青紫色。"
+    "explanation": "【不飽和度】4。ベンゼン環にOHが直接結合。弱酸性（NaOHに溶けるがNaHCO3には溶けない）。FeCl3で青紫色に呈色。"
   },
   {
     "compound_id": "cresol_ortho",
@@ -445,9 +445,9 @@
       { "stage": 1, "text": "分子式は C7H8O である。", "type": "formula" },
       { "stage": 2, "text": "フェノールの誘導体である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にヒドロキシ基とメチル基が隣接して結合している。", "type": "structure" },
-      { "stage": 4, "text": "クレゾール石鹸液の成分として知られる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。アニソール（メトキシベンゼン）と異性体。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。オルト置換フェノール。アニソール（メトキシベンゼン）と異性体。"
+    "explanation": "【不飽和度】4。オルト置換フェノール。FeCl3で呈色。アニソールと異性体。"
   },
   {
     "compound_id": "cresol_meta",
@@ -455,9 +455,9 @@
       { "stage": 1, "text": "分子式は C7H8O である。", "type": "formula" },
       { "stage": 2, "text": "フェノールの誘導体である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にヒドロキシ基とメチル基が1つ飛ばして結合している。", "type": "structure" },
-      { "stage": 4, "text": "o-クレゾール、p-クレゾールとは構造異性体の関係にある。", "type": "isomer" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。メタ置換フェノール。"
+    "explanation": "【不飽和度】4。メタ置換フェノール。FeCl3で呈色。"
   },
   {
     "compound_id": "cresol_para",
@@ -465,9 +465,9 @@
       { "stage": 1, "text": "分子式は C7H8O である。", "type": "formula" },
       { "stage": 2, "text": "フェノールの誘導体である。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にヒドロキシ基とメチル基が対位に結合している。", "type": "structure" },
-      { "stage": 4, "text": "p-クレゾールとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。パラ置換フェノール。"
+    "explanation": "【不飽和度】4。パラ置換フェノール。FeCl3で呈色。"
   },
   {
     "compound_id": "catechol",
@@ -475,7 +475,7 @@
       { "stage": 1, "text": "分子式は C6H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "ベンゼン環に2つのヒドロキシ基を持つジヒドロキシベンゼンである。", "type": "classification" },
       { "stage": 3, "text": "2つのヒドロキシ基が隣接して結合している（オルト位）。", "type": "structure" },
-      { "stage": 4, "text": "還元剤として働き、写真の現像液などに用いられる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液を加えると緑色を呈する。還元剤として働く。", "type": "reaction" }
     ],
     "explanation": "【不飽和度】4。オルトジヒドロキシベンゼン。FeCl3で緑色に呈色。還元性を持つ。"
   },
@@ -485,9 +485,9 @@
       { "stage": 1, "text": "分子式は C6H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "ジヒドロキシベンゼンの一種である。", "type": "classification" },
       { "stage": 3, "text": "2つのヒドロキシ基が1つ飛ばして結合している（メタ位）。", "type": "structure" },
-      { "stage": 4, "text": "1,3-ジヒドロキシベンゼンとも呼ばれる。", "type": "nomenclature" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。メタジヒドロキシベンゼン。"
+    "explanation": "【不飽和度】4。メタジヒドロキシベンゼン。FeCl3で呈色。"
   },
   {
     "compound_id": "hydroquinone",
@@ -495,9 +495,9 @@
       { "stage": 1, "text": "分子式は C6H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "ジヒドロキシベンゼンの一種である。", "type": "classification" },
       { "stage": 3, "text": "2つのヒドロキシ基が対位に結合している。", "type": "structure" },
-      { "stage": 4, "text": "写真の現像薬や美白化粧品に用いられる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。酸化するとp-ベンゾキノンになる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。パラジヒドロキシベンゼン。酸化するとp-ベンゾキノンになる。"
+    "explanation": "【不飽和度】4。パラジヒドロキシベンゼン。FeCl3で呈色。酸化するとp-ベンゾキノンになる。"
   },
   {
     "compound_id": "pyrogallol",
@@ -505,9 +505,9 @@
       { "stage": 1, "text": "分子式は C6H6O3 である。", "type": "formula" },
       { "stage": 2, "text": "ベンゼン環に3つのヒドロキシ基を持つ。", "type": "classification" },
       { "stage": 3, "text": "3つのヒドロキシ基が隣接して結合している（1,2,3-位）。", "type": "structure" },
-      { "stage": 4, "text": "酸素を吸収する性質があり、気体分析に用いられる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。強い還元性を持ち、酸素を吸収する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。1,2,3-トリヒドロキシベンゼン。強い還元性を持つ。"
+    "explanation": "【不飽和度】4。1,2,3-トリヒドロキシベンゼン。FeCl3で呈色。強い還元性を持つ。"
   },
   {
     "compound_id": "bisphenol_a",
@@ -515,9 +515,9 @@
       { "stage": 1, "text": "分子式は C15H16O2 である。", "type": "formula" },
       { "stage": 2, "text": "2つのフェノール性ヒドロキシ基を持つ。", "type": "structure" },
       { "stage": 3, "text": "2つのベンゼン環がプロパン-2,2-ジイル基で連結されている。", "type": "structure" },
-      { "stage": 4, "text": "ポリカーボネートやエポキシ樹脂の原料となる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。フェノールとアセトンの縮合物。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】8。フェノールとアセトンの縮合物。ポリカーボネートの原料。"
+    "explanation": "【不飽和度】8。フェノールとアセトンの縮合物。FeCl3で呈色。ポリカーボネートの原料。"
   },
   {
     "compound_id": "formaldehyde",
@@ -525,9 +525,9 @@
       { "stage": 1, "text": "分子式は CH2O である。", "type": "formula" },
       { "stage": 2, "text": "最も単純なアルデヒドである。", "type": "classification" },
       { "stage": 3, "text": "カルボニル基（C=O）の両側に水素が結合している。", "type": "structure" },
-      { "stage": 4, "text": "水溶液はホルマリンと呼ばれ、標本の固定に用いられる。", "type": "property" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液を加えると銀鏡を生じる（銀鏡反応陽性）。フェーリング液を加えると赤色沈殿を生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応、フェーリング反応陽性。フェノールと縮合重合してフェノール樹脂。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。フェーリング反応陽性。フェノールと縮合重合してフェノール樹脂。"
   },
   {
     "compound_id": "acetaldehyde",
@@ -535,9 +535,9 @@
       { "stage": 1, "text": "分子式は C2H4O である。", "type": "formula" },
       { "stage": 2, "text": "アルデヒドの一種である。", "type": "classification" },
       { "stage": 3, "text": "メチル基とホルミル基（-CHO）からなる。", "type": "structure" },
-      { "stage": 4, "text": "ヨードホルム反応を示し、酸化すると酢酸になる。", "type": "reaction" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液で銀鏡反応陽性。ヨードホルム反応陽性を示す。酸化すると酢酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。ヨードホルム反応陽性（CH3CO-またはCH3CH(OH)-）。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。ヨードホルム反応陽性（CH3CO-またはCH3CH(OH)-）。酸化で酢酸。"
   },
   {
     "compound_id": "propionaldehyde",
@@ -545,9 +545,9 @@
       { "stage": 1, "text": "分子式は C3H6O である。", "type": "formula" },
       { "stage": 2, "text": "アルデヒドの一種である。", "type": "classification" },
       { "stage": 3, "text": "3つの炭素が直鎖状に並び、末端にホルミル基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "酸化するとプロピオン酸になる。", "type": "reaction" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液で銀鏡反応陽性。ヨードホルム反応陰性。酸化するとプロピオン酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。ヨードホルム反応陰性。アセトンと異性体。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。ヨードホルム反応陰性。アセトンと異性体。酸化でプロピオン酸。"
   },
   {
     "compound_id": "butyraldehyde",
@@ -555,9 +555,9 @@
       { "stage": 1, "text": "分子式は C4H8O である。", "type": "formula" },
       { "stage": 2, "text": "アルデヒドの一種である。", "type": "classification" },
       { "stage": 3, "text": "4つの炭素が直鎖状に並び、末端にホルミル基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "1-ブタノールの酸化によって得られる。", "type": "synthesis" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液で銀鏡反応陽性。1-ブタノールの酸化によって得られる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。1-ブタノールの酸化で得られる。"
   },
   {
     "compound_id": "benzaldehyde",
@@ -565,9 +565,9 @@
       { "stage": 1, "text": "分子式は C7H6O である。", "type": "formula" },
       { "stage": 2, "text": "芳香族アルデヒドである。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にホルミル基が直接結合している。", "type": "structure" },
-      { "stage": 4, "text": "アーモンドのような特有の香りを持つ。", "type": "property" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液で銀鏡反応陽性。アーモンドのような特有の香りを持つ。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5。芳香族アルデヒド。銀鏡反応陽性。ベンゼン環の置換基はメタ配向性。"
+    "explanation": "【不飽和度】5。芳香族アルデヒド。銀鏡反応陽性。ベンゼン環の置換基はメタ配向性。アーモンド臭。"
   },
   {
     "compound_id": "salicylaldehyde",
@@ -575,7 +575,7 @@
       { "stage": 1, "text": "分子式は C7H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "アルデヒド基とフェノール性ヒドロキシ基を同時に持つ。", "type": "structure" },
       { "stage": 3, "text": "ベンゼン環のオルト位にホルミル基とヒドロキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "サリチル酸の異性体であり、キレート試薬として用いられる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。サリチル酸の異性体。", "type": "reaction" }
     ],
     "explanation": "【不飽和度】5。オルト位のOHとCHOが分子内水素結合を形成。FeCl3で呈色。"
   },
@@ -585,9 +585,9 @@
       { "stage": 1, "text": "分子式は C8H8O3 である。", "type": "formula" },
       { "stage": 2, "text": "アルデヒド基、フェノール性ヒドロキシ基、メトキシ基を持つ。", "type": "structure" },
       { "stage": 3, "text": "ベンゼン環の1位にホルミル基、3位にメトキシ基、4位にヒドロキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "バニラの主成分であり、香料として広く用いられる。", "type": "property" }
+      { "stage": 4, "text": "塩化鉄(III)水溶液で呈色する。バニラの主成分。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5。3つの官能基（CHO, OH, OCH3）を持つ。FeCl3で呈色。"
+    "explanation": "【不飽和度】5。3つの官能基（CHO, OH, OCH3）を持つ。FeCl3で呈色。バニラの香り。"
   },
   {
     "compound_id": "acetone",
@@ -595,9 +595,9 @@
       { "stage": 1, "text": "分子式は C3H6O である。", "type": "formula" },
       { "stage": 2, "text": "最も単純なケトンである。", "type": "classification" },
       { "stage": 3, "text": "中央の炭素がカルボニル基（C=O）であり、両側にメチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "ヨードホルム反応を示し、有機溶媒として広く用いられる。", "type": "reaction" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液では銀鏡反応陰性（ケトン）。ヨードホルム反応陽性を示す。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応陰性（ケトン）。ヨードホルム反応陽性（CH3CO-）。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陰性（ケトン）。ヨードホルム反応陽性（CH3CO-）。2-プロパノールの酸化で得られる。"
   },
   {
     "compound_id": "methyl_ethyl_ketone",
@@ -605,9 +605,9 @@
       { "stage": 1, "text": "分子式は C4H8O である。", "type": "formula" },
       { "stage": 2, "text": "ケトンの一種である。", "type": "classification" },
       { "stage": 3, "text": "カルボニル基の両側にメチル基とエチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "2-ブタノールの酸化によって得られる。", "type": "synthesis" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液では銀鏡反応陰性。ヨードホルム反応陽性を示す。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。銀鏡反応陰性。ヨードホルム反応陽性。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陰性。ヨードホルム反応陽性。2-ブタノールの酸化で得られる。"
   },
   {
     "compound_id": "cyclohexanone",
@@ -615,9 +615,9 @@
       { "stage": 1, "text": "分子式は C6H10O である。", "type": "formula" },
       { "stage": 2, "text": "環状ケトンである。", "type": "classification" },
       { "stage": 3, "text": "シクロヘキサン環の1つの炭素がカルボニル基になっている。", "type": "structure" },
-      { "stage": 4, "text": "ナイロン66の原料として工業的に重要である。", "type": "property" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液では銀鏡反応陰性。硝酸酸化でアジピン酸（ナイロン66原料）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（環+C=O）。環状ケトン。硝酸酸化でアジピン酸（ナイロン66原料）になる。"
+    "explanation": "【不飽和度】2（環+C=O）。環状ケトン。銀鏡反応陰性。硝酸酸化でアジピン酸（ナイロン66原料）になる。"
   },
   {
     "compound_id": "acetophenone",
@@ -625,9 +625,9 @@
       { "stage": 1, "text": "分子式は C8H8O である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ケトンである。", "type": "classification" },
       { "stage": 3, "text": "ベンゼン環にアセチル基（-COCH3）が結合している。", "type": "structure" },
-      { "stage": 4, "text": "ヨードホルム反応を示す。", "type": "reaction" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液では銀鏡反応陰性。ヨードホルム反応陽性を示す。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5。芳香族ケトン。ヨードホルム反応陽性（CH3CO-）。"
+    "explanation": "【不飽和度】5。芳香族ケトン。銀鏡反応陰性。ヨードホルム反応陽性（CH3CO-）。"
   },
   {
     "compound_id": "benzophenone",
@@ -635,356 +635,356 @@
       { "stage": 1, "text": "分子式は C13H10O である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ケトンである。", "type": "classification" },
       { "stage": 3, "text": "カルボニル基の両側にベンゼン環が結合している。", "type": "structure" },
-      { "stage": 4, "text": "紫外線吸収剤として化粧品などに用いられる。", "type": "property" }
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液では銀鏡反応陰性。ヨードホルム反応陰性（CH3CO-構造がない）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】9。ジフェニルケトン。ヨードホルム反応陰性（CH3CO-構造がない）。"
+    "explanation": "【不飽和度】9。ジフェニルケトン。銀鏡反応陰性。ヨードホルム反応陰性（CH3CO-構造がない）。"
   },
   {
     "compound_id": "formic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は CH2O2 である。", "type": "formula" },
       { "stage": 2, "text": "最も単純なカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "構造中にアルデヒド基に似た部分構造を持ち、還元性を示す。", "type": "structure" },
-      { "stage": 4, "text": "銀鏡反応やフェーリング反応を示す唯一のカルボン酸である。", "type": "reaction" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "アンモニア性硝酸銀水溶液を加えると銀鏡を生じる（銀鏡反応陽性）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。唯一の還元性カルボン酸。銀鏡反応・フェーリング反応陽性。NaHCO3と反応してCO2を発生。"
+    "explanation": "【不飽和度】1（C=O）。唯一の還元性カルボン酸。NaHCO3を加えるとCO2気体発生。銀鏡反応・フェーリング反応陽性。"
   },
   {
     "compound_id": "acetic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C2H4O2 である。", "type": "formula" },
       { "stage": 2, "text": "カルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "メチル基とカルボキシ基からなる。", "type": "structure" },
-      { "stage": 4, "text": "酢の主成分であり、弱酸性を示す。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "エタノールと濃硫酸存在下で加熱すると、果実様の香りを持つエステルが生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。酢酸。弱酸性。NaHCO3と反応してCO2を発生。エステル化で酢酸エチル。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3を加えるとCO2気体発生。エステル化で酢酸エチル（甘い香り）。"
   },
   {
     "compound_id": "propionic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C3H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "カルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "3つの炭素が直鎖状に並び、末端にカルボキシ基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "1-プロパノールの酸化によって得られる。", "type": "synthesis" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "1-プロパノールを酸化することで生じる。", "type": "synthesis" }
     ],
-    "explanation": "【不飽和度】1（C=O）。プロピオン酸。1-プロパノールの酸化で得られる。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3でCO2発生。1-プロパノールの酸化で得られる。"
   },
   {
     "compound_id": "butyric_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8O2 である。", "type": "formula" },
       { "stage": 2, "text": "カルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "4つの炭素が直鎖状に並び、末端にカルボキシ基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "不快な臭い（酪酸臭）を持つことで知られる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "不快な臭い（酪酸臭）を示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。酪酸。不快な臭い。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3でCO2発生。不快な酪酸臭。"
   },
   {
     "compound_id": "oxalic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C2H2O4 である。", "type": "formula" },
       { "stage": 2, "text": "ジカルボン酸（カルボキシ基を2つ持つ）である。", "type": "classification" },
-      { "stage": 3, "text": "2つのカルボキシ基が直接結合している。", "type": "structure" },
-      { "stage": 4, "text": "還元剤として働き、過マンガン酸カリウムを還元する。", "type": "reaction" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "過マンガン酸カリウム水溶液の赤紫色を脱色する（還元性を示す）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。シュウ酸。還元剤。KMnO4を還元してCO2を発生。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。KMnO4水溶液を脱色（還元剤）。"
   },
   {
     "compound_id": "malonic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C3H4O4 である。", "type": "formula" },
       { "stage": 2, "text": "ジカルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "2つのカルボキシ基の間にメチレン基（-CH2-）が1つ挟まっている。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "加熱すると脱炭酸して酢酸と二酸化炭素になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。マロン酸。加熱で脱炭酸。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。加熱で脱炭酸。"
   },
   {
     "compound_id": "succinic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H6O4 である。", "type": "formula" },
       { "stage": 2, "text": "ジカルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "2つのカルボキシ基の間にメチレン基が2つ挟まっている。", "type": "structure" },
-      { "stage": 4, "text": "加熱すると分子内脱水して無水コハク酸になる。", "type": "reaction" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "加熱すると分子内脱水して無水コハク酸（5員環無水物）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。コハク酸。加熱で無水コハク酸（5員環無水物）。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。加熱で無水コハク酸。"
   },
   {
     "compound_id": "adipic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C6H10O4 である。", "type": "formula" },
       { "stage": 2, "text": "ジカルボン酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "6つの炭素が直鎖状に並び、両端にカルボキシ基を持つ。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "ヘキサメチレンジアミンと縮合重合してナイロン66になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。アジピン酸。ヘキサメチレンジアミンと縮合重合でナイロン66。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。ヘキサメチレンジアミンと縮合重合でナイロン66。"
   },
   {
     "compound_id": "maleic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H4O4 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和ジカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "二重結合に対して2つのカルボキシ基がシス型に配置している。", "type": "structure" },
-      { "stage": 4, "text": "加熱すると容易に分子内脱水して無水マレイン酸になる。", "type": "reaction" }
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
+      { "stage": 4, "text": "加熱すると容易に分子内脱水して無水マレイン酸（5員環）になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】3（C=O×2+C=C）。マレイン酸（シス型）。加熱で無水マレイン酸（5員環）。"
+    "explanation": "【不飽和度】3（C=O×2+C=C）。臭素水を脱色。加熱で無水マレイン酸（シス型）。"
   },
   {
     "compound_id": "fumaric_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H4O4 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和ジカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "二重結合に対して2つのカルボキシ基がトランス型に配置している。", "type": "structure" },
-      { "stage": 4, "text": "マレイン酸とは幾何異性体の関係にある。", "type": "isomer" }
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
+      { "stage": 4, "text": "マレイン酸とは幾何異性体（トランス型）の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】3（C=O×2+C=C）。フマル酸（トランス型）。マレイン酸と幾何異性体。"
+    "explanation": "【不飽和度】3（C=O×2+C=C）。臭素水を脱色。マレイン酸と幾何異性体（トランス型）。"
   },
   {
     "compound_id": "tartaric_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H6O6 である。", "type": "formula" },
       { "stage": 2, "text": "ジカルボン酸であり、同時に2つのヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "2,3-ジヒドロキシブタン二酸とも呼ばれる。", "type": "nomenclature" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "光学異性体（L体、D体、メソ体）が存在する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。酒石酸。2つの不斉炭素。メソ体あり。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。2つの不斉炭素。メソ体あり。"
   },
   {
     "compound_id": "citric_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C6H8O7 である。", "type": "formula" },
       { "stage": 2, "text": "トリカルボン酸（カルボキシ基を3つ持つ）である。", "type": "classification" },
-      { "stage": 3, "text": "中央の炭素にヒドロキシ基とカルボキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "レモンなどの柑橘類に含まれ、クエン酸回路の構成成分である。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "レモンなどの柑橘類に含まれる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3（C=O×3）。クエン酸。3つのCOOHと1つのOH。"
+    "explanation": "【不飽和度】3（C=O×3）。NaHCO3でCO2発生。3つのCOOHと1つのOH。"
   },
   {
     "compound_id": "lactic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C3H6O3 である。", "type": "formula" },
       { "stage": 2, "text": "カルボン酸であり、ヒドロキシ基を1つ持つ。", "type": "classification" },
-      { "stage": 3, "text": "2-ヒドロキシプロパン酸とも呼ばれる。", "type": "nomenclature" },
-      { "stage": 4, "text": "光学異性体（L体とD体）が存在し、筋肉の疲労物質として知られる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "ヨードホルム反応陽性を示す（CH3CH(OH)-構造）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。乳酸。1つの不斉炭素。ヨードホルム反応陽性。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3でCO2発生。ヨードホルム反応陽性。1つの不斉炭素。"
   },
   {
     "compound_id": "benzoic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C7H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族カルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にカルボキシ基が直接結合している。", "type": "structure" },
-      { "stage": 4, "text": "保存料（安息香酸ナトリウム）として食品に用いられる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "トルエンを過マンガン酸カリウムで酸化することで生じる。", "type": "synthesis" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。安息香酸。NaHCO3と反応。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。NaHCO3でCO2発生。トルエンのKMnO4酸化で得られる。"
   },
   {
     "compound_id": "phthalic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C8H6O4 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ジカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環のオルト位に2つのカルボキシ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "加熱すると分子内脱水して無水フタル酸になる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。フタル酸（オルト位）。加熱で無水フタル酸。"
+    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。NaHCO3でCO2発生。加熱で無水フタル酸（オルト位）。"
   },
   {
     "compound_id": "isophthalic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C8H6O4 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ジカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環のメタ位に2つのカルボキシ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "フタル酸、テレフタル酸とは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。イソフタル酸（メタ位）。"
+    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。NaHCO3でCO2発生。メタ位。"
   },
   {
     "compound_id": "terephthalic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C8H6O4 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ジカルボン酸である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環のパラ位に2つのカルボキシ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "エチレングリコールと縮合重合してポリエチレンテレフタラート（PET）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。テレフタル酸（パラ位）。エチレングリコールとPET。"
+    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。NaHCO3でCO2発生。エチレングリコールとPET（パラ位）。"
   },
   {
     "compound_id": "salicylic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C7H6O3 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族カルボン酸であり、フェノール性ヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環のオルト位にカルボキシ基とヒドロキシ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "アセチル化するとアスピリン（アセチルサリチル酸）になる。", "type": "reaction" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "塩化鉄(III)水溶液を加えると呈色する（フェノール性OH）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。サリチル酸。オルト位のOHとCOOH。FeCl3で呈色。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。NaHCO3でCO2発生。FeCl3で呈色。オルト位のOHとCOOH。"
   },
   {
     "compound_id": "gallic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C7H6O5 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族カルボン酸であり、3つのフェノール性ヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "3,4,5-トリヒドロキシ安息香酸とも呼ばれる。", "type": "nomenclature" },
-      { "stage": 4, "text": "タンニンの構成成分として知られる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "塩化鉄(III)水溶液を加えると呈色する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。没食子酸。3つのOH（3,4,5位）。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。NaHCO3でCO2発生。FeCl3で呈色。3つのOH（3,4,5位）。"
   },
   {
     "compound_id": "methyl_formate",
     "stages": [
       { "stage": 1, "text": "分子式は C2H4O2 である。", "type": "formula" },
       { "stage": 2, "text": "エステルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "ギ酸とメタノールのエステルである。", "type": "structure" },
+      { "stage": 3, "text": "加水分解するとギ酸とメタノールを生じる。", "type": "reaction" },
       { "stage": 4, "text": "酢酸とは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】1（C=O）。ギ酸メチル。酢酸と異性体。HCOO-構造。"
+    "explanation": "【不飽和度】1（C=O）。加水分解でギ酸+メタノール。酢酸と異性体。"
   },
   {
     "compound_id": "methyl_acetate",
     "stages": [
       { "stage": 1, "text": "分子式は C3H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "エステルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酢酸とメタノールのエステルである。", "type": "structure" },
+      { "stage": 3, "text": "加水分解すると酢酸とメタノールを生じる。", "type": "reaction" },
       { "stage": 4, "text": "プロピオン酸とは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】1（C=O）。酢酸メチル。プロピオン酸と異性体。"
+    "explanation": "【不飽和度】1（C=O）。加水分解で酢酸+メタノール。プロピオン酸と異性体。"
   },
   {
     "compound_id": "ethyl_acetate",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8O2 である。", "type": "formula" },
       { "stage": 2, "text": "エステルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酢酸とエタノールのエステルである。", "type": "structure" },
-      { "stage": 4, "text": "果実のような甘い香りを持ち、有機溶媒として用いられる。", "type": "property" }
+      { "stage": 3, "text": "果実のような甘い香りを示す。", "type": "property" },
+      { "stage": 4, "text": "加水分解すると酢酸とエタノールを生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。酢酸エチル。甘い香り。加水分解で酢酸とエタノール。"
+    "explanation": "【不飽和度】1（C=O）。甘い香り。加水分解で酢酸+エタノール。"
   },
   {
     "compound_id": "methyl_salicylate",
     "stages": [
       { "stage": 1, "text": "分子式は C8H8O3 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族エステルであり、フェノール性ヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "サリチル酸のカルボキシ基がメチルエステル化されている。", "type": "structure" },
-      { "stage": 4, "text": "湿布薬の成分として知られ、特有の香りを持つ。", "type": "property" }
+      { "stage": 3, "text": "塩化鉄(III)水溶液を加えると呈色する。", "type": "reaction" },
+      { "stage": 4, "text": "特有の香り（湿布薬の成分）を持つ。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。サリチル酸メチル。オルト位のOHとCOOCH3。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。FeCl3で呈色。オルト位のOHとCOOCH3。"
   },
   {
     "compound_id": "aspirin",
     "stages": [
       { "stage": 1, "text": "分子式は C9H8O4 である。", "type": "formula" },
       { "stage": 2, "text": "芳香族エステルであり、カルボキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "サリチル酸のフェノール性ヒドロキシ基がアセチル化されている。", "type": "structure" },
-      { "stage": 4, "text": "解熱鎮痛剤として広く用いられる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "加水分解するとサリチル酸と酢酸を生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。アスピリン。オルト位のOCOCH3とCOOH。"
+    "explanation": "【不飽和度】6（ベンゼン環4+C=O×2）。NaHCO3でCO2発生。加水分解でサリチル酸+酢酸。"
   },
   {
     "compound_id": "vinyl_acetate",
     "stages": [
       { "stage": 1, "text": "分子式は C4H6O2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和エステルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酢酸とビニルアルコール（の互変異性体であるアセトアルデヒド）の誘導体である。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリ酢酸ビニル（PVA）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】2（C=O+C=C）。酢酸ビニル。付加重合でPVA。"
+    "explanation": "【不飽和度】2（C=O+C=C）。臭素水を脱色。付加重合でPVA。"
   },
   {
     "compound_id": "methyl_methacrylate",
     "stages": [
       { "stage": 1, "text": "分子式は C5H8O2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和エステルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "2位にメチル基を持つメタクリル酸のメチルエステルである。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリメチルメタクリレート（アクリル樹脂、PMMA）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】2（C=O+C=C）。メタクリル酸メチル。付加重合でPMMA（アクリル樹脂）。"
+    "explanation": "【不飽和度】2（C=O+C=C）。臭素水を脱色。付加重合でPMMA。"
   },
   {
     "compound_id": "dimethyl_ether",
     "stages": [
       { "stage": 1, "text": "分子式は C2H6O である。", "type": "formula" },
       { "stage": 2, "text": "エーテルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酸素原子の両側にメチル基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "ナトリウムを加えても水素気体は発生しない（OH基なし）。", "type": "reaction" },
       { "stage": 4, "text": "エタノールとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】0。ジメチルエーテル。エタノールと異性体。Naと反応しない。"
+    "explanation": "【不飽和度】0。NaでH2発生しない。エタノールと異性体。"
   },
   {
     "compound_id": "diethyl_ether",
     "stages": [
       { "stage": 1, "text": "分子式は C4H10O である。", "type": "formula" },
       { "stage": 2, "text": "エーテルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酸素原子の両側にエチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "麻酔薬や有機溶媒として歴史的に用いられてきた。", "type": "property" }
+      { "stage": 3, "text": "ナトリウムを加えても水素気体は発生しない。", "type": "reaction" },
+      { "stage": 4, "text": "1-ブタノールとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】0。ジエチルエーテル。1-ブタノールと異性体。"
+    "explanation": "【不飽和度】0。NaでH2発生しない。1-ブタノールと異性体。"
   },
   {
     "compound_id": "anisole",
     "stages": [
       { "stage": 1, "text": "分子式は C7H8O である。", "type": "formula" },
       { "stage": 2, "text": "芳香族エーテルである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にメトキシ基（-OCH3）が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩化鉄(III)水溶液を加えても呈色しない（フェノール性OHなし）。", "type": "reaction" },
       { "stage": 4, "text": "クレゾールとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】4。アニソール（メトキシベンゼン）。クレゾールと異性体。FeCl3で呈色しない。"
+    "explanation": "【不飽和度】4。FeCl3で呈色しない。クレゾールと異性体。"
   },
   {
     "compound_id": "methylamine",
     "stages": [
       { "stage": 1, "text": "分子式は CH5N である。", "type": "formula" },
       { "stage": 2, "text": "最も単純なアミンである。", "type": "classification" },
-      { "stage": 3, "text": "第一級アミンであり、窒素原子にメチル基が1つ結合している。", "type": "structure" },
-      { "stage": 4, "text": "塩基性を示し、魚のような不快な臭いを持つ。", "type": "property" }
+      { "stage": 3, "text": "塩基性を示し、赤色リトマス紙を青色に変える。", "type": "property" },
+      { "stage": 4, "text": "魚のような不快な臭いを示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。メチルアミン。第一級アミン。塩基性。"
+    "explanation": "【不飽和度】0。塩基性（赤色リトマス→青色）。"
   },
   {
     "compound_id": "dimethylamine",
     "stages": [
       { "stage": 1, "text": "分子式は C2H7N である。", "type": "formula" },
       { "stage": 2, "text": "第二級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "窒素原子に2つのメチル基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "エチルアミンとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】0。ジメチルアミン。第二級アミン。エチルアミンと異性体。"
+    "explanation": "【不飽和度】0。第二級アミン。塩基性。エチルアミンと異性体。"
   },
   {
     "compound_id": "trimethylamine",
     "stages": [
       { "stage": 1, "text": "分子式は C3H9N である。", "type": "formula" },
       { "stage": 2, "text": "第三級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "窒素原子に3つのメチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "腐った魚のような強い臭いを持つ。", "type": "property" }
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "腐った魚のような強い臭いを示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。トリメチルアミン。第三級アミン。"
+    "explanation": "【不飽和度】0。第三級アミン。塩基性。"
   },
   {
     "compound_id": "ethylamine",
     "stages": [
       { "stage": 1, "text": "分子式は C2H7N である。", "type": "formula" },
       { "stage": 2, "text": "第一級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "窒素原子にエチル基が1つ結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "ジメチルアミンとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】0。エチルアミン。第一級アミン。ジメチルアミンと異性体。"
+    "explanation": "【不飽和度】0。第一級アミン。塩基性。ジメチルアミンと異性体。"
   },
   {
     "compound_id": "aniline",
     "stages": [
       { "stage": 1, "text": "分子式は C6H7N である。", "type": "formula" },
       { "stage": 2, "text": "芳香族第一級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にアミノ基（-NH2）が直接結合している。", "type": "structure" },
-      { "stage": 4, "text": "塩基性はアンモニアよりも弱く、ジアゾ化反応の原料となる。", "type": "property" }
+      { "stage": 3, "text": "塩基性はアンモニアよりも弱い。", "type": "property" },
+      { "stage": 4, "text": "ジアゾ化反応の原料となる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4。アニリン。芳香族第一級アミン。塩基性は弱い。ジアゾ化→アゾ染料。"
+    "explanation": "【不飽和度】4。芳香族第一級アミン。塩基性弱い。ジアゾ化→アゾ染料。"
   },
   {
     "compound_id": "toluidine_ortho",
     "stages": [
       { "stage": 1, "text": "分子式は C7H9N である。", "type": "formula" },
       { "stage": 2, "text": "芳香族第一級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にアミノ基とメチル基が隣接して結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "m-トルイジン、p-トルイジンとは構造異性体の関係にある。", "type": "isomer" }
     ],
     "explanation": "【不飽和度】4。o-トルイジン。オルト位のNH2とCH3。"
@@ -994,7 +994,7 @@
     "stages": [
       { "stage": 1, "text": "分子式は C7H9N である。", "type": "formula" },
       { "stage": 2, "text": "芳香族第一級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にアミノ基とメチル基が1つ飛ばして結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "m-トルイジンとも呼ばれる。", "type": "nomenclature" }
     ],
     "explanation": "【不飽和度】4。m-トルイジン。メタ位のNH2とCH3。"
@@ -1004,7 +1004,7 @@
     "stages": [
       { "stage": 1, "text": "分子式は C7H9N である。", "type": "formula" },
       { "stage": 2, "text": "芳香族第一級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にアミノ基とメチル基が対位に結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "p-トルイジンとも呼ばれる。", "type": "nomenclature" }
     ],
     "explanation": "【不飽和度】4。p-トルイジン。パラ位のNH2とCH3。"
@@ -1014,7 +1014,7 @@
     "stages": [
       { "stage": 1, "text": "分子式は C8H11N である。", "type": "formula" },
       { "stage": 2, "text": "芳香族第三級アミンである。", "type": "classification" },
-      { "stage": 3, "text": "アニリンの窒素原子に2つのメチル基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "N,N-ジメチルアニリンとも呼ばれる。", "type": "nomenclature" }
     ],
     "explanation": "【不飽和度】4。N,N-ジメチルアニリン。第三級アミン。"
@@ -1024,37 +1024,37 @@
     "stages": [
       { "stage": 1, "text": "分子式は C2H8N2 である。", "type": "formula" },
       { "stage": 2, "text": "ジアミン（アミノ基を2つ持つ）である。", "type": "classification" },
-      { "stage": 3, "text": "2つの炭素のそれぞれにアミノ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "金属イオンとキレート錯体を形成する性質を持つ。", "type": "property" }
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "金属イオンとキレート錯体を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。エチレンジアミン。二座配位子。キレート錯体形成。"
+    "explanation": "【不飽和度】0。二座配位子。キレート錯体形成。"
   },
   {
     "compound_id": "hexamethylenediamine",
     "stages": [
       { "stage": 1, "text": "分子式は C6H16N2 である。", "type": "formula" },
       { "stage": 2, "text": "ジアミンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "6つの炭素が直鎖状に並び、両端にアミノ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "アジピン酸と縮合重合してナイロン66になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】0。ヘキサメチレンジアミン。アジピン酸と縮合重合でナイロン66。"
+    "explanation": "【不飽和度】0。アジピン酸と縮合重合でナイロン66。"
   },
   {
     "compound_id": "nitrobenzene",
     "stages": [
       { "stage": 1, "text": "分子式は C6H5NO2 である。", "type": "formula" },
       { "stage": 2, "text": "ニトロ化合物の一種である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にニトロ基（-NO2）が結合している。", "type": "structure" },
-      { "stage": 4, "text": "還元するとアニリンになる。", "type": "reaction" }
+      { "stage": 3, "text": "還元するとアニリンになる。", "type": "reaction" },
+      { "stage": 4, "text": "芳香族求電子置換反応でメタ配向性を示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+NO2）。ニトロベンゼン。還元でアニリン。メタ配向性。"
+    "explanation": "【不飽和度】5（ベンゼン環4+NO2）。還元でアニリン。メタ配向性。"
   },
   {
     "compound_id": "nitrotoluene_ortho",
     "stages": [
       { "stage": 1, "text": "分子式は C7H7NO2 である。", "type": "formula" },
       { "stage": 2, "text": "ニトロ化合物の一種である。", "type": "classification" },
-      { "stage": 3, "text": "トルエンのベンゼン環のオルト位にニトロ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "還元するとo-トルイジンになる。", "type": "reaction" },
       { "stage": 4, "text": "m-ニトロトルエン、p-ニトロトルエンとは構造異性体の関係にある。", "type": "isomer" }
     ],
     "explanation": "【不飽和度】5。o-ニトロトルエン。オルト位のNO2とCH3。"
@@ -1064,7 +1064,7 @@
     "stages": [
       { "stage": 1, "text": "分子式は C7H7NO2 である。", "type": "formula" },
       { "stage": 2, "text": "ニトロ化合物の一種である。", "type": "classification" },
-      { "stage": 3, "text": "トルエンのベンゼン環のメタ位にニトロ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "還元するとm-トルイジンになる。", "type": "reaction" },
       { "stage": 4, "text": "m-ニトロトルエンとも呼ばれる。", "type": "nomenclature" }
     ],
     "explanation": "【不飽和度】5。m-ニトロトルエン。メタ位のNO2とCH3。"
@@ -1074,7 +1074,7 @@
     "stages": [
       { "stage": 1, "text": "分子式は C7H7NO2 である。", "type": "formula" },
       { "stage": 2, "text": "ニトロ化合物の一種である。", "type": "classification" },
-      { "stage": 3, "text": "トルエンのベンゼン環のパラ位にニトロ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "還元するとp-トルイジンになる。", "type": "reaction" },
       { "stage": 4, "text": "p-ニトロトルエンとも呼ばれる。", "type": "nomenclature" }
     ],
     "explanation": "【不飽和度】5。p-ニトロトルエン。パラ位のNO2とCH3。"
@@ -1094,679 +1094,679 @@
     "stages": [
       { "stage": 1, "text": "分子式は C6H3N3O7 である。", "type": "formula" },
       { "stage": 2, "text": "ニトロ化合物であり、フェノール性ヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "フェノールの2,4,6位にニトロ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "2,4,6-トリニトロフェノールとも呼ばれ、爆薬として用いられる。", "type": "property" }
+      { "stage": 3, "text": "塩化鉄(III)水溶液を加えると呈色する。", "type": "reaction" },
+      { "stage": 4, "text": "2,4,6-トリニトロフェノールとも呼ばれる。", "type": "nomenclature" }
     ],
-    "explanation": "【不飽和度】6。ピクリン酸。2,4,6-トリニトロフェノール。強酸性（NO2の電子吸引効果）。"
+    "explanation": "【不飽和度】6。ピクリン酸。FeCl3で呈色。強酸性（NO2の電子吸引効果）。"
   },
   {
     "compound_id": "chloroform",
     "stages": [
       { "stage": 1, "text": "分子式は CHCl3 である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲン化アルキルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "メタンの3つの水素が塩素原子に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "かつては麻酔薬として用いられたが、現在は有機溶媒として用いられる。", "type": "property" }
+      { "stage": 3, "text": "水酸化ナトリウム水溶液で加熱すると加水分解する。", "type": "reaction" },
+      { "stage": 4, "text": "かつては麻酔薬として用いられた。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。クロロホルム。CHCl3。NaOHで加水分解。"
+    "explanation": "【不飽和度】0。NaOHで加水分解。"
   },
   {
     "compound_id": "carbon_tetrachloride",
     "stages": [
       { "stage": 1, "text": "分子式は CCl4 である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲン化アルキルの一種である。", "type": "classification" },
-      { "stage": 3, "text": "メタンの4つの水素がすべて塩素原子に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "正四面体構造をとり、不燃性の有機溶媒として用いられた。", "type": "property" }
+      { "stage": 3, "text": "正四面体構造をとる。", "type": "structure" },
+      { "stage": 4, "text": "不燃性の有機溶媒として用いられた。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。四塩化炭素。CCl4。正四面体。不燃性溶媒。"
+    "explanation": "【不飽和度】0。正四面体。不燃性溶媒。"
   },
   {
     "compound_id": "vinyl_chloride",
     "stages": [
       { "stage": 1, "text": "分子式は C2H3Cl である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲン化アルケンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "エチレンの1つの水素が塩素原子に置換されている。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリ塩化ビニル（PVC）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】1（C=C）。塩化ビニル。付加重合でPVC。"
+    "explanation": "【不飽和度】1（C=C）。臭素水を脱色。付加重合でPVC。"
   },
   {
     "compound_id": "vinylidene_chloride",
     "stages": [
       { "stage": 1, "text": "分子式は C2H2Cl2 である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲン化アルケンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "エチレンの同じ炭素に2つの塩素原子が結合している。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリ塩化ビニリデン（サランラップの原料）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】1（C=C）。塩化ビニリデン。1,1-ジクロロエチレン。付加重合でサラン。"
+    "explanation": "【不飽和度】1（C=C）。臭素水を脱色。付加重合でサラン。"
   },
   {
     "compound_id": "benzyl_chloride",
     "stages": [
       { "stage": 1, "text": "分子式は C7H7Cl である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ハロゲン化物である。", "type": "classification" },
-      { "stage": 3, "text": "トルエンのメチル基の水素が塩素原子に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "クロロベンゼンとは異なり、求核置換反応を受けやすい。", "type": "reaction" }
+      { "stage": 3, "text": "求核置換反応を受けやすい（ベンジル位）。", "type": "reaction" },
+      { "stage": 4, "text": "クロロベンゼンとは異なり、反応性が高い。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。塩化ベンジル。ベンジル位。求核置換反応受けやすい。"
+    "explanation": "【不飽和度】4。ベンジル位。求核置換反応受けやすい。"
   },
   {
     "compound_id": "chlorobenzene",
     "stages": [
       { "stage": 1, "text": "分子式は C6H5Cl である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ハロゲン化物である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環の水素が塩素原子に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "求核置換反応を受けにくく、強い塩基と高温で反応させる必要がある。", "type": "reaction" }
+      { "stage": 3, "text": "求核置換反応を受けにくい。", "type": "reaction" },
+      { "stage": 4, "text": "強い塩基と高温で反応させる必要がある。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。クロロベンゼン。求核置換反応受けにくい。"
+    "explanation": "【不飽和度】4。求核置換反応受けにくい。"
   },
   {
     "compound_id": "bromobenzene",
     "stages": [
       { "stage": 1, "text": "分子式は C6H5Br である。", "type": "formula" },
       { "stage": 2, "text": "芳香族ハロゲン化物である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環の水素が臭素原子に置換されている。", "type": "structure" },
-      { "stage": 4, "text": "グリニャール試薬の原料として用いられる。", "type": "reaction" }
+      { "stage": 3, "text": "マグネシウムと反応させてグリニャール試薬を調製できる。", "type": "reaction" },
+      { "stage": 4, "text": "求核置換反応を受けにくい。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。ブロモベンゼン。Mgと反応でグリニャール試薬。"
+    "explanation": "【不飽和度】4。Mgと反応でグリニャール試薬。"
   },
   {
     "compound_id": "tetrafluoroethylene",
     "stages": [
       { "stage": 1, "text": "分子式は C2F4 である。", "type": "formula" },
       { "stage": 2, "text": "ハロゲン化アルケンの一種である。", "type": "classification" },
-      { "stage": 3, "text": "エチレンの4つの水素がすべてフッ素原子に置換されている。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリテトラフルオロエチレン（PTFE、テフロン）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】1（C=C）。テトラフルオロエチレン。付加重合でPTFE（テフロン）。"
+    "explanation": "【不飽和度】1（C=C）。臭素水を脱色。付加重合でPTFE（テフロン）。"
   },
   {
     "compound_id": "glycine",
     "stages": [
       { "stage": 1, "text": "分子式は C2H5NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "最も単純な構造を持ち、側鎖は水素原子である。", "type": "structure" },
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
       { "stage": 4, "text": "光学異性体を持たない唯一のアミノ酸である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。グリシン。側鎖はH。不斉炭素なし。両性イオン。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はH。不斉炭素なし。両性イオン。"
   },
   {
     "compound_id": "alanine",
     "stages": [
       { "stage": 1, "text": "分子式は C3H7NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はメチル基である。", "type": "structure" },
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
       { "stage": 4, "text": "L体とD体の光学異性体が存在する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。アラニン。側鎖はCH3。1つの不斉炭素。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はCH3。1つの不斉炭素。"
   },
   {
     "compound_id": "valine",
     "stages": [
       { "stage": 1, "text": "分子式は C5H11NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はイソプロピル基である。", "type": "structure" },
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
       { "stage": 4, "text": "必須アミノ酸の1つである。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。バリン。側鎖はイソプロピル基。必須アミノ酸。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はイソプロピル基。必須アミノ酸。"
   },
   {
     "compound_id": "leucine",
     "stages": [
       { "stage": 1, "text": "分子式は C6H13NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はイソブチル基である。", "type": "structure" },
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
       { "stage": 4, "text": "必須アミノ酸の1つである。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。ロイシン。側鎖はイソブチル基。必須アミノ酸。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はイソブチル基。必須アミノ酸。"
   },
   {
     "compound_id": "serine",
     "stages": [
       { "stage": 1, "text": "分子式は C3H7NO3 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はヒドロキシメチル基である。", "type": "structure" },
-      { "stage": 4, "text": "リン酸化されることでタンパク質の機能調節に関わる。", "type": "property" }
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
+      { "stage": 4, "text": "側鎖にヒドロキシ基を持つ。", "type": "structure" }
     ],
-    "explanation": "【不飽和度】1（C=O）。セリン。側鎖はCH2OH。1つの不斉炭素。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はCH2OH。1つの不斉炭素。"
   },
   {
     "compound_id": "cysteine",
     "stages": [
       { "stage": 1, "text": "分子式は C3H7NO2S である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はチオール基（-SH）を持つ。", "type": "structure" },
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
       { "stage": 4, "text": "酸化されるとジスルフィド結合（-S-S-）を形成する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。システイン。側鎖はCH2SH。ジスルフィド結合形成。"
+    "explanation": "【不飽和度】1（C=O）。側鎖はCH2SH。ジスルフィド結合形成。"
   },
   {
     "compound_id": "tyrosine",
     "stages": [
       { "stage": 1, "text": "分子式は C9H11NO3 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はフェノール性ヒドロキシ基を持つベンゼン環である。", "type": "structure" },
-      { "stage": 4, "text": "チロシナーゼの作用でメラニン色素の前駆体となる。", "type": "property" }
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
+      { "stage": 4, "text": "塩化鉄(III)水溶液を加えると呈色する（フェノール性OH）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。チロシン。側鎖はp-ヒドロキシベンジル基。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。FeCl3で呈色。側鎖はp-ヒドロキシベンジル基。"
   },
   {
     "compound_id": "phenylalanine",
     "stages": [
       { "stage": 1, "text": "分子式は C9H11NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖はベンジル基である。", "type": "structure" },
-      { "stage": 4, "text": "必須アミノ酸の1つであり、体内でチロシンに変換される。", "type": "property" }
+      { "stage": 3, "text": "両性イオンとして存在する。", "type": "property" },
+      { "stage": 4, "text": "必須アミノ酸の1つである。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。フェニルアラニン。側鎖はベンジル基。必須アミノ酸。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。側鎖はベンジル基。必須アミノ酸。"
   },
   {
     "compound_id": "glutamic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C5H9NO4 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖にカルボキシ基を持つ（酸性アミノ酸）。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する（COOHを持つ）。", "type": "reaction" },
       { "stage": 4, "text": "うま味成分（グルタミン酸ナトリウム）として知られる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。グルタミン酸。側鎖にCOOH。酸性アミノ酸。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。側鎖にCOOH。酸性アミノ酸。"
   },
   {
     "compound_id": "aspartic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C4H7NO4 である。", "type": "formula" },
       { "stage": 2, "text": "アミノ酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "側鎖にカルボキシ基を持つ（酸性アミノ酸）。", "type": "structure" },
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
       { "stage": 4, "text": "グルタミン酸より炭素数が1つ少ない。", "type": "property" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。アスパラギン酸。側鎖にCOOH。酸性アミノ酸。"
+    "explanation": "【不飽和度】2（C=O×2）。NaHCO3でCO2発生。側鎖にCOOH。酸性アミノ酸。"
   },
   {
     "compound_id": "glucose",
     "stages": [
       { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
       { "stage": 2, "text": "単糖類（ヘキソース）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "アルデヒド基と5つのヒドロキシ基を持つ（アルドース）。", "type": "structure" },
-      { "stage": 4, "text": "銀鏡反応やフェーリング反応を示す還元糖である。", "type": "reaction" }
+      { "stage": 3, "text": "アンモニア性硝酸銀水溶液を加えると銀鏡を生じる（銀鏡反応陽性）。", "type": "reaction" },
+      { "stage": 4, "text": "フェーリング液を加えると赤色沈殿を生じる（フェーリング反応陽性）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。アルドヘキソース。還元糖。水溶液中で環状構造（α,β-グルコース）と平衡。"
+    "explanation": "【不飽和度】1（C=O）。銀鏡反応陽性。フェーリング反応陽性。還元糖。"
   },
   {
     "compound_id": "fructose",
     "stages": [
       { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
       { "stage": 2, "text": "単糖類（ヘキソース）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "ケトン基と5つのヒドロキシ基を持つ（ケトース）。", "type": "structure" },
+      { "stage": 3, "text": "フェーリング液を加えると赤色沈殿を生じる（還元糖）。", "type": "reaction" },
       { "stage": 4, "text": "グルコースとは構造異性体の関係にある。", "type": "isomer" }
     ],
-    "explanation": "【不飽和度】1（C=O）。ケトヘキソース。還元糖（異性化によりアルデヒドを生じる）。グルコースと異性体。"
+    "explanation": "【不飽和度】1（C=O）。還元糖（異性化によりアルデヒドを生じる）。グルコースと異性体。"
   },
   {
     "compound_id": "galactose",
     "stages": [
       { "stage": 1, "text": "分子式は C6H12O6 である。", "type": "formula" },
       { "stage": 2, "text": "単糖類（ヘキソース）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グルコースの4位の立体配置が異なるエピマーである。", "type": "structure" },
+      { "stage": 3, "text": "フェーリング液を加えると赤色沈殿を生じる（還元糖）。", "type": "reaction" },
       { "stage": 4, "text": "乳糖を構成する糖の1つである。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。グルコースのC4エピマー。還元糖。乳糖（ガラクトース+グルコース）の構成成分。"
+    "explanation": "【不飽和度】1（C=O）。還元糖。グルコースのC4エピマー。"
   },
   {
     "compound_id": "ribose",
     "stages": [
       { "stage": 1, "text": "分子式は C5H10O5 である。", "type": "formula" },
       { "stage": 2, "text": "単糖類（ペントース）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "アルデヒド基と4つのヒドロキシ基を持つ（アルドース）。", "type": "structure" },
+      { "stage": 3, "text": "フェーリング液を加えると赤色沈殿を生じる（還元糖）。", "type": "reaction" },
       { "stage": 4, "text": "RNA（リボ核酸）を構成する糖である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。アルドペントース。還元糖。RNAの骨格（β-D-リボース）。"
+    "explanation": "【不飽和度】1（C=O）。還元糖。RNAの骨格。"
   },
   {
     "compound_id": "deoxyribose",
     "stages": [
       { "stage": 1, "text": "分子式は C5H10O4 である。", "type": "formula" },
       { "stage": 2, "text": "単糖類（ペントース）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "リボースの2位のヒドロキシ基が水素原子に置換されている。", "type": "structure" },
+      { "stage": 3, "text": "フェーリング液を加えると赤色沈殿を生じる（還元糖）。", "type": "reaction" },
       { "stage": 4, "text": "DNA（デオキシリボ核酸）を構成する糖である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。2-デオキシアルドペントース。DNAの骨格。"
+    "explanation": "【不飽和度】1（C=O）。還元糖。DNAの骨格。"
   },
   {
     "compound_id": "sucrose",
     "stages": [
       { "stage": 1, "text": "分子式は C12H22O11 である。", "type": "formula" },
       { "stage": 2, "text": "二糖類の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グルコースとフルクトースがグリコシド結合でつながっている。", "type": "structure" },
-      { "stage": 4, "text": "還元性を示さず、銀鏡反応やフェーリング反応を示さない。", "type": "reaction" }
+      { "stage": 3, "text": "アンモニア性硝酸銀水溶液を加えても銀鏡を生じない（非還元糖）。", "type": "reaction" },
+      { "stage": 4, "text": "加水分解するとグルコースとフルクトースを生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1。グルコース+フルクトースの二糖。非還元糖（ヘミアセタールOHが両方とも結合）。加水分解で等量のグルコースとフルクトース（転化糖）。"
+    "explanation": "【不飽和度】1。銀鏡反応陰性（非還元糖）。加水分解でグルコース+フルクトース。"
   },
   {
     "compound_id": "maltose",
     "stages": [
       { "stage": 1, "text": "分子式は C12H22O11 である。", "type": "formula" },
       { "stage": 2, "text": "二糖類の一種である。", "type": "classification" },
-      { "stage": 3, "text": "2分子のグルコースがα-1,4グリコシド結合でつながっている。", "type": "structure" },
-      { "stage": 4, "text": "還元性を示し、銀鏡反応やフェーリング反応を示す。", "type": "reaction" }
+      { "stage": 3, "text": "アンモニア性硝酸銀水溶液を加えると銀鏡を生じる（還元糖）。", "type": "reaction" },
+      { "stage": 4, "text": "加水分解すると2分子のグルコースを生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1。グルコース×2の二糖。還元糖（ヘミアセタールOHが1つ残存）。α-1,4結合。"
+    "explanation": "【不飽和度】1。銀鏡反応陽性（還元糖）。加水分解でグルコース×2。"
   },
   {
     "compound_id": "lactose",
     "stages": [
       { "stage": 1, "text": "分子式は C12H22O11 である。", "type": "formula" },
       { "stage": 2, "text": "二糖類の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グルコースとガラクトースがβ-1,4グリコシド結合でつながっている。", "type": "structure" },
-      { "stage": 4, "text": "哺乳類の乳に含まれる糖である。", "type": "property" }
+      { "stage": 3, "text": "アンモニア性硝酸銀水溶液を加えると銀鏡を生じる（還元糖）。", "type": "reaction" },
+      { "stage": 4, "text": "加水分解するとグルコースとガラクトースを生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1。ガラクトース+グルコースの二糖。還元糖。β-1,4結合。"
+    "explanation": "【不飽和度】1。銀鏡反応陽性（還元糖）。加水分解でグルコース+ガラクトース。"
   },
   {
     "compound_id": "palmitic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C16H32O2 である。", "type": "formula" },
       { "stage": 2, "text": "高級脂肪酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "16個の炭素が直鎖状に並び、末端にカルボキシ基を持つ（飽和脂肪酸）。", "type": "structure" },
-      { "stage": 4, "text": "動植物の油脂を構成する主要な脂肪酸である。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水を加えても脱色しない（飽和脂肪酸）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。C16飽和脂肪酸。ヘキサデカン酸。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3でCO2発生。臭素水を脱色しない（飽和）。"
   },
   {
     "compound_id": "stearic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C18H36O2 である。", "type": "formula" },
       { "stage": 2, "text": "高級脂肪酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "18個の炭素が直鎖状に並び、末端にカルボキシ基を持つ（飽和脂肪酸）。", "type": "structure" },
-      { "stage": 4, "text": "石鹸の原料となる。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水を加えても脱色しない（飽和脂肪酸）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】1（C=O）。C18飽和脂肪酸。オクタデカン酸。"
+    "explanation": "【不飽和度】1（C=O）。NaHCO3でCO2発生。臭素水を脱色しない（飽和）。"
   },
   {
     "compound_id": "oleic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C18H34O2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和脂肪酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "18個の炭素鎖の9位と10位の間にシス型の二重結合を1つ持つ。", "type": "structure" },
-      { "stage": 4, "text": "オリーブ油などの主要成分である。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（C=O+C=C）。C18不飽和脂肪酸（二重結合1つ、シス型）。臭素水を脱色。"
+    "explanation": "【不飽和度】2（C=O+C=C）。NaHCO3でCO2発生。臭素水を脱色（二重結合1つ）。"
   },
   {
     "compound_id": "linoleic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C18H32O2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和脂肪酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "18個の炭素鎖に2つの二重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "必須脂肪酸の1つである。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水を加えると脱色する（二重結合を2つ持つ）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】3（C=O+C=C×2）。C18不飽和脂肪酸（二重結合2つ）。必須脂肪酸。"
+    "explanation": "【不飽和度】3（C=O+C=C×2）。NaHCO3でCO2発生。臭素水を脱色（二重結合2つ）。必須脂肪酸。"
   },
   {
     "compound_id": "linolenic_acid",
     "stages": [
       { "stage": 1, "text": "分子式は C18H30O2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和脂肪酸の一種である。", "type": "classification" },
-      { "stage": 3, "text": "18個の炭素鎖に3つの二重結合を持つ。", "type": "structure" },
-      { "stage": 4, "text": "必須脂肪酸の1つであり、酸化されやすい。", "type": "property" }
+      { "stage": 3, "text": "炭酸水素ナトリウムを加えると二酸化炭素の気体が発生する。", "type": "reaction" },
+      { "stage": 4, "text": "臭素水を加えると脱色する（二重結合を3つ持つ）。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】4（C=O+C=C×3）。C18不飽和脂肪酸（二重結合3つ）。必須脂肪酸。ヨウ素価大。"
+    "explanation": "【不飽和度】4（C=O+C=C×3）。NaHCO3でCO2発生。臭素水を脱色（二重結合3つ）。必須脂肪酸。"
   },
   {
     "compound_id": "tripalmitin",
     "stages": [
       { "stage": 1, "text": "分子式は C51H98O6 である。", "type": "formula" },
       { "stage": 2, "text": "油脂（トリグリセリド）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グリセロールに3分子のパルミチン酸がエステル結合している。", "type": "structure" },
-      { "stage": 4, "text": "常温で固体である。", "type": "property" }
+      { "stage": 3, "text": "水酸化ナトリウム水溶液で加熱するとけん化してグリセロールと石鹸を生じる。", "type": "reaction" },
+      { "stage": 4, "text": "常温で固体である（飽和脂肪酸のエステル）。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3（C=O×3）。飽和脂肪酸のトリグリセリド。常温固体（脂肪）。けん化でグリセロール+パルミチン酸Na。"
+    "explanation": "【不飽和度】3（C=O×3）。けん化でグリセロール+パルミチン酸Na。常温固体。"
   },
   {
     "compound_id": "tristearin",
     "stages": [
       { "stage": 1, "text": "分子式は C57H110O6 である。", "type": "formula" },
       { "stage": 2, "text": "油脂（トリグリセリド）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グリセロールに3分子のステアリン酸がエステル結合している。", "type": "structure" },
+      { "stage": 3, "text": "水酸化ナトリウム水溶液で加熱するとけん化してグリセロールと石鹸を生じる。", "type": "reaction" },
       { "stage": 4, "text": "常温で固体である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3（C=O×3）。飽和脂肪酸のトリグリセリド。常温固体。"
+    "explanation": "【不飽和度】3（C=O×3）。けん化でグリセロール+ステアリン酸Na。常温固体。"
   },
   {
     "compound_id": "triolein",
     "stages": [
       { "stage": 1, "text": "分子式は C57H104O6 である。", "type": "formula" },
       { "stage": 2, "text": "油脂（トリグリセリド）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "グリセロールに3分子のオレイン酸がエステル結合している。", "type": "structure" },
-      { "stage": 4, "text": "常温で液体であり、ヨウ素価を持つ。", "type": "property" }
+      { "stage": 3, "text": "臭素水を加えると脱色する（不飽和脂肪酸のエステル）。", "type": "reaction" },
+      { "stage": 4, "text": "常温で液体である（油）。", "type": "property" }
     ],
-    "explanation": "【不飽和度】6（C=O×3+C=C×3）。不飽和脂肪酸のトリグリセリド。常温液体（油）。臭素水を脱色。"
+    "explanation": "【不飽和度】6（C=O×3+C=C×3）。臭素水を脱色。常温液体。"
   },
   {
     "compound_id": "urea",
     "stages": [
       { "stage": 1, "text": "分子式は CH4N2O である。", "type": "formula" },
       { "stage": 2, "text": "アミドの一種である。", "type": "classification" },
-      { "stage": 3, "text": "カルボニル基の両側にアミノ基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "哺乳類の尿中に含まれる窒素代謝の最終産物である。", "type": "property" }
+      { "stage": 3, "text": "加熱すると縮合してビウレット反応陽性物質を生成する。", "type": "reaction" },
+      { "stage": 4, "text": "哺乳類の尿中に含まれる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。尿素。ジアミド構造。加熱で縮合しビウレット反応陽性物質を生成。"
+    "explanation": "【不飽和度】1（C=O）。加熱でビウレット反応陽性物質を生成。"
   },
   {
     "compound_id": "acetamide",
     "stages": [
       { "stage": 1, "text": "分子式は C2H5NO である。", "type": "formula" },
       { "stage": 2, "text": "アミドの一種である。", "type": "classification" },
-      { "stage": 3, "text": "酢酸のカルボキシ基がアミノ基に置換された構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "加水分解すると酢酸とアンモニアになる。", "type": "reaction" }
+      { "stage": 3, "text": "酸または塩基で加熱すると加水分解して酢酸（または酢酸塩）とアンモニアを生じる。", "type": "reaction" },
+      { "stage": 4, "text": "中性である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（C=O）。酢酸アミド。酸・塩基で加水分解。"
+    "explanation": "【不飽和度】1（C=O）。酸・塩基で加水分解。"
   },
   {
     "compound_id": "benzamide",
     "stages": [
       { "stage": 1, "text": "分子式は C7H7NO である。", "type": "formula" },
       { "stage": 2, "text": "芳香族アミドである。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環にカルボキサミド基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "安息香酸のアミドである。", "type": "nomenclature" }
+      { "stage": 3, "text": "酸または塩基で加熱すると加水分解して安息香酸（または安息香酸塩）とアンモニアを生じる。", "type": "reaction" },
+      { "stage": 4, "text": "中性である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。安息香酸アミド。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。酸・塩基で加水分解。"
   },
   {
     "compound_id": "acetanilide",
     "stages": [
       { "stage": 1, "text": "分子式は C8H9NO である。", "type": "formula" },
       { "stage": 2, "text": "芳香族アミドである。", "type": "classification" },
-      { "stage": 3, "text": "アニリンのアミノ基がアセチル化された構造を持つ。", "type": "structure" },
+      { "stage": 3, "text": "酸または塩基で加熱すると加水分解してアニリンと酢酸（または酢酸塩）を生じる。", "type": "reaction" },
       { "stage": 4, "text": "かつては解熱鎮痛剤として用いられた。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。アセトアニリド。アニリンのアセチル化で合成。加水分解でアニリン+酢酸。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。酸・塩基で加水分解でアニリン+酢酸。"
   },
   {
     "compound_id": "caprolactam",
     "stages": [
       { "stage": 1, "text": "分子式は C6H11NO である。", "type": "formula" },
       { "stage": 2, "text": "環状アミド（ラクタム）である。", "type": "classification" },
-      { "stage": 3, "text": "6員環にアミド結合を含む。", "type": "structure" },
-      { "stage": 4, "text": "開環重合するとナイロン6になる。", "type": "polymer" }
+      { "stage": 3, "text": "開環重合するとナイロン6になる。", "type": "polymer" },
+      { "stage": 4, "text": "酸または塩基で加熱すると開環する。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（環+C=O）。ε-カプロラクタム（7員環）。開環重合でナイロン6。"
+    "explanation": "【不飽和度】2（環+C=O）。開環重合でナイロン6。"
   },
   {
     "compound_id": "pyridine",
     "stages": [
       { "stage": 1, "text": "分子式は C5H5N である。", "type": "formula" },
       { "stage": 2, "text": "含窒素複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼンのCHの一つが窒素原子に置換された六員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "芳香族性を示し、弱塩基性を示す。", "type": "property" }
+      { "stage": 3, "text": "弱塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "芳香族性を示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。六員環含窒素複素環。芳香族。弱塩基性（Nの孤立電子対）。ベンゼンより求電子置換反応受けにくい。"
+    "explanation": "【不飽和度】4。弱塩基性。芳香族。"
   },
   {
     "compound_id": "pyrrole",
     "stages": [
       { "stage": 1, "text": "分子式は C4H5N である。", "type": "formula" },
       { "stage": 2, "text": "含窒素複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "窒素原子を含む五員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "芳香族性を示すが、塩基性は非常に弱い。", "type": "property" }
+      { "stage": 3, "text": "塩基性は非常に弱い。", "type": "property" },
+      { "stage": 4, "text": "芳香族性を示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3。五員環含窒素複素環。芳香族（Nの孤立電子対がπ系に参加）。塩基性極めて弱い。"
+    "explanation": "【不飽和度】3。塩基性極めて弱い。芳香族。"
   },
   {
     "compound_id": "furan",
     "stages": [
       { "stage": 1, "text": "分子式は C4H4O である。", "type": "formula" },
       { "stage": 2, "text": "含酸素複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "酸素原子を含む五員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "芳香族性を示す。", "type": "property" }
+      { "stage": 3, "text": "芳香族性を示す。", "type": "property" },
+      { "stage": 4, "text": "ジエンとしてディールス・アルダー反応を起こす。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】3。五員環含酸素複素環。芳香族。"
+    "explanation": "【不飽和度】3。芳香族。"
   },
   {
     "compound_id": "thiophene",
     "stages": [
       { "stage": 1, "text": "分子式は C4H4S である。", "type": "formula" },
       { "stage": 2, "text": "含硫黄複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "硫黄原子を含む五員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "芳香族性を示す。", "type": "property" }
+      { "stage": 3, "text": "芳香族性を示す。", "type": "property" },
+      { "stage": 4, "text": "ベンゼンと類似の性質を示す。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3。五員環含硫黄複素環。芳香族。ベンゼンと類似の性質。"
+    "explanation": "【不飽和度】3。芳香族。"
   },
   {
     "compound_id": "indole",
     "stages": [
       { "stage": 1, "text": "分子式は C8H7N である。", "type": "formula" },
       { "stage": 2, "text": "含窒素複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環とピロール環が縮合した構造を持つ。", "type": "structure" },
+      { "stage": 3, "text": "芳香族性を示す。", "type": "property" },
       { "stage": 4, "text": "アミノ酸のトリプトファンの骨格となる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】6。ベンゼン+ピロールの縮合環。芳香族。トリプトファンの骨格。"
+    "explanation": "【不飽和度】6。芳香族。トリプトファンの骨格。"
   },
   {
     "compound_id": "adenine",
     "stages": [
       { "stage": 1, "text": "分子式は C5H5N5 である。", "type": "formula" },
       { "stage": 2, "text": "プリン塩基の一種である。", "type": "classification" },
-      { "stage": 3, "text": "ピリミジン環とイミダゾール環が縮合した構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "DNAとRNAの両方に含まれ、チミンまたはウラシルと塩基対を形成する。", "type": "property" }
+      { "stage": 3, "text": "DNAとRNAの両方に含まれる。", "type": "property" },
+      { "stage": 4, "text": "チミン（DNA）またはウラシル（RNA）と塩基対を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】6。プリン塩基（二環性）。DNA/RNA共通。チミン（DNA）またはウラシル（RNA）と水素結合2本で対形成。"
+    "explanation": "【不飽和度】6。DNA/RNA共通。チミンまたはウラシルと対形成。"
   },
   {
     "compound_id": "guanine",
     "stages": [
       { "stage": 1, "text": "分子式は C5H5N5O である。", "type": "formula" },
       { "stage": 2, "text": "プリン塩基の一種である。", "type": "classification" },
-      { "stage": 3, "text": "カルボニル基を持つプリン環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "DNAとRNAの両方に含まれ、シトシンと3つの水素結合で塩基対を形成する。", "type": "property" }
+      { "stage": 3, "text": "DNAとRNAの両方に含まれる。", "type": "property" },
+      { "stage": 4, "text": "シトシンと3つの水素結合で塩基対を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】6。プリン塩基。シトシンと水素結合3本で対形成。"
+    "explanation": "【不飽和度】6。DNA/RNA共通。シトシンと対形成。"
   },
   {
     "compound_id": "cytosine",
     "stages": [
       { "stage": 1, "text": "分子式は C4H5N3O である。", "type": "formula" },
       { "stage": 2, "text": "ピリミジン塩基の一種である。", "type": "classification" },
-      { "stage": 3, "text": "六員環に2つの窒素原子と1つのカルボニル基を持つ。", "type": "structure" },
-      { "stage": 4, "text": "DNAとRNAの両方に含まれ、グアニンと塩基対を形成する。", "type": "property" }
+      { "stage": 3, "text": "DNAとRNAの両方に含まれる。", "type": "property" },
+      { "stage": 4, "text": "グアニンと塩基対を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。ピリミジン塩基（単環性）。DNA/RNA共通。グアニンと対形成。"
+    "explanation": "【不飽和度】4。DNA/RNA共通。グアニンと対形成。"
   },
   {
     "compound_id": "thymine",
     "stages": [
       { "stage": 1, "text": "分子式は C5H6N2O2 である。", "type": "formula" },
       { "stage": 2, "text": "ピリミジン塩基の一種である。", "type": "classification" },
-      { "stage": 3, "text": "2つのカルボニル基と1つのメチル基を持つ六員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "DNAにのみ含まれ、アデニンと塩基対を形成する。", "type": "property" }
+      { "stage": 3, "text": "DNAにのみ含まれる（RNAにはない）。", "type": "property" },
+      { "stage": 4, "text": "アデニンと塩基対を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。ピリミジン塩基。DNA特有（RNAにはない）。メチル基を持つ。アデニンと対形成。"
+    "explanation": "【不飽和度】4。DNA特有。アデニンと対形成。"
   },
   {
     "compound_id": "uracil",
     "stages": [
       { "stage": 1, "text": "分子式は C4H4N2O2 である。", "type": "formula" },
       { "stage": 2, "text": "ピリミジン塩基の一種である。", "type": "classification" },
-      { "stage": 3, "text": "2つのカルボニル基を持つ六員環構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "RNAにのみ含まれ、アデニンと塩基対を形成する。", "type": "property" }
+      { "stage": 3, "text": "RNAにのみ含まれる（DNAにはない）。", "type": "property" },
+      { "stage": 4, "text": "アデニンと塩基対を形成する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4。ピリミジン塩基。RNA特有（チミンからメチル基が取れた構造）。アデニンと対形成。"
+    "explanation": "【不飽和度】4。RNA特有。アデニンと対形成。"
   },
   {
     "compound_id": "acrylonitrile",
     "stages": [
       { "stage": 1, "text": "分子式は C3H3N である。", "type": "formula" },
       { "stage": 2, "text": "ニトリル（シアノ化合物）の一種である。", "type": "classification" },
-      { "stage": 3, "text": "二重結合とシアノ基（-C≡N）を持つ。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "付加重合するとポリアクリロニトリル（PAN、アクリル繊維）になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】3（C=C+C≡N）。アクリロニトリル。付加重合でPAN（アクリル繊維、カーボンファイバー原料）。"
+    "explanation": "【不飽和度】3（C=C+C≡N）。臭素水を脱色。付加重合でPAN。"
   },
   {
     "compound_id": "glycylglycine",
     "stages": [
       { "stage": 1, "text": "分子式は C4H8N2O3 である。", "type": "formula" },
       { "stage": 2, "text": "ペプチド（ジペプチド）である。", "type": "classification" },
-      { "stage": 3, "text": "2分子のグリシンがペプチド結合でつながっている。", "type": "structure" },
-      { "stage": 4, "text": "加水分解すると2分子のグリシンになる。", "type": "reaction" }
+      { "stage": 3, "text": "ビウレット反応陽性を示す（ペプチド結合を持つ）。", "type": "reaction" },
+      { "stage": 4, "text": "加水分解すると2分子のグリシンを生じる。", "type": "reaction" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。グリシン-グリシンジペプチド。ペプチド結合（-CO-NH-）1つ。"
+    "explanation": "【不飽和度】2（C=O×2）。ビウレット反応陽性。加水分解でグリシン×2。"
   },
   {
     "compound_id": "nitroglycerin",
     "stages": [
       { "stage": 1, "text": "分子式は C3H5N3O9 である。", "type": "formula" },
       { "stage": 2, "text": "硝酸エステルである。", "type": "classification" },
-      { "stage": 3, "text": "グリセロールの3つのヒドロキシ基が硝酸とエステル化している。", "type": "structure" },
-      { "stage": 4, "text": "強力な爆薬であるが、狭心症の治療薬としても用いられる。", "type": "property" }
+      { "stage": 3, "text": "強力な爆薬である。", "type": "property" },
+      { "stage": 4, "text": "狭心症の治療薬としても用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】3（-ONO2×3）。ニトログリセリン。硝酸エステル（ニトロ化合物ではない）。"
+    "explanation": "【不飽和度】3（-ONO2×3）。硝酸エステル。"
   },
   {
     "compound_id": "phenolphthalein",
     "stages": [
       { "stage": 1, "text": "分子式は C20H14O4 である。", "type": "formula" },
       { "stage": 2, "text": "酸塩基指示薬である。", "type": "classification" },
-      { "stage": 3, "text": "ラクトン環（環状エステル）構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "酸性・中性では無色、塩基性（pH 8.2〜10.0）で赤色を呈する。", "type": "property" }
+      { "stage": 3, "text": "酸性・中性では無色である。", "type": "property" },
+      { "stage": 4, "text": "塩基性（pH 8.2〜10.0）で赤色を呈する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】14。フェノールフタレイン。塩基性で赤色（pH 8.2-10.0）。中和滴定に使用。"
+    "explanation": "【不飽和度】14。塩基性で赤色（pH 8.2-10.0）。中和滴定に使用。"
   },
   {
     "compound_id": "methyl_orange",
     "stages": [
       { "stage": 1, "text": "分子式は C14H14N3NaO3S である。", "type": "formula" },
       { "stage": 2, "text": "酸塩基指示薬である。", "type": "classification" },
-      { "stage": 3, "text": "アゾ基（-N=N-）を持つ化合物である。", "type": "structure" },
-      { "stage": 4, "text": "酸性（pH 3.1〜4.4）で赤色、塩基性で黄色を呈する。", "type": "property" }
+      { "stage": 3, "text": "酸性（pH 3.1〜4.4）で赤色を呈する。", "type": "property" },
+      { "stage": 4, "text": "塩基性で黄色を呈する。", "type": "property" }
     ],
-    "explanation": "【不飽和度】11。メチルオレンジ。アゾ基持つ。酸性で赤、塩基性で黄（pH 3.1-4.4）。"
+    "explanation": "【不飽和度】11。酸性で赤、塩基性で黄（pH 3.1-4.4）。"
   },
   {
     "compound_id": "sodium_stearate",
     "stages": [
       { "stage": 1, "text": "分子式は C18H35NaO2 である。", "type": "formula" },
       { "stage": 2, "text": "高級脂肪酸のナトリウム塩（石鹸）である。", "type": "classification" },
-      { "stage": 3, "text": "親水性の頭部と疎水性の尾部を持つ両媒媒構造である。", "type": "structure" },
-      { "stage": 4, "text": "硬水中ではカルシウムイオンなどと反応して不溶性の沈殿（金属石鹸）を生じる。", "type": "reaction" }
+      { "stage": 3, "text": "硬水中ではカルシウムイオンなどと反応して不溶性の沈殿（金属石鹸）を生じる。", "type": "reaction" },
+      { "stage": 4, "text": "親水性の頭部と疎水性の尾部を持つ。", "type": "structure" }
     ],
-    "explanation": "【不飽和度】1（C=O）。ステアリン酸Na。石鹸。親水基-COO⁻Na⁺、疎水基-C17H35。硬水で沈殿。"
+    "explanation": "【不飽和度】1（C=O）。硬水で沈殿。石鹸。"
   },
   {
     "compound_id": "sodium_oleate",
     "stages": [
       { "stage": 1, "text": "分子式は C18H33NaO2 である。", "type": "formula" },
       { "stage": 2, "text": "不飽和脂肪酸のナトリウム塩（石鹸）である。", "type": "classification" },
-      { "stage": 3, "text": "炭素鎖に1つの二重結合を持つ。", "type": "structure" },
+      { "stage": 3, "text": "臭素水を加えると脱色する（二重結合を持つ）。", "type": "reaction" },
       { "stage": 4, "text": "軟鹸（液体石鹸）の主成分となる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】2（C=O+C=C）。オレイン酸Na。不飽和石鹸。軟鹸（液体）。"
+    "explanation": "【不飽和度】2（C=O+C=C）。臭素水を脱色。軟鹸（液体）。"
   },
   {
     "compound_id": "calcium_stearate",
     "stages": [
       { "stage": 1, "text": "分子式は C36H70CaO4 である。", "type": "formula" },
       { "stage": 2, "text": "高級脂肪酸のカルシウム塩である。", "type": "classification" },
-      { "stage": 3, "text": "2分子のステアリン酸がカルシウムイオンと結合している。", "type": "structure" },
-      { "stage": 4, "text": "水に不溶であり、金属石鹸（風呂の湯あか）の主成分となる。", "type": "property" }
+      { "stage": 3, "text": "水に不溶である。", "type": "property" },
+      { "stage": 4, "text": "金属石鹸（風呂の湯あか）の主成分となる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】2（C=O×2）。ステアリン酸Ca。金属石鹸。水不溶。湯あかの主成分。"
+    "explanation": "【不飽和度】2（C=O×2）。水不溶。湯あかの主成分。"
   },
   {
     "compound_id": "sodium_lauryl_sulfate",
     "stages": [
       { "stage": 1, "text": "分子式は C12H25NaO4S である。", "type": "formula" },
       { "stage": 2, "text": "陰イオン界面活性剤である。", "type": "classification" },
-      { "stage": 3, "text": "ラウリルアルコールの硫酸エステルナトリウム塩である。", "type": "structure" },
+      { "stage": 3, "text": "硬水中でも沈殿を生じない（合成界面活性剤）。", "type": "property" },
       { "stage": 4, "text": "シャンプーや歯磨き粉の起泡剤として用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】0。ラウリル硫酸Na（SDS）。親水基-OSO3⁻Na⁺。合成界面活性剤。硬水でも沈殿しない。"
+    "explanation": "【不飽和度】0。硬水でも沈殿しない。合成界面活性剤。"
   },
   {
     "compound_id": "sodium_dodecylbenzenesulfonate",
     "stages": [
       { "stage": 1, "text": "分子式は C18H29NaO3S である。", "type": "formula" },
       { "stage": 2, "text": "陰イオン界面活性剤である。", "type": "classification" },
-      { "stage": 3, "text": "ドデシルベンゼンスルホン酸のナトリウム塩である。", "type": "structure" },
+      { "stage": 3, "text": "硬水中でも沈殿を生じない。", "type": "property" },
       { "stage": 4, "text": "合成洗剤の主成分として広く用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4）。ドデシルベンゼンスルホン酸Na。合成洗剤主成分。親水基-SO3⁻Na⁺。"
+    "explanation": "【不飽和度】5（ベンゼン環4）。硬水でも沈殿しない。合成洗剤主成分。"
   },
   {
     "compound_id": "paracetamol",
     "stages": [
       { "stage": 1, "text": "分子式は C8H9NO2 である。", "type": "formula" },
       { "stage": 2, "text": "アミドであり、フェノール性ヒドロキシ基を持つ。", "type": "classification" },
-      { "stage": 3, "text": "ベンゼン環のパラ位にヒドロキシ基とアセトアミド基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩化鉄(III)水溶液を加えると呈色する。", "type": "reaction" },
       { "stage": 4, "text": "解熱鎮痛剤として広く用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。アセトアミノフェン。パラ位のOHとNHCOCH3。FeCl3で呈色。"
+    "explanation": "【不飽和度】5（ベンゼン環4+C=O）。FeCl3で呈色。パラ位のOHとNHCOCH3。"
   },
   {
     "compound_id": "caffeine",
     "stages": [
       { "stage": 1, "text": "分子式は C8H10N4O2 である。", "type": "formula" },
       { "stage": 2, "text": "プリン環を骨格とするアルカロイドである。", "type": "classification" },
-      { "stage": 3, "text": "窒素原子に3つのメチル基が結合している。", "type": "structure" },
-      { "stage": 4, "text": "コーヒーや茶に含まれ、中枢神経を刺激する。", "type": "property" }
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "コーヒーや茶に含まれる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】6。1,3,7-トリメチルキサンチン。プリン塩基誘導体。塩基性。"
+    "explanation": "【不飽和度】6。塩基性。プリン塩基誘導体。"
   },
   {
     "compound_id": "nicotine",
     "stages": [
       { "stage": 1, "text": "分子式は C10H14N2 である。", "type": "formula" },
       { "stage": 2, "text": "含窒素複素環式アルカロイドである。", "type": "classification" },
-      { "stage": 3, "text": "ピリジン環とピロリジン環が結合した構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "タバコの葉に含まれ、強い毒性と依存性を持つ。", "type": "property" }
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
+      { "stage": 4, "text": "タバコの葉に含まれる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】5（ピリジン環4+ピロリジン環1）。ピリジン+ピロリジン縮合。塩基性。"
+    "explanation": "【不飽和度】5（ピリジン環4+ピロリジン環1）。塩基性。"
   },
   {
     "compound_id": "melamine",
     "stages": [
       { "stage": 1, "text": "分子式は C3H6N6 である。", "type": "formula" },
       { "stage": 2, "text": "含窒素複素環式化合物である。", "type": "classification" },
-      { "stage": 3, "text": "トリアジン環に3つのアミノ基が結合している。", "type": "structure" },
+      { "stage": 3, "text": "塩基性を示す。", "type": "property" },
       { "stage": 4, "text": "ホルムアルデヒドと縮合重合してメラミン樹脂になる。", "type": "polymer" }
     ],
-    "explanation": "【不飽和度】6。2,4,6-トリアミノ-1,3,5-トリアジン。N含有率高い（66%）。ホルムアルデヒドとメラミン樹脂。"
+    "explanation": "【不飽和度】6。塩基性。ホルムアルデヒドとメラミン樹脂。"
   },
   {
     "compound_id": "cellulose_unit",
     "stages": [
       { "stage": 1, "text": "分子式は C6H10O5 である（構成単位）。", "type": "formula" },
       { "stage": 2, "text": "多糖類の構成単位である。", "type": "classification" },
-      { "stage": 3, "text": "グルコースがβ-1,4グリコシド結合で多数結合した構造の構成単位である。", "type": "structure" },
+      { "stage": 3, "text": "ヨウ素-ヨウ化カリウム水溶液（ヨウ素液）を加えても呈色しない（デンプンと異なる）。", "type": "reaction" },
       { "stage": 4, "text": "植物の細胞壁の主成分である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（環）。β-D-グルコースがβ-1,4結合。セルロース構成単位。"
+    "explanation": "【不飽和度】1（環）。ヨウ素液で呈色しない。β-1,4結合。"
   },
   {
     "compound_id": "starch_unit",
     "stages": [
       { "stage": 1, "text": "分子式は C6H10O5 である（構成単位）。", "type": "formula" },
       { "stage": 2, "text": "多糖類の構成単位である。", "type": "classification" },
-      { "stage": 3, "text": "グルコースがα-1,4グリコシド結合（およびα-1,6結合）で多数結合した構造の構成単位である。", "type": "structure" },
+      { "stage": 3, "text": "ヨウ素-ヨウ化カリウム水溶液（ヨウ素液）を加えると青紫色を呈する。", "type": "reaction" },
       { "stage": 4, "text": "植物の貯蔵デンプンの構成単位である。", "type": "property" }
     ],
-    "explanation": "【不飽和度】1（環）。α-D-グルコースがα-1,4（+α-1,6）結合。デンプン（アミロース/アミロペクチン）構成単位。"
+    "explanation": "【不飽和度】1（環）。ヨウ素液で青紫色。α-1,4（+α-1,6）結合。"
   },
   {
     "compound_id": "cellulose_acetate",
     "stages": [
       { "stage": 1, "text": "分子式は C12H18O8 である（構成単位あたり）。", "type": "formula" },
       { "stage": 2, "text": "多糖類の誘導体である。", "type": "classification" },
-      { "stage": 3, "text": "セルロースのヒドロキシ基がアセチル化された構造を持つ。", "type": "structure" },
+      { "stage": 3, "text": "加水分解すると酢酸とセルロースを生じる。", "type": "reaction" },
       { "stage": 4, "text": "アセテート繊維や写真フィルムの基材として用いられる。", "type": "property" }
     ],
-    "explanation": "【不飽和度】4（環1+C=O×3）。酢酸セルロース。セルロースのOHをアセチル化。"
+    "explanation": "【不飽和度】4（環1+C=O×3）。加水分解で酢酸+セルロース。"
   },
   {
     "compound_id": "cellulose_nitrate",
     "stages": [
       { "stage": 1, "text": "分子式は C6H7N3O11 である（構成単位あたり）。", "type": "formula" },
       { "stage": 2, "text": "多糖類の誘導体である。", "type": "classification" },
-      { "stage": 3, "text": "セルロースのヒドロキシ基が硝酸エステル化された構造を持つ。", "type": "structure" },
-      { "stage": 4, "text": "ニトロセルロースとも呼ばれ、火薬や塗料の原料となる。", "type": "property" }
+      { "stage": 3, "text": "可燃性である（火薬や塗料の原料）。", "type": "property" },
+      { "stage": 4, "text": "ニトロセルロースとも呼ばれる。", "type": "nomenclature" }
     ],
-    "explanation": "【不飽和度】4（環1+-ONO2×3）。硝酸セルロース（ニトロセルロース）。セルロースのOHを硝酸エステル化。"
+    "explanation": "【不飽和度】4（環1+-ONO2×3）。可燃性。ニトロセルロース。"
   }
 ]

@@ -1,8 +1,8 @@
 /**
  * App - メインアプリケーションクラス
- * - 絵文字不使用
+ * - 絵文字不使用（すべてSVGアイコン）
  * - 筑紫ゴシック統一
- * - 読み札履歴表示（画面ずれ修正）
+ * - 読み札履歴表示（画面ずれ修正版）
  * - 単元別選択機能
  * - レスポンシブ対応
  * - compounds.json キー名空白対応
@@ -10,6 +10,7 @@
  * - 得点常時表示 / タイマー削除 / 一口解説表示
  * - 資料機能（単元別一覧 + タップで詳細モーダル）
  * - 練習モード（CPUなし・点数のみ）
+ * - 統計機能拡張（単元別/難易度別/ステージ別正答率、CPU戦績、履歴、段位）
  */
 class App {
     constructor() {
@@ -29,9 +30,7 @@ class App {
         
         try {
             const loaded = await this.engine.loadData();
-            
             if (!loaded) {
-                console.error('Failed to load data');
                 this.showError('データ読み込み失敗');
                 return;
             }
@@ -49,8 +48,6 @@ class App {
 
             this.bindEvents();
             this.renderCategoryGrid();
-            
-            console.log('App ready, showing title screen');
             
             setTimeout(() => {
                 document.getElementById('loading-screen').classList.remove('active');
@@ -102,14 +99,10 @@ class App {
         });
 
         const startBtn = document.getElementById('btn-start-difficulty');
-        if (startBtn) {
-            startBtn.addEventListener('click', () => this.startGame());
-        }
+        if (startBtn) startBtn.addEventListener('click', () => this.startGame());
 
         const selectAllBtn = document.getElementById('btn-select-all');
-        if (selectAllBtn) {
-            selectAllBtn.addEventListener('click', () => this.toggleSelectAllCategories());
-        }
+        if (selectAllBtn) selectAllBtn.addEventListener('click', () => this.toggleSelectAllCategories());
 
         const cardGrid = document.getElementById('card-grid');
         if (cardGrid) {
@@ -136,7 +129,6 @@ class App {
         const nextClueBtn = document.getElementById('btn-next-clue');
         if (nextClueBtn) nextClueBtn.addEventListener('click', () => this.engine.nextClue());
 
-        // 資料モーダル閉じるボタン
         const modalCloseBtn = document.getElementById('modal-close-btn');
         if (modalCloseBtn) {
             modalCloseBtn.addEventListener('click', () => {
@@ -144,7 +136,6 @@ class App {
             });
         }
 
-        // モーダル外クリックで閉じる
         const modalOverlay = document.getElementById('reference-detail-modal');
         if (modalOverlay) {
             modalOverlay.addEventListener('click', (e) => {
@@ -246,7 +237,6 @@ class App {
     }
 
     startGame() {
-        // 練習モード判定（難易度0 = 練習）
         this.isPracticeMode = (this.selectedDifficulty === 0);
         
         const settings = {
@@ -259,7 +249,6 @@ class App {
         this.engine.configure(settings);
         this.engine.startGame(10);
         
-        // ゲーム画面のモード切替クラス
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             if (this.isPracticeMode) {
@@ -269,7 +258,6 @@ class App {
             }
         }
         
-        // ラベル変更
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = '得点';
@@ -424,7 +412,6 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         
-        // 練習モード時は「正解/不正解」ではなく「確認」として表示
         const resultTitle = this.isPracticeMode 
             ? (playerWon ? '正解' : '確認') 
             : (playerWon ? '正解' : '不正解');
@@ -471,7 +458,6 @@ class App {
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         
-        // 練習モード時は結果表示を簡素化
         if (this.isPracticeMode) {
             modal.innerHTML = `
                 <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
@@ -517,14 +503,134 @@ class App {
         }
     }
 
+    /**
+     * 統計画面の更新（拡張版）
+     * 基本統計、CPU戦績、単元別/難易度別/ステージ別正答率、プレイ履歴を表示
+     */
     updateStats() {
         const stats = StorageManager.getSummary();
-        const winrateEl = document.getElementById('stat-winrate');
-        const accuracyEl = document.getElementById('stat-accuracy');
-        const gamesEl = document.getElementById('stat-games');
-        if (winrateEl) winrateEl.textContent = stats.accuracy + '%';
-        if (accuracyEl) accuracyEl.textContent = stats.accuracy + '%';
-        if (gamesEl) gamesEl.textContent = stats.totalGames;
+        
+        // 基本統計
+        this.setText('stat-games', stats.totalGames);
+        this.setText('stat-accuracy', stats.accuracy + '%');
+        this.setText('stat-max-combo', stats.maxCombo);
+        
+        // プロフィールカード
+        this.setText('profile-total-score', stats.totalScore + ' pt');
+        this.updateRank(stats.totalScore);
+        
+        // CPU戦績
+        this.setText('stat-cpu-wins', stats.cpuWins);
+        this.setText('stat-cpu-losses', stats.cpuLosses);
+        this.setText('stat-cpu-draws', stats.cpuDraws);
+        this.setText('stat-cpu-winrate', stats.cpuWinRate + '%');
+        
+        // 単元別正答率
+        this.renderBarGraph('category-bars', stats.byCategory, (cat) => this.getCategoryDisplayName(cat));
+        
+        // 難易度別正答率
+        const diffNames = { 0: '練習', 1: '易しい', 3: '普通', 7: '難しい' };
+        this.renderBarGraph('difficulty-bars', stats.byDifficulty, (d) => diffNames[d] || `Lv.${d}`);
+        
+        // ステージ別正答率
+        this.renderBarGraph('stage-bars', stats.byStage, (s) => `STAGE ${s}`);
+        
+        // 最近のプレイ履歴
+        this.renderHistory(stats.history);
+    }
+
+    /**
+     * バーグラフを描画（単元別/難易度別/ステージ別）
+     * 正答率の低い順にソートし、50%未満は赤、それ以上は緑〜金のグラデーション
+     */
+    renderBarGraph(containerId, data, labelFunc) {
+        const container = document.getElementById(containerId);
+        if (!container) return;
+        container.innerHTML = '';
+        
+        if (!data || Object.keys(data).length === 0) {
+            container.innerHTML = '<div class="history-empty">データがありません</div>';
+            return;
+        }
+        
+        const entries = Object.entries(data).map(([key, val]) => {
+            const total = val.correct + val.wrong;
+            const rate = total > 0 ? Math.round((val.correct / total) * 100) : 0;
+            return { key, rate, total };
+        }).sort((a, b) => a.rate - b.rate);
+        
+        entries.forEach(item => {
+            const row = document.createElement('div');
+            row.className = 'bar-item';
+            
+            const isLow = item.rate < 50;
+            
+            row.innerHTML = `
+                <div class="bar-label" title="${labelFunc(item.key)}">${labelFunc(item.key)}</div>
+                <div class="bar-track">
+                    <div class="bar-fill ${isLow ? 'low' : ''}" style="width: ${item.rate}%"></div>
+                </div>
+                <div class="bar-value">${item.rate}%</div>
+            `;
+            container.appendChild(row);
+        });
+    }
+
+    /**
+     * 最近のプレイ履歴を描画
+     */
+    renderHistory(history) {
+        const container = document.getElementById('history-list');
+        if (!container) return;
+        container.innerHTML = '';
+        
+        if (!history || history.length === 0) {
+            container.innerHTML = '<div class="history-empty">プレイ履歴がありません</div>';
+            return;
+        }
+        
+        history.forEach(h => {
+            const date = new Date(h.date);
+            const dateStr = `${date.getMonth()+1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2,'0')}`;
+            
+            let compoundName = h.compoundId;
+            const compound = this.engine.compounds.find(c => (c.id || '').trim() === h.compoundId);
+            if (compound) compoundName = compound.name;
+            
+            const item = document.createElement('div');
+            item.className = `history-item ${h.result}`;
+            item.innerHTML = `
+                <div class="history-date">${dateStr}</div>
+                <div class="history-name">${compoundName}</div>
+                <div class="history-result">${h.result === 'correct' ? '正解' : '不正解'}</div>
+            `;
+            container.appendChild(item);
+        });
+    }
+
+    /**
+     * 総得点に基づいて段位を更新
+     */
+    updateRank(score) {
+        const rankEl = document.getElementById('profile-rank');
+        if (!rankEl) return;
+        
+        let rank = '初心者';
+        if (score >= 10000) rank = '名人';
+        else if (score >= 5000) rank = '達人';
+        else if (score >= 2000) rank = '上級者';
+        else if (score >= 1000) rank = '中級者';
+        else if (score >= 500) rank = '初級者';
+        
+        rankEl.textContent = `段位: ${rank}`;
+    }
+
+    /**
+     * テキスト設定ヘルパー
+     */
+    setText(id, text) {
+        const el = document.getElementById(id);
+        if (el) el.textContent = text;
     }
 
     /**
@@ -537,7 +643,6 @@ class App {
 
         const categories = this.engine.getCategories();
         
-        // タブ生成（「すべて」+ 各単元）
         tabsContainer.innerHTML = '';
         
         const allTab = document.createElement('button');
@@ -562,7 +667,6 @@ class App {
             tabsContainer.appendChild(tab);
         });
 
-        // 化合物リスト生成
         listContainer.innerHTML = '';
         
         let filteredCompounds = this.engine.compounds;
@@ -575,7 +679,6 @@ class App {
             return;
         }
 
-        // 単元別にグループ化
         const grouped = {};
         filteredCompounds.forEach(c => {
             const cat = c.category || 'other';
@@ -583,7 +686,6 @@ class App {
             grouped[cat].push(c);
         });
 
-        // 各単元セクションを生成
         Object.keys(grouped).sort().forEach(cat => {
             const section = document.createElement('div');
             section.className = 'reference-category-section';
@@ -618,7 +720,6 @@ class App {
             listContainer.appendChild(section);
         });
 
-        // 構造式を非同期で描画
         requestAnimationFrame(() => {
             const structures = listContainer.querySelectorAll('.reference-item-structure');
             structures.forEach((el, index) => {
@@ -641,11 +742,9 @@ class App {
         
         const clueData = this.engine.clues[(compound.id || '').trim()];
         
-        // 名前・分子式
         document.getElementById('detail-name').textContent = compound.name || '';
         document.getElementById('detail-formula').textContent = compound.formula || '';
         
-        // 構造式
         const structureDiv = document.getElementById('detail-structure');
         structureDiv.innerHTML = '';
         if (compound.smiles) {
@@ -656,7 +755,6 @@ class App {
             });
         }
         
-        // 読み札（stages）
         const stagesDiv = document.getElementById('detail-stages');
         stagesDiv.innerHTML = '';
         
@@ -673,7 +771,6 @@ class App {
                 stagesDiv.appendChild(item);
             });
             
-            // 読み上げボタン
             const playBtn = document.createElement('button');
             playBtn.className = 'btn btn-primary';
             playBtn.style.cssText = 'width: 100%; margin-top: 12px; font-size: 0.9rem; padding: 10px;';
@@ -686,7 +783,6 @@ class App {
             stagesDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem; padding: 10px;">読み札データがありません</div>';
         }
         
-        // 解説
         const explanationDiv = document.getElementById('detail-explanation');
         explanationDiv.innerHTML = '';
         

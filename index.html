@@ -157,7 +157,7 @@
         </footer>
     </div>
 
-    <!-- 資料画面（新規追加） -->
+    <!-- 資料画面 -->
     <div id="screen-reference" class="screen">
         <button class="back-btn" data-back="screen-title">
             <svg viewBox="0 0 24 24" width="24" height="24">
@@ -169,7 +169,6 @@
             <p class="section-subtitle">収録化合物の一覧（タップで詳細表示）</p>
             
             <div class="reference-category-tabs" id="reference-tabs"></div>
-            
             <div class="reference-list" id="reference-list"></div>
         </div>
     </div>
@@ -257,7 +256,7 @@
         </div>
     </div>
 
-    <!-- 統計画面 -->
+    <!-- 統計画面（拡張版） -->
     <div id="screen-stats" class="screen">
         <button class="back-btn" data-back="screen-title">
             <svg viewBox="0 0 24 24" width="24" height="24">
@@ -266,24 +265,78 @@
         </button>
         <div class="stats-container">
             <h2 class="section-title">記録</h2>
+            
+            <!-- プロフィールカード -->
             <div class="profile-card">
                 <div class="profile-name">Player</div>
-                <div class="profile-rank">段位: 初心者</div>
-                <div class="profile-points">3000 pt</div>
+                <div class="profile-rank" id="profile-rank">段位: 初心者</div>
+                <div class="profile-points" id="profile-total-score">0 pt</div>
             </div>
-            <div class="stats-grid">
-                <div class="stat-item">
-                    <div class="stat-label">勝率</div>
-                    <div class="stat-value" id="stat-winrate">0%</div>
+
+            <!-- 基本統計 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">基本統計</h3>
+                <div class="stats-grid">
+                    <div class="stat-item">
+                        <div class="stat-label">プレイ回数</div>
+                        <div class="stat-value" id="stat-games">0</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">正答率</div>
+                        <div class="stat-value" id="stat-accuracy">0%</div>
+                    </div>
+                    <div class="stat-item">
+                        <div class="stat-label">最高コンボ</div>
+                        <div class="stat-value" id="stat-max-combo">0</div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-label">取得率</div>
-                    <div class="stat-value" id="stat-accuracy">0%</div>
+            </div>
+
+            <!-- CPU戦績 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">CPU戦績</h3>
+                <div class="cpu-record-grid">
+                    <div class="cpu-record-item win">
+                        <div class="cpu-record-label">勝利</div>
+                        <div class="cpu-record-value" id="stat-cpu-wins">0</div>
+                    </div>
+                    <div class="cpu-record-item lose">
+                        <div class="cpu-record-label">敗北</div>
+                        <div class="cpu-record-value" id="stat-cpu-losses">0</div>
+                    </div>
+                    <div class="cpu-record-item draw">
+                        <div class="cpu-record-label">引分</div>
+                        <div class="cpu-record-value" id="stat-cpu-draws">0</div>
+                    </div>
+                    <div class="cpu-record-item rate">
+                        <div class="cpu-record-label">勝率</div>
+                        <div class="cpu-record-value" id="stat-cpu-winrate">0%</div>
+                    </div>
                 </div>
-                <div class="stat-item">
-                    <div class="stat-label">プレイ回数</div>
-                    <div class="stat-value" id="stat-games">0</div>
-                </div>
+            </div>
+
+            <!-- 単元別正答率 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">単元別正答率</h3>
+                <div class="category-bars" id="category-bars"></div>
+            </div>
+
+            <!-- 難易度別正答率 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">難易度別正答率</h3>
+                <div class="difficulty-bars" id="difficulty-bars"></div>
+            </div>
+
+            <!-- ステージ別正答率 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">ステージ別正答率</h3>
+                <div class="stage-bars" id="stage-bars"></div>
+            </div>
+
+            <!-- 最近のプレイ履歴 -->
+            <div class="stats-section">
+                <h3 class="stats-section-title">最近のプレイ</h3>
+                <div class="history-list" id="history-list"></div>
             </div>
         </div>
     </div>

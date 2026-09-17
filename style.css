@@ -1803,3 +1803,183 @@ input:checked + .toggle-slider:before {
     font-family: var(--font-main);
     font-size: 0.95rem;
 }
+
+/* ========================================
+   統計画面拡張スタイル
+   ======================================== */
+
+.stats-section {
+    margin-bottom: 30px;
+    background: rgba(0,0,0,0.3);
+    border: 1px solid var(--card-border);
+    border-radius: 4px;
+    padding: 15px;
+}
+
+.stats-section-title {
+    font-family: var(--font-display);
+    font-size: 1rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    letter-spacing: 0.1em;
+    margin-bottom: 15px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.1);
+}
+
+/* CPU戦績グリッド */
+.cpu-record-grid {
+    display: grid;
+    grid-template-columns: repeat(4, 1fr);
+    gap: 10px;
+}
+
+.cpu-record-item {
+    background: var(--card-bg);
+    border-radius: 4px;
+    padding: 12px 5px;
+    text-align: center;
+    border: 2px solid transparent;
+}
+
+.cpu-record-item.win { border-color: var(--accent-green); }
+.cpu-record-item.lose { border-color: var(--accent-red); }
+.cpu-record-item.draw { border-color: var(--text-light); }
+.cpu-record-item.rate { border-color: var(--accent-gold); }
+
+.cpu-record-label {
+    font-size: 0.75rem;
+    color: var(--text-light);
+    margin-bottom: 5px;
+    letter-spacing: 0.05em;
+}
+
+.cpu-record-value {
+    font-family: var(--font-display);
+    font-size: 1.3rem;
+    font-weight: 900;
+    color: var(--text-dark);
+}
+
+.cpu-record-item.win .cpu-record-value { color: var(--accent-green); }
+.cpu-record-item.lose .cpu-record-value { color: var(--accent-red); }
+.cpu-record-item.rate .cpu-record-value { color: var(--accent-gold); }
+
+/* バーグラフ（単元・難易度・ステージ別） */
+.category-bars, .difficulty-bars, .stage-bars {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.bar-item {
+    display: flex;
+    align-items: center;
+    gap: 10px;
+}
+
+.bar-label {
+    width: 100px;
+    font-size: 0.8rem;
+    color: var(--card-bg);
+    text-align: right;
+    flex-shrink: 0;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.bar-track {
+    flex: 1;
+    height: 16px;
+    background: rgba(0,0,0,0.4);
+    border-radius: 8px;
+    overflow: hidden;
+    position: relative;
+}
+
+.bar-fill {
+    height: 100%;
+    background: linear-gradient(90deg, var(--accent-green), var(--accent-gold));
+    border-radius: 8px;
+    transition: width 0.5s ease-out;
+    min-width: 2px;
+}
+
+.bar-fill.low {
+    background: linear-gradient(90deg, var(--accent-red), #ff6b6b);
+}
+
+.bar-value {
+    width: 45px;
+    font-size: 0.8rem;
+    font-weight: 700;
+    color: var(--accent-gold);
+    font-family: var(--font-display);
+    flex-shrink: 0;
+}
+
+/* 履歴リスト */
+.history-list {
+    display: flex;
+    flex-direction: column;
+    gap: 8px;
+}
+
+.history-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: var(--card-bg);
+    padding: 10px 12px;
+    border-radius: 4px;
+    border-left: 4px solid var(--card-border);
+    font-size: 0.85rem;
+}
+
+.history-item.correct { border-left-color: var(--accent-green); }
+.history-item.wrong { border-left-color: var(--accent-red); }
+
+.history-date {
+    color: var(--text-light);
+    font-size: 0.75rem;
+    width: 80px;
+}
+
+.history-name {
+    flex: 1;
+    color: var(--text-dark);
+    font-weight: 600;
+    margin: 0 10px;
+    overflow: hidden;
+    text-overflow: ellipsis;
+    white-space: nowrap;
+}
+
+.history-result {
+    font-weight: 700;
+    font-size: 0.8rem;
+    padding: 2px 8px;
+    border-radius: 10px;
+    color: white;
+}
+
+.history-item.correct .history-result { background: var(--accent-green); }
+.history-item.wrong .history-result { background: var(--accent-red); }
+
+.history-empty {
+    text-align: center;
+    color: var(--text-light);
+    padding: 20px;
+    font-size: 0.9rem;
+}
+
+@media (max-width: 480px) {
+    .cpu-record-grid {
+        grid-template-columns: repeat(2, 1fr);
+    }
+    .bar-label {
+        width: 70px;
+        font-size: 0.7rem;
+    }
+}
