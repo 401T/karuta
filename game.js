@@ -165,6 +165,7 @@ class GameEngine {
         this.state = 'DEAL';
         this._notify();
         
+        // ★ オンラインモードでホストの場合、状態を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_start',
@@ -213,6 +214,7 @@ class GameEngine {
         
         this._notify();
         
+        // ★ オンラインモードでホストの場合、stage更新を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'stage_update',

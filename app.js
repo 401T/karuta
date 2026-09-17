@@ -855,55 +855,84 @@ class App {
         });
     }
 
-    startOnlineGameAsHost(roomId) {
-        // ゲーム設定をFirebaseに保存
+    startOnlineGameAsHost(roomData) {
+        const waitingModal = document.getElementById('waiting-room-modal');
+        if (waitingModal) waitingModal.remove();
+
+        this.isOnlineMode = true;
+        this.isPracticeMode = false;
+
+        const gameScreen = document.getElementById('screen-game');
+        if (gameScreen) {
+            gameScreen.classList.remove('practice-mode');
+        }
+
+        const playerLabel = document.getElementById('player-score-label');
+        const cpuLabel = document.getElementById('cpu-score-label');
+        if (playerLabel) playerLabel.textContent = 'あなた';
+        if (cpuLabel) cpuLabel.textContent = '相手';
+
+        // ゲーム設定
         const settings = {
             mode: 'online',
-            cardCount: StorageManager.loadSettings().cardCount || 9,
-            categories: this.selectedCategories.length > 0 ? this.selectedCategories : []
+            isOnline: true,
+            isHost: true,
+            cardCount: roomData.settings.cardCount || 9,
+            categories: roomData.settings.categories || []
+        };
+        this.engine.configure(settings);
+        
+        // ★ Firebase同期コールバックを設定
+        this.engine.onOnlineStateChange = (state) => {
+            this.handleOnlineStateChange(state);
         };
         
-        // Firebaseにゲーム開始を通知
-        OnlineManager.updateGameState({
-            phase: 'starting',
-            settings: settings
-        }).then(() => {
-            // 待機画面を閉じる
-            const waitingModal = document.getElementById('waiting-room-modal');
-            if (waitingModal) waitingModal.remove();
+        // ゲーム開始（これでFirebaseに状態が送信される）
+        this.engine.startGame(10);
 
-            this.isOnlineMode = true;
-            this.isPracticeMode = false;
+        // Firebase同期設定
+        this.setupOnlineSync();
 
-            const gameScreen = document.getElementById('screen-game');
-            if (gameScreen) {
-                gameScreen.classList.remove('practice-mode');
-            }
+        this.showScreen('screen-game');
+    }
 
-            const playerLabel = document.getElementById('player-score-label');
-            const cpuLabel = document.getElementById('cpu-score-label');
-            if (playerLabel) playerLabel.textContent = 'あなた';
-            if (cpuLabel) cpuLabel.textContent = '相手';
-
-            // ゲームロジックを起動
-            const gameSettings = {
-                mode: 'online',
-                isOnline: true,
-                isHost: true,
-                cardCount: settings.cardCount,
-                categories: settings.categories
-            };
-            this.engine.configure(gameSettings);
-            this.engine.startGame(10);
-
-            // Firebase同期設定
-            this.setupOnlineSync();
-
-            this.showScreen('screen-game');
-        }).catch(e => {
-            console.error('Failed to start game:', e);
-            alert('ゲーム開始に失敗しました: ' + e.message);
-        });
+    /**
+     * オンライン状態変更のハンドラ
+     */
+    async handleOnlineStateChange(state) {
+        if (!this.isOnlineMode || !this.isHost) return;
+        
+        switch (state.type) {
+            case 'round_start':
+                // ラウンド開始時にカードと正解をFirebaseに保存
+                await OnlineManager.setRoundData(
+                    state.cards,
+                    state.target,
+                    state.round
+                );
+                await OnlineManager.updateScores(state.scores);
+                break;
+                
+            case 'stage_update':
+                // stage更新をFirebaseに保存
+                await OnlineManager.updateStage(state.currentStage);
+                break;
+                
+            case 'player_tap':
+                // プレイヤーのタップ結果を保存（必要な場合）
+                break;
+                
+            case 'round_end':
+                // ラウンド終了
+                await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
+                await OnlineManager.updateScores(state.scores);
+                break;
+                
+            case 'game_end':
+                // ゲーム終了
+                await OnlineManager.finishGame(state.scores);
+                break;
+        }
     }
 
     startOnlineGameAsGuest(roomData) {
@@ -942,6 +971,7 @@ class App {
     }
 
     setupOnlineSync() {
+        // ゲーム状態の監視
         OnlineManager.onRoomUpdate((roomData) => {
             if (roomData && roomData.gameState) {
                 this.onlineGameState = roomData.gameState;
@@ -949,9 +979,43 @@ class App {
             }
         });
 
+        // タップの監視
         OnlineManager.onTaps((taps) => {
             this.handleOpponentTap(taps);
         });
+    }
+
+    /**
+     * オンラインゲーム状態の同期
+     */
+    async syncOnlineGameState(gameState) {
+        if (!gameState) return;
+
+        const playerScoreEl = document.getElementById('score-player');
+        const cpuScoreEl = document.getElementById('score-cpu');
+        const roundDisplayEl = document.getElementById('round-display');
+
+        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player;
+        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
+        if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
+
+        // ★ phaseが'waiting'から'dealing'に変わったらゲーム開始
+        if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
+            // まだカードが表示されていない場合のみ描画
+            const currentCards = document.querySelectorAll('.card');
+            if (currentCards.length === 0) {
+                await this.renderOnlineCards(gameState.cards);
+            }
+        } else if (gameState.phase === 'reading') {
+            this.updateOnlineClue(gameState);
+        } else if (gameState.phase === 'finished') {
+            this.showGameEnd({
+                playerScore: gameState.scores.player,
+                cpuScore: gameState.scores.opponent,
+                winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
+                    gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
+            });
+        }
     }
 
     async syncOnlineGameState(gameState) {

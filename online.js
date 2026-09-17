@@ -237,5 +237,63 @@ const OnlineManager = {
             ...gameState,
             updatedAt: firebase.database.ServerValue.TIMESTAMP
         });
+    },
+
+    /**
+     * ラウンドデータ（カードと正解）を設定
+     */
+    async setRoundData(cards, target, roundNumber) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            cards: cards,
+            target: target,
+            round: roundNumber,
+            currentStage: 0,
+            phase: 'dealing',
+            taps: {}
+        });
+    },
+
+    /**
+     * stageを更新
+     */
+    async updateStage(stageNumber) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            currentStage: stageNumber,
+            phase: 'reading'
+        });
+    },
+
+    /**
+     * 得点を更新
+     */
+    async updateScores(scores) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            scores: scores
+        });
+    },
+
+    /**
+     * ラウンド終了
+     */
+    async finishRound(winner) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            phase: 'result',
+            roundWinner: winner
+        });
+    },
+
+    /**
+     * ゲーム終了
+     */
+    async finishGame(finalScores) {
+        if (!this.roomRef) return;
+        await this.roomRef.child('gameState').update({
+            phase: 'finished',
+            scores: finalScores
+        });
     }
 };
