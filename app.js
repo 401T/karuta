@@ -1,7 +1,3 @@
-/**
- * App - メインアプリケーションクラス
- * 画面遷移、ゲーム制御、UI更新を統合管理
- */
 class App {
     constructor() {
         this.engine = new GameEngine();
@@ -15,34 +11,55 @@ class App {
     }
 
     async init() {
-        // データ読み込み
-        const loaded = await this.engine.loadData();
-        if (!loaded) {
-            alert('データの読み込みに失敗しました。');
-            return;
-        }
-
-        StructureRenderer.init();
-        AudioManager.init();
-        StorageManager.init();
-        this.loadSettings();
-
-        this.engine.onUpdate = (data) => this.updateGameUI(data);
-        this.engine.onRoundEnd = (data) => this.showRoundResult(data);
-        this.engine.onGameEnd = (data) => this.showGameEnd(data);
-
-        this.bindEvents();
+        console.log('App initializing...');
         
-        document.getElementById('compound-count').textContent = this.engine.getCompoundCount();
+        try {
+            const loaded = await this.engine.loadData();
+            
+            if (!loaded) {
+                console.error('Failed to load data');
+                this.showError('データ読み込み失敗');
+                return;
+            }
 
-        setTimeout(() => {
-            document.getElementById('loading-screen').classList.remove('active');
-            this.showScreen('screen-title');
-        }, 1500);
+            console.log('Data loaded successfully');
+            
+            StructureRenderer.init();
+            AudioManager.init();
+            StorageManager.init();
+            this.loadSettings();
+
+            this.engine.onUpdate = (data) => this.updateGameUI(data);
+            this.engine.onRoundEnd = (data) => this.showRoundResult(data);
+            this.engine.onGameEnd = (data) => this.showGameEnd(data);
+
+            this.bindEvents();
+            
+            console.log('App ready, showing title screen');
+            
+            setTimeout(() => {
+                document.getElementById('loading-screen').classList.remove('active');
+                this.showScreen('screen-title');
+            }, 1000);
+            
+        } catch (e) {
+            console.error('Initialization error:', e);
+            this.showError('初期化エラー: ' + e.message);
+        }
+    }
+
+    showError(message) {
+        const loadingScreen = document.getElementById('loading-screen');
+        loadingScreen.innerHTML = `
+            <div class="loading-content">
+                <h1 style="color: var(--danger); font-size: 1.5rem; margin-bottom: 20px;">エラー</h1>
+                <p style="color: var(--text-white); margin-bottom: 20px;">${message}</p>
+                <p style="color: var(--text-gray); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
+            </div>
+        `;
     }
 
     bindEvents() {
-        // 画面遷移 (data-next)
         document.querySelectorAll('[data-next]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 const nextScreen = e.currentTarget.dataset.next;
@@ -58,14 +75,12 @@ class App {
             });
         });
 
-        // 戻るボタン (data-back)
         document.querySelectorAll('[data-back]').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 this.showScreen(e.currentTarget.dataset.back);
             });
         });
 
-        // 難易度カード (シングルタップで選択、ダブルタップで開始)
         document.querySelectorAll('.diff-card').forEach(card => {
             card.addEventListener('click', (e) => {
                 const now = Date.now();
@@ -76,7 +91,6 @@ class App {
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
                 
                 if (timeDiff < 300 && timeDiff > 0) {
-                    // ダブルタップ detected
                     this.startGame();
                 }
                 
@@ -84,7 +98,6 @@ class App {
             });
         });
 
-        // ゲーム画面の操作
         document.getElementById('card-grid').addEventListener('click', (e) => {
             const card = e.target.closest('.card');
             if (card && !card.classList.contains('taken')) {
@@ -110,7 +123,6 @@ class App {
             this.engine.nextClue();
         });
 
-        // 設定
         document.getElementById('setting-voice').addEventListener('change', (e) => {
             StorageManager.updateSetting('voiceEnabled', e.target.checked);
             AudioManager.updateSettings({ enabled: e.target.checked });
@@ -289,14 +301,13 @@ class App {
         const playerWon = data.playerWon;
         const compound = data.target;
         
-        // 動的に結果モーダルを生成
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.innerHTML = `
-            <div class="modal-content" style="background: rgba(15, 20, 25, 0.95); border: 2px solid ${playerWon ? 'var(--success)' : 'var(--danger)'}; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: center; box-shadow: 0 0 40px ${playerWon ? 'rgba(0,255,136,0.3)' : 'rgba(255,51,102,0.3)'};">
+            <div class="modal-content" style="background: rgba(15, 20, 25, 0.95); border: 2px solid ${playerWon ? 'var(--success)' : 'var(--danger)'}; border-radius: 16px; padding: 30px; max-width: 400px; width: 90%; text-align: center;">
                 <h2 style="font-size: 2rem; margin-bottom: 20px; color: ${playerWon ? 'var(--success)' : 'var(--danger)'};">${playerWon ? '正解!' : '不正解...'}</h2>
-                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; min-height: 150px; display: flex; align-items: center; justify-content: center;">
+                <div style="background: rgba(255,255,255,0.05); border-radius: 12px; padding: 20px; margin-bottom: 20px; min-height: 150px;">
                     <div id="modal-structure" style="width: 100%; height: 100%;"></div>
                 </div>
                 <div style="font-size: 1.2rem; margin-bottom: 10px; color: var(--text-white);">${compound.name}</div>
@@ -403,6 +414,7 @@ class App {
 }
 
 window.addEventListener('DOMContentLoaded', () => {
+    console.log('DOM loaded, starting app...');
     window.app = new App();
 });
 
