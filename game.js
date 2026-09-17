@@ -1,6 +1,6 @@
 /**
  * GameEngine - ゲームの核となる状態管理とルール適用
- * オンライン同期・停止バグ修正版
+ * 読み札・画面遷移バグ修正版
  */
 class GameEngine {
     constructor() {
@@ -84,7 +84,9 @@ class GameEngine {
             const trimmedClues = rawClues.map(c => this._trimObject(c));
             
             trimmedClues.forEach(c => { 
-                if (c.compound_id) this.clues[c.compound_id] = c; 
+                if (c.compound_id) {
+                    this.clues[c.compound_id] = c; 
+                }
             });
             
             this.compounds.forEach(c => {
@@ -94,7 +96,7 @@ class GameEngine {
             console.log(`✓ Loaded ${this.compounds.length} compounds, ${Object.keys(this.clues).length} clues`);
             return true;
         } catch (e) {
-            console.error('✗ Data load error:', e);
+            console.error(' Data load error:', e);
             return false;
         }
     }
@@ -155,7 +157,6 @@ class GameEngine {
         this.state = 'DEAL';
         this._notify();
         
-        // オンラインモードでホストの場合、状態を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_start',
@@ -169,34 +170,63 @@ class GameEngine {
     }
 
     startReading() {
-        if (!this.currentRound.isActive) return;
-        if (this.state !== 'DEAL') return;
+        if (!this.currentRound.isActive) {
+            console.warn('startReading: round not active');
+            return;
+        }
+        if (this.state !== 'DEAL') {
+            console.warn('startReading: state is not DEAL, current state:', this.state);
+            return;
+        }
+        console.log('startReading: starting in 1.5s');
         setTimeout(() => this.nextClue(), 1500);
     }
 
     nextClue() {
-        if (!this.currentRound.isActive) return;
-        if (this.isOnline && !this.isHost) return;
+        if (!this.currentRound.isActive) {
+            console.warn('nextClue: round not active');
+            return;
+        }
+        if (this.isOnline && !this.isHost) {
+            console.warn('nextClue: guest mode, skipping');
+            return;
+        }
         
         this.currentRound.currentStage++;
         this.state = 'READING';
         
-        const clueData = this.clues[this.currentRound.target.id];
-        if (clueData) {
-            const currentClue = clueData.stages.find(s => s.stage === this.currentRound.currentStage);
-            if (currentClue) {
-                AudioManager.playSound('stage');
-                AudioManager.speak(currentClue.text, {
-                    onEnd: () => {
-                        if (this.currentRound.isActive) {
-                            const hasNext = clueData.stages.some(s => s.stage === this.currentRound.currentStage + 1);
-                            if (hasNext) {
-                                setTimeout(() => this.nextClue(), 1000);
-                            }
+        const targetId = this.currentRound.target.id;
+        console.log('nextClue: stage', this.currentRound.currentStage, 'targetId:', targetId);
+        
+        const clueData = this.clues[targetId];
+        if (!clueData) {
+            console.error('nextClue: clueData not found for targetId:', targetId);
+            console.log('Available clue keys:', Object.keys(this.clues).slice(0, 5));
+            return;
+        }
+        
+        const currentClue = clueData.stages.find(s => s.stage === this.currentRound.currentStage);
+        if (!currentClue) {
+            console.error('nextClue: currentClue not found for stage:', this.currentRound.currentStage);
+            return;
+        }
+        
+        console.log('nextClue: speaking:', currentClue.text);
+        
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.playSound('stage');
+            AudioManager.speak(currentClue.text, {
+                onEnd: () => {
+                    if (this.currentRound.isActive) {
+                        const hasNext = clueData.stages.some(s => s.stage === this.currentRound.currentStage + 1);
+                        if (hasNext) {
+                            setTimeout(() => this.nextClue(), 1000);
                         }
                     }
-                });
-            }
+                }
+            });
+        } else {
+            console.error('AudioManager not available');
         }
         
         this._notify();
@@ -226,12 +256,17 @@ class GameEngine {
     }
 
     handlePlayerTap(cardId) {
-        if (!this.currentRound.isActive) return;
+        if (!this.currentRound.isActive) {
+            console.warn('handlePlayerTap: round not active');
+            return;
+        }
         
         const targetId = (this.currentRound.target.id || '').trim();
         const tapId = (cardId || '').trim();
         const isCorrect = (tapId === targetId);
         const reactionTime = Date.now() - this.currentRound.startTime;
+        
+        console.log('handlePlayerTap: targetId=', targetId, 'tapId=', tapId, 'isCorrect=', isCorrect);
         
         if (isCorrect) {
             if (!this.isOnline || this.isHost) {
@@ -239,19 +274,23 @@ class GameEngine {
                 this.combo++;
                 if (this.combo > this.maxCombo) this.maxCombo = this.combo;
                 this._calculateScore(true, this.currentRound.currentStage, 'player', reactionTime);
-                AudioManager.playSound(this.combo > 1 ? 'combo' : 'correct');
+                if (typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound(this.combo > 1 ? 'combo' : 'correct');
+                }
                 
                 if (!this.isOnline) {
                     try {
-                        StorageManager.recordGameResult({
-                            isCorrect: true,
-                            time: reactionTime,
-                            compoundId: targetId,
-                            category: this.currentRound.target.category || '',
-                            difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
-                            stage: this.currentRound.currentStage,
-                            combo: this.combo
-                        });
+                        if (typeof StorageManager !== 'undefined') {
+                            StorageManager.recordGameResult({
+                                isCorrect: true,
+                                time: reactionTime,
+                                compoundId: targetId,
+                                category: this.currentRound.target.category || '',
+                                difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
+                                stage: this.currentRound.currentStage,
+                                combo: this.combo
+                            });
+                        }
                     } catch (e) {
                         console.error('Storage error:', e);
                     }
@@ -262,25 +301,28 @@ class GameEngine {
             if (!this.isOnline || this.isHost) {
                 this.combo = 0;
                 this._calculateScore(false, 0, 'player', reactionTime);
-                AudioManager.playSound('wrong');
+                if (typeof AudioManager !== 'undefined') {
+                    AudioManager.playSound('wrong');
+                }
                 
                 if (!this.isOnline) {
                     try {
-                        StorageManager.recordGameResult({
-                            isCorrect: false,
-                            time: reactionTime,
-                            compoundId: targetId,
-                            category: this.currentRound.target.category || '',
-                            difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
-                            stage: this.currentRound.currentStage,
-                            combo: 0
-                        });
+                        if (typeof StorageManager !== 'undefined') {
+                            StorageManager.recordGameResult({
+                                isCorrect: false,
+                                time: reactionTime,
+                                compoundId: targetId,
+                                category: this.currentRound.target.category || '',
+                                difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
+                                stage: this.currentRound.currentStage,
+                                combo: 0
+                            });
+                        }
                     } catch (e) {
                         console.error('Storage error:', e);
                     }
                 }
                 this._notify({ type: 'wrong', id: tapId });
-                // 誤答時の自動 nextClue を削除（オンライン同期を乱すため）
             }
         }
         
@@ -299,11 +341,15 @@ class GameEngine {
             this.currentRound.isActive = false;
             this.combo = 0;
             this._calculateScore(true, this.currentRound.currentStage, 'opponent', 0);
-            AudioManager.playSound('wrong');
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('wrong');
+            }
             this._finishRound(false);
         } else {
             this._notify({ type: 'cpu_wrong', id: cardId });
-            AudioManager.playSound('wrong');
+            if (typeof AudioManager !== 'undefined') {
+                AudioManager.playSound('wrong');
+            }
             setTimeout(() => this.nextClue(), 1500);
         }
     }
@@ -336,12 +382,15 @@ class GameEngine {
     }
 
     _finishRound(playerWon) {
+        console.log('_finishRound: playerWon=', playerWon);
         this.currentRound.isActive = false;
         this.state = 'RESULT';
         
         const targetId = (this.currentRound.target.id || '').trim();
         const clueData = this.clues[targetId];
         const explanation = clueData && clueData.explanation ? clueData.explanation : '解説データなし';
+        
+        console.log('_finishRound: targetId=', targetId, 'explanation=', explanation);
         
         this._notify({ 
             type: 'round_end', 
@@ -353,14 +402,16 @@ class GameEngine {
         });
         
         if (this.onRoundEnd) {
+            console.log('_finishRound: calling onRoundEnd');
             this.onRoundEnd({
                 playerWon: playerWon,
                 target: this.currentRound.target,
                 explanation: explanation
             });
+        } else {
+            console.error('_finishRound: onRoundEnd callback not set');
         }
 
-        // オンラインモードでホストの場合、ラウンド終了を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_end',
@@ -398,7 +449,9 @@ class GameEngine {
 
     pause() {
         if (this.cpu) this.cpu.cancelThinking();
-        AudioManager.stop();
+        if (typeof AudioManager !== 'undefined') {
+            AudioManager.stop();
+        }
     }
 
     _notify(data = {}) {
