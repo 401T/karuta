@@ -446,6 +446,14 @@ class GameEngine {
             stage: this.currentRound.currentStage,
             combo: this.combo
         });
+
+        if (this.onRoundEnd) {
+            this.onRoundEnd({
+                playerWon: playerWon,
+                target: this.currentRound.target,
+                explanation: explanation
+            });
+        }
         
         // オンラインモード時、ホストは結果をFirebaseに保存
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
@@ -459,7 +467,8 @@ class GameEngine {
         if (this.onRoundEnd) {
             this.onRoundEnd({
                 playerWon: playerWon,
-                target: this.currentRound.target
+                target: this.currentRound.target,
+                explanation: explanation
             });
         }
     }
