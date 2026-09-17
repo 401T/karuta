@@ -1,8 +1,8 @@
 /**
- * OnlineManager - オンライン対戦管理（バグ修正完全版）
+ * OnlineManager - オンライン対戦管理（完全修正版）
+ * - firebase-config.jsは不要（このファイルに統合）
+ * - 二重宣言エラーを修正
  * - Firebase未設定時でもエラーにならない
- * - ルーム作成・参加のバグ修正
- * - 状態同期の改善
  */
 const OnlineManager = {
     db: null,
@@ -16,7 +16,8 @@ const OnlineManager = {
     isInitialized: false,
 
     /**
-     * Firebase初期化（設定未完了時でもエラーにならない）
+     * Firebase初期化
+     * ★ Firebase Consoleから取得した設定をfirebaseConfigに貼り付けてください
      */
     init() {
         if (typeof firebase === 'undefined') {
@@ -24,14 +25,14 @@ const OnlineManager = {
             return false;
         }
 
-        // 既に初期化済みの場合はスキップ
         if (this.isInitialized) {
             return true;
         }
 
         try {
             if (!firebase.apps.length) {
-                // Firebase Consoleから取得した設定に置き換えてください
+                // ★★★★★ 重要：以下の設定をFirebase Consoleから取得した値に置き換えてください ★★★★★
+                // For Firebase JS SDK v7.20.0 and later, measurementId is optional
                 const firebaseConfig = {
                 apiKey: "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8",
                 authDomain: "chem-karut.firebaseapp.com",
@@ -42,9 +43,12 @@ const OnlineManager = {
                 appId: "1:283699409494:web:41a17f4c8551d0224c81f7",
                 measurementId: "G-8N22NYHZQZ"
                 };
+                // ★★★★★ ここまで ★★★★★
+
                 // 設定が未完了の場合は初期化しない
                 if (firebaseConfig.apiKey === "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8") {
                     console.warn('Firebase config not set. Online mode disabled.');
+                    console.warn('Please update firebaseConfig in online.js with your Firebase project settings.');
                     return false;
                 }
 
@@ -63,9 +67,6 @@ const OnlineManager = {
         }
     },
 
-    /**
-     * ルーム作成
-     */
     async createRoom(settings) {
         if (!this.db) {
             throw new Error('Firebase not initialized');
@@ -104,9 +105,6 @@ const OnlineManager = {
         return roomId;
     },
 
-    /**
-     * ルーム参加
-     */
     async joinRoom(roomId) {
         if (!this.db) {
             throw new Error('Firebase not initialized');
@@ -121,7 +119,6 @@ const OnlineManager = {
 
         const roomData = snapshot.val();
 
-        // ルーム状態のチェックとクリーンアップ
         if (roomData.status === 'playing' && !roomData.guest) {
             console.warn('Room is in playing state but no guest. Cleaning up...');
             await roomRef.update({
@@ -150,9 +147,6 @@ const OnlineManager = {
         return true;
     },
 
-    /**
-     * ルーム退出
-     */
     async leaveRoom() {
         if (!this.roomRef) return;
 
@@ -182,9 +176,6 @@ const OnlineManager = {
         this.cleanup();
     },
 
-    /**
-     * ゲーム状態の監視
-     */
     onRoomUpdate(callback) {
         if (!this.roomRef) return;
         this.onStateChange = callback;
@@ -198,9 +189,6 @@ const OnlineManager = {
         this.listeners.push({ ref: this.roomRef.child('gameState'), event: 'value', callback: listener });
     },
 
-    /**
-     * タップの監視
-     */
     onTaps(callback) {
         if (!this.roomRef) return;
         this.onOpponentTap = callback;
@@ -223,9 +211,6 @@ const OnlineManager = {
         this.listeners.push({ ref: this.roomRef.child('taps'), event: 'value', callback: listener });
     },
 
-    /**
-     * タップを記録
-     */
     async recordTap(cardId) {
         if (!this.roomRef) return;
         const tapRef = this.roomRef.child('taps/' + this.playerId);
@@ -235,16 +220,10 @@ const OnlineManager = {
         });
     },
 
-    /**
-     * ルームID生成（6桁）
-     */
     generateRoomId() {
         return Math.random().toString(36).substr(2, 6).toUpperCase();
     },
 
-    /**
-     * リスナーのクリーンアップ
-     */
     cleanup() {
         this.listeners.forEach(({ ref, event, callback }) => {
             ref.off(event, callback);
