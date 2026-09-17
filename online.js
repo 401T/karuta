@@ -19,6 +19,8 @@ const OnlineManager = {
      * Firebase初期化
      * ★ Firebase Consoleから取得した設定をfirebaseConfigに貼り付けてください
      */
+    // online.js の init() メソッド内
+
     init() {
         if (typeof firebase === 'undefined') {
             console.warn('Firebase SDK not loaded');
@@ -31,27 +33,19 @@ const OnlineManager = {
 
         try {
             if (!firebase.apps.length) {
-                // ★★★★★ 重要：以下の設定をFirebase Consoleから取得した値に置き換えてください ★★★★★
-                // For Firebase JS SDK v7.20.0 and later, measurementId is optional
+                // ★★★★★ ご提示いただいた設定情報に置き換えてください ★★★★★
                 const firebaseConfig = {
-                apiKey: "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8",
-                authDomain: "chem-karut.firebaseapp.com",
-                databaseURL: "https://chem-karut-default-rtdb.asia-southeast1.firebasedatabase.app",
-                projectId: "chem-karut",
-                storageBucket: "chem-karut.firebasestorage.app",
-                messagingSenderId: "283699409494",
-                appId: "1:283699409494:web:41a17f4c8551d0224c81f7",
-                measurementId: "G-8N22NYHZQZ"
+                    apiKey: "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8",
+                    authDomain: "chem-karut.firebaseapp.com",
+                    databaseURL: "https://chem-karut-default-rtdb.asia-southeast1.firebasedatabase.app",
+                    projectId: "chem-karut",
+                    storageBucket: "chem-karut.firebasestorage.app",
+                    messagingSenderId: "283699409494",
+                    appId: "1:283699409494:web:c1251c794169d7bc4c81f7"
                 };
                 // ★★★★★ ここまで ★★★★★
 
-                // 設定が未完了の場合は初期化しない
-                if (firebaseConfig.apiKey === "AIzaSyAsuOgiPKYiZc_vP1E8JEaKufr3Bod51a8") {
-                    console.warn('Firebase config not set. Online mode disabled.');
-                    console.warn('Please update firebaseConfig in online.js with your Firebase project settings.');
-                    return false;
-                }
-
+                // 初期化
                 firebase.initializeApp(firebaseConfig);
             }
 
@@ -59,10 +53,10 @@ const OnlineManager = {
             this.playerId = 'player_' + Date.now() + '_' + Math.random().toString(36).substr(2, 9);
             this.isInitialized = true;
 
-            console.log('OnlineManager initialized, playerId:', this.playerId);
+            console.log('✅ OnlineManager initialized, playerId:', this.playerId);
             return true;
         } catch (e) {
-            console.error('Firebase initialization error:', e);
+            console.error('❌ Firebase initialization error:', e);
             return false;
         }
     },
