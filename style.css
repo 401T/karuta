@@ -1,6 +1,6 @@
 /* ========================================
    化学構造式かるた - 競技かるたONLINE風
-   筑紫ゴシック完全適用版
+   筑紫ゴシック完全適用版・レスポンシブ強化
    ======================================== */
 
 /* ========================================
@@ -35,6 +35,11 @@
     font-family: 'TsukuGo', 'Hiragino Mincho ProN', 'Yu Mincho', serif;
 }
 
+html {
+    -webkit-text-size-adjust: 100%;
+    text-size-adjust: 100%;
+}
+
 :root {
     /* 競技かるたONLINE風カラーパレット */
     --tatami-light: #c8d4a0;
@@ -59,6 +64,8 @@ html, body {
     height: 100%;
     overflow: hidden;
     font-family: var(--font-main);
+    width: 100%;
+    max-width: 100vw;
 }
 
 body {
@@ -68,6 +75,9 @@ body {
     position: relative;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    width: 100%;
+    max-width: 100vw;
+    overflow-x: hidden;
 }
 
 /* ========================================
@@ -124,6 +134,7 @@ body {
     flex-direction: column;
     animation: fadeIn 0.4s ease-out;
     font-family: var(--font-main);
+    overflow: hidden;
 }
 
 .screen.active {
@@ -151,11 +162,12 @@ body {
     justify-content: center;
     height: 100%;
     gap: 30px;
+    padding: 20px;
 }
 
 .loading-logo {
     font-family: var(--font-display);
-    font-size: 5rem;
+    font-size: clamp(3rem, 10vw, 5rem);
     font-weight: bold;
     color: var(--card-bg);
     text-shadow: 0 0 20px rgba(201, 169, 97, 0.5);
@@ -164,13 +176,14 @@ body {
 
 .loading-title {
     font-family: var(--font-main);
-    font-size: 1.8rem;
+    font-size: clamp(1.2rem, 4vw, 1.8rem);
     color: var(--accent-gold);
     letter-spacing: 0.3em;
+    text-align: center;
 }
 
 .loading-bar {
-    width: 240px;
+    width: min(240px, 80vw);
     height: 2px;
     background: rgba(255,255,255,0.1);
     border-radius: 1px;
@@ -217,15 +230,17 @@ body {
     justify-content: center;
     padding: 40px 20px;
     position: relative;
+    overflow-y: auto;
 }
 
 .title-logo {
     text-align: center;
-    margin-bottom: 60px;
-    padding: 40px 60px;
+    margin-bottom: 40px;
+    padding: 30px 40px;
     border: 3px solid var(--card-bg);
     background: rgba(0,0,0,0.4);
     position: relative;
+    max-width: 90vw;
 }
 
 .title-logo::before {
@@ -236,21 +251,23 @@ body {
     right: 6px;
     bottom: 6px;
     border: 1px solid rgba(255,255,255,0.3);
+    pointer-events: none;
 }
 
 .title-main {
     font-family: var(--font-main);
-    font-size: 3rem;
+    font-size: clamp(1.8rem, 6vw, 3rem);
     font-weight: 900;
     color: var(--card-bg);
     letter-spacing: 0.1em;
     margin-bottom: 15px;
     text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    line-height: 1.3;
 }
 
 .title-sub {
     font-family: var(--font-display);
-    font-size: 1.2rem;
+    font-size: clamp(0.9rem, 3vw, 1.2rem);
     color: var(--accent-gold);
     letter-spacing: 0.5em;
     font-weight: 500;
@@ -259,16 +276,17 @@ body {
 .title-menu {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 12px;
     width: 100%;
-    max-width: 280px;
+    max-width: 320px;
+    padding: 0 10px;
 }
 
 .menu-btn {
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-bg);
     border-radius: 2px;
-    padding: 18px 32px;
+    padding: 16px 28px;
     color: var(--card-bg);
     cursor: pointer;
     transition: all 0.3s;
@@ -278,6 +296,8 @@ body {
     align-items: center;
     justify-content: center;
     font-family: var(--font-display);
+    min-height: 48px;
+    width: 100%;
 }
 
 .menu-btn::before {
@@ -296,10 +316,8 @@ body {
     transform: scaleY(1);
 }
 
-.menu-btn:hover {
-    background: rgba(74, 106, 58, 0.4);
-    border-color: var(--accent-gold);
-    transform: translateX(4px);
+.menu-btn:active {
+    transform: scale(0.98);
 }
 
 .menu-btn:nth-child(1) { border-left: 4px solid var(--accent-red); }
@@ -309,7 +327,7 @@ body {
 
 .menu-text {
     font-family: var(--font-display);
-    font-size: 1.4rem;
+    font-size: clamp(1.1rem, 4vw, 1.4rem);
     font-weight: 700;
     letter-spacing: 0.3em;
 }
@@ -320,10 +338,10 @@ body {
 
 .back-btn {
     position: absolute;
-    top: 20px;
-    left: 20px;
-    width: 48px;
-    height: 48px;
+    top: 15px;
+    left: 15px;
+    width: 44px;
+    height: 44px;
     background: rgba(0,0,0,0.6);
     border: 2px solid var(--card-bg);
     border-radius: 2px;
@@ -334,21 +352,23 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
+    padding: 0;
 }
 
-.back-btn:hover {
+.back-btn:active {
     background: var(--accent-red);
     border-color: var(--accent-red);
-    transform: scale(1.05);
+    transform: scale(0.95);
 }
 
 .back-btn svg {
     width: 24px;
     height: 24px;
+    flex-shrink: 0;
 }
 
 /* ========================================
-   難易度選択
+   難易度・単元選択画面
    ======================================== */
 
 #screen-difficulty {
@@ -360,79 +380,157 @@ body {
     display: flex;
     flex-direction: column;
     align-items: center;
-    justify-content: center;
-    padding: 100px 20px 40px;
+    padding: 80px 15px 30px;
+    overflow-y: auto;
+    width: 100%;
+    max-width: 100vw;
 }
 
 .section-title {
     font-family: var(--font-display);
-    font-size: 2.5rem;
+    font-size: clamp(1.6rem, 5vw, 2.5rem);
     font-weight: 900;
-    margin-bottom: 15px;
+    margin-bottom: 20px;
     color: var(--card-bg);
     letter-spacing: 0.3em;
     text-shadow: 0 2px 8px rgba(0,0,0,0.5);
+    text-align: center;
 }
 
 .section-subtitle {
     color: rgba(255,255,255,0.7);
-    margin-bottom: 50px;
-    font-size: 1rem;
+    margin-bottom: 30px;
+    font-size: clamp(0.85rem, 2.5vw, 1rem);
     letter-spacing: 0.1em;
     font-family: var(--font-main);
+    text-align: center;
 }
 
+.setting-section {
+    width: 100%;
+    max-width: 500px;
+    margin-bottom: 25px;
+}
+
+.setting-section-title {
+    font-family: var(--font-display);
+    font-size: clamp(1rem, 3vw, 1.2rem);
+    color: var(--accent-gold);
+    letter-spacing: 0.15em;
+    margin-bottom: 12px;
+    padding-bottom: 8px;
+    border-bottom: 1px solid rgba(255,255,255,0.2);
+}
+
+/* 難易度リスト */
 .difficulty-list {
     display: flex;
     flex-direction: column;
-    gap: 16px;
+    gap: 10px;
     width: 100%;
-    max-width: 400px;
-    margin-bottom: 30px;
 }
 
 .diff-btn {
     display: flex;
     align-items: center;
-    gap: 20px;
+    gap: 15px;
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-border);
     border-radius: 2px;
-    padding: 20px 30px;
+    padding: 14px 20px;
     color: var(--card-bg);
     cursor: pointer;
     transition: all 0.3s;
     font-family: var(--font-display);
+    min-height: 48px;
+    width: 100%;
+    text-align: left;
 }
 
-.diff-btn:hover {
-    border-color: var(--accent-gold);
-    transform: translateX(4px);
-    box-shadow: 0 4px 12px rgba(0,0,0,0.4);
+.diff-btn:active {
+    transform: scale(0.98);
 }
 
 .diff-btn.selected {
     border-color: var(--accent-gold);
     border-width: 3px;
     background: rgba(74, 106, 58, 0.3);
-    box-shadow: 0 0 20px rgba(201, 169, 97, 0.3);
+    box-shadow: 0 0 15px rgba(201, 169, 97, 0.3);
 }
 
 .diff-icon {
-    width: 48px;
-    height: 48px;
+    width: 40px;
+    height: 40px;
     flex-shrink: 0;
     color: var(--accent-gold);
 }
 
 .diff-text {
-    font-size: 1.5rem;
+    font-size: clamp(1.1rem, 3.5vw, 1.5rem);
     font-weight: 700;
     letter-spacing: 0.2em;
 }
 
 .diff-btn.selected .diff-text {
     color: var(--accent-gold);
+}
+
+/* 単元グリッド */
+.category-grid {
+    display: grid;
+    grid-template-columns: repeat(auto-fill, minmax(110px, 1fr));
+    gap: 8px;
+    width: 100%;
+}
+
+.category-tag {
+    background: rgba(0,0,0,0.5);
+    border: 2px solid var(--card-border);
+    border-radius: 2px;
+    padding: 10px 8px;
+    color: var(--card-bg);
+    cursor: pointer;
+    transition: all 0.3s;
+    font-family: var(--font-main);
+    font-size: clamp(0.75rem, 2.5vw, 0.9rem);
+    text-align: center;
+    min-height: 44px;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    letter-spacing: 0.05em;
+    line-height: 1.3;
+    word-break: keep-all;
+    overflow-wrap: break-word;
+}
+
+.category-tag:active {
+    transform: scale(0.96);
+}
+
+.category-tag.selected {
+    border-color: var(--accent-gold);
+    background: rgba(74, 106, 58, 0.4);
+    color: var(--accent-gold);
+    font-weight: 700;
+}
+
+.select-all-btn {
+    margin-top: 12px;
+    background: rgba(0,0,0,0.4);
+    border: 1px solid var(--card-border);
+    color: var(--card-bg);
+    padding: 10px 20px;
+    border-radius: 2px;
+    font-family: var(--font-display);
+    font-size: 0.9rem;
+    cursor: pointer;
+    transition: all 0.3s;
+    letter-spacing: 0.1em;
+}
+
+.select-all-btn:active {
+    background: var(--accent-green);
 }
 
 .next-btn {
@@ -442,17 +540,21 @@ body {
     padding: 16px 48px;
     border-radius: 2px;
     font-family: var(--font-display);
-    font-size: 1.2rem;
+    font-size: clamp(1rem, 3.5vw, 1.2rem);
     font-weight: 700;
     letter-spacing: 0.2em;
     cursor: pointer;
     transition: all 0.3s;
+    margin-top: 10px;
+    min-height: 48px;
+    width: 100%;
+    max-width: 300px;
 }
 
-.next-btn:hover {
+.next-btn:active {
     background: var(--accent-gold);
     color: var(--text-dark);
-    transform: translateY(-2px);
+    transform: scale(0.98);
 }
 
 /* ========================================
@@ -503,10 +605,11 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 15px 25px;
+    padding: 10px 15px;
     background: rgba(0,0,0,0.7);
     border-bottom: 2px solid var(--card-border);
     backdrop-filter: blur(8px);
+    flex-shrink: 0;
 }
 
 .player-info {
@@ -516,7 +619,7 @@ body {
 
 .player-name {
     font-family: var(--font-display);
-    font-size: 1.1rem;
+    font-size: clamp(0.9rem, 2.8vw, 1.1rem);
     font-weight: 700;
     color: var(--card-bg);
     letter-spacing: 0.2em;
@@ -527,7 +630,7 @@ body {
 }
 
 .timer-label {
-    font-size: 0.75rem;
+    font-size: 0.7rem;
     color: rgba(255,255,255,0.6);
     letter-spacing: 0.15em;
     margin-bottom: 2px;
@@ -536,7 +639,7 @@ body {
 
 .timer-value {
     font-family: var(--font-display);
-    font-size: 1.4rem;
+    font-size: clamp(1.1rem, 3.5vw, 1.4rem);
     font-weight: 700;
     color: var(--accent-gold);
     font-variant-numeric: tabular-nums;
@@ -544,12 +647,13 @@ body {
 
 /* 読み札表示エリア（履歴付き） */
 .clue-display {
-    padding: 15px 25px;
+    padding: 12px 15px;
     background: rgba(0,0,0,0.6);
     border-bottom: 2px solid var(--card-border);
     backdrop-filter: blur(8px);
-    max-height: 200px;
+    max-height: 35vh;
     overflow-y: auto;
+    flex-shrink: 0;
 }
 
 /* 過去のstage履歴 */
@@ -565,7 +669,7 @@ body {
     border-left: 3px solid var(--card-border-light);
     padding: 8px 12px;
     border-radius: 2px;
-    font-size: 0.85rem;
+    font-size: clamp(0.8rem, 2.5vw, 0.85rem);
     color: rgba(250, 248, 240, 0.7);
     line-height: 1.6;
     font-family: var(--font-main);
@@ -598,7 +702,7 @@ body {
     background: var(--card-bg);
     border: 3px solid var(--card-border);
     border-radius: 2px;
-    padding: 16px 20px;
+    padding: 14px 18px;
     box-shadow: 0 4px 12px rgba(0,0,0,0.3);
     position: relative;
 }
@@ -616,16 +720,16 @@ body {
 
 .clue-stage {
     font-family: var(--font-display);
-    font-size: 0.85rem;
+    font-size: 0.8rem;
     color: var(--accent-green);
     font-weight: 700;
-    margin-bottom: 8px;
+    margin-bottom: 6px;
     letter-spacing: 0.15em;
 }
 
 .clue-text {
-    font-size: 1.1rem;
-    line-height: 1.8;
+    font-size: clamp(0.95rem, 3vw, 1.1rem);
+    line-height: 1.7;
     color: var(--text-dark);
     font-weight: 500;
     font-family: var(--font-main);
@@ -633,8 +737,8 @@ body {
 
 .clue-controls {
     display: flex;
-    gap: 10px;
-    margin-top: 12px;
+    gap: 8px;
+    margin-top: 10px;
     justify-content: flex-end;
 }
 
@@ -650,11 +754,14 @@ body {
     color: var(--card-bg);
     cursor: pointer;
     transition: all 0.3s;
+    padding: 0;
+    flex-shrink: 0;
 }
 
-.clue-btn:hover {
+.clue-btn:active {
     background: var(--accent-green);
     border-color: var(--accent-gold);
+    transform: scale(0.95);
 }
 
 .clue-btn svg {
@@ -662,22 +769,27 @@ body {
     height: 20px;
 }
 
+/* カードフィールド */
 .card-field {
     flex: 1;
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 12px;
-    padding: 20px;
+    gap: 8px;
+    padding: 12px;
     overflow-y: auto;
+    min-height: 0;
+    width: 100%;
 }
 
-@media (min-width: 768px) {
+@media (min-width: 600px) {
     .card-field {
         grid-template-columns: repeat(4, 1fr);
+        gap: 12px;
+        padding: 15px;
     }
 }
 
-@media (min-width: 1024px) {
+@media (min-width: 900px) {
     .card-field {
         grid-template-columns: repeat(6, 1fr);
     }
@@ -696,6 +808,7 @@ body {
     position: relative;
     box-shadow: 0 3px 8px rgba(0,0,0,0.2);
     overflow: hidden;
+    min-width: 0;
 }
 
 .card::before {
@@ -709,14 +822,8 @@ body {
     pointer-events: none;
 }
 
-.card:hover {
-    transform: translateY(-3px);
-    box-shadow: 0 6px 14px rgba(0,0,0,0.3);
-    border-color: var(--accent-gold);
-}
-
 .card:active {
-    transform: translateY(-1px);
+    transform: scale(0.97);
 }
 
 .card.taken {
@@ -754,9 +861,10 @@ body {
     display: flex;
     align-items: center;
     justify-content: center;
-    padding: 8px;
+    padding: 6px;
     position: relative;
     z-index: 1;
+    min-width: 0;
 }
 
 .card-content img {
@@ -798,20 +906,22 @@ body {
     align-items: center;
     justify-content: center;
     text-align: center;
-    padding: 8px;
+    padding: 6px;
+    width: 100%;
 }
 
 .card-fallback .compound-name {
-    font-size: 0.85rem;
+    font-size: clamp(0.7rem, 2.2vw, 0.85rem);
     font-weight: 600;
     color: var(--text-dark);
     line-height: 1.4;
     margin-bottom: 4px;
     font-family: var(--font-main);
+    word-break: break-word;
 }
 
 .card-fallback .compound-formula {
-    font-size: 0.7rem;
+    font-size: 0.65rem;
     color: var(--text-light);
     font-family: var(--font-main);
 }
@@ -819,27 +929,31 @@ body {
 .game-footer {
     display: flex;
     justify-content: space-between;
-    padding: 15px 25px;
+    padding: 10px 15px;
     background: rgba(0,0,0,0.7);
     border-top: 2px solid var(--card-border);
     backdrop-filter: blur(8px);
+    flex-shrink: 0;
+    gap: 10px;
 }
 
 .footer-btn {
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-border);
     color: var(--card-bg);
-    padding: 12px 28px;
+    padding: 10px 20px;
     border-radius: 2px;
     cursor: pointer;
     font-family: var(--font-display);
-    font-size: 0.95rem;
+    font-size: clamp(0.85rem, 2.5vw, 0.95rem);
     font-weight: 600;
     letter-spacing: 0.15em;
     transition: all 0.3s;
+    flex: 1;
+    min-height: 44px;
 }
 
-.footer-btn:hover {
+.footer-btn:active {
     background: var(--accent-green);
     border-color: var(--accent-gold);
 }
@@ -854,7 +968,7 @@ body {
 
 .settings-container, .stats-container {
     flex: 1;
-    padding: 100px 30px 40px;
+    padding: 80px 20px 30px;
     max-width: 500px;
     margin: 0 auto;
     width: 100%;
@@ -870,13 +984,13 @@ body {
 .settings-container .section-title,
 .stats-container .section-title {
     text-align: center;
-    margin-bottom: 30px;
-    font-size: 2rem;
+    margin-bottom: 25px;
+    font-size: clamp(1.5rem, 5vw, 2rem);
     font-family: var(--font-display);
 }
 
 .setting-section {
-    margin-bottom: 30px;
+    margin-bottom: 25px;
 }
 
 .setting-section-title {
@@ -884,7 +998,7 @@ body {
     font-size: 1.1rem;
     color: var(--accent-gold);
     letter-spacing: 0.15em;
-    margin-bottom: 15px;
+    margin-bottom: 12px;
     padding-bottom: 8px;
     border-bottom: 1px solid rgba(255,255,255,0.2);
 }
@@ -893,28 +1007,33 @@ body {
     display: flex;
     justify-content: space-between;
     align-items: center;
-    padding: 14px 16px;
+    padding: 12px 14px;
     border-bottom: 1px solid rgba(255,255,255,0.08);
     color: var(--card-bg);
     font-family: var(--font-main);
+    gap: 10px;
+    flex-wrap: wrap;
 }
 
 .setting-label {
-    font-size: 1rem;
+    font-size: clamp(0.9rem, 2.8vw, 1rem);
     font-weight: 500;
     letter-spacing: 0.1em;
     font-family: var(--font-main);
+    flex: 1;
+    min-width: 80px;
 }
 
 /* 音量スライダー */
 .volume-slider {
-    width: 120px;
+    width: 100px;
     height: 8px;
     background: rgba(255,255,255,0.1);
     border: 1px solid var(--card-border);
     border-radius: 1px;
     position: relative;
-    margin: 0 15px;
+    margin: 0 10px;
+    flex-shrink: 0;
 }
 
 .volume-bar {
@@ -935,6 +1054,7 @@ body {
     position: relative;
     width: 52px;
     height: 26px;
+    flex-shrink: 0;
 }
 
 .toggle input {
@@ -979,20 +1099,16 @@ input:checked + .toggle-slider:before {
     background: rgba(0,0,0,0.5);
     border: 1px solid var(--card-border);
     border-radius: 2px;
-    padding: 8px 14px;
+    padding: 8px 12px;
     color: var(--card-bg);
-    font-size: 0.95rem;
+    font-size: 0.9rem;
     font-family: var(--font-main);
     cursor: pointer;
     transition: all 0.3s;
+    max-width: 120px;
 }
 
-.setting-select:hover {
-    border-color: var(--accent-gold);
-}
-
-.setting-select:focus {
-    outline: none;
+.setting-select:active {
     border-color: var(--accent-gold);
 }
 
@@ -1014,6 +1130,7 @@ input:checked + .toggle-slider:before {
     justify-content: center;
     gap: 10px;
     letter-spacing: 0.15em;
+    min-height: 44px;
 }
 
 .btn-primary {
@@ -1022,7 +1139,7 @@ input:checked + .toggle-slider:before {
     border: 2px solid var(--accent-gold);
 }
 
-.btn-primary:hover {
+.btn-primary:active {
     background: var(--accent-gold);
     color: var(--text-dark);
 }
@@ -1035,7 +1152,7 @@ input:checked + .toggle-slider:before {
     margin-top: 20px;
 }
 
-.btn-danger:hover {
+.btn-danger:active {
     background: #a03030;
 }
 
@@ -1051,14 +1168,14 @@ input:checked + .toggle-slider:before {
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-border);
     border-radius: 2px;
-    padding: 30px;
+    padding: 25px 20px;
     text-align: center;
-    margin-bottom: 30px;
+    margin-bottom: 25px;
 }
 
 .profile-name {
     font-family: var(--font-display);
-    font-size: 1.5rem;
+    font-size: clamp(1.2rem, 4vw, 1.5rem);
     font-weight: 700;
     color: var(--card-bg);
     margin-bottom: 10px;
@@ -1083,28 +1200,28 @@ input:checked + .toggle-slider:before {
 .stats-grid {
     display: grid;
     grid-template-columns: repeat(3, 1fr);
-    gap: 15px;
+    gap: 10px;
 }
 
 .stat-item {
     background: rgba(0,0,0,0.5);
     border: 2px solid var(--card-border);
     border-radius: 2px;
-    padding: 20px 10px;
+    padding: 15px 8px;
     text-align: center;
 }
 
 .stat-label {
-    font-size: 0.85rem;
+    font-size: clamp(0.75rem, 2.3vw, 0.85rem);
     color: rgba(255,255,255,0.7);
-    margin-bottom: 10px;
+    margin-bottom: 8px;
     letter-spacing: 0.1em;
     font-family: var(--font-main);
 }
 
 .stat-value {
     font-family: var(--font-display);
-    font-size: 1.8rem;
+    font-size: clamp(1.3rem, 4vw, 1.8rem);
     font-weight: 700;
     color: var(--accent-gold);
 }
@@ -1119,6 +1236,14 @@ input:checked + .toggle-slider:before {
     align-items: center;
     justify-content: center;
     z-index: 100;
+    padding: 20px;
+}
+
+.modal-content {
+    max-width: 100%;
+    width: 90%;
+    max-height: 90vh;
+    overflow-y: auto;
 }
 
 /* ========================================
@@ -1127,6 +1252,7 @@ input:checked + .toggle-slider:before {
 
 ::-webkit-scrollbar {
     width: 6px;
+    height: 6px;
 }
 
 ::-webkit-scrollbar-track {
@@ -1143,52 +1269,112 @@ input:checked + .toggle-slider:before {
 }
 
 /* ========================================
-   レスポンシブ
+   レスポンシブ（スマホ最適化）
    ======================================== */
 
-@media (max-width: 768px) {
-    .title-main {
-        font-size: 2.2rem;
+@media (max-width: 480px) {
+    .title-logo {
+        padding: 25px 30px;
+        margin-bottom: 30px;
     }
     
-    .difficulty-list {
-        max-width: 320px;
+    .title-menu {
+        gap: 10px;
+    }
+    
+    .menu-btn {
+        padding: 14px 20px;
+    }
+    
+    .difficulty-container {
+        padding: 70px 12px 20px;
+    }
+    
+    .category-grid {
+        grid-template-columns: repeat(2, 1fr);
+        gap: 6px;
+    }
+    
+    .category-tag {
+        font-size: 0.8rem;
+        padding: 10px 6px;
+    }
+    
+    .diff-btn {
+        padding: 12px 15px;
+        gap: 12px;
+    }
+    
+    .diff-icon {
+        width: 36px;
+        height: 36px;
     }
     
     .card-field {
-        grid-template-columns: repeat(3, 1fr);
-        gap: 10px;
-        padding: 15px;
+        gap: 6px;
+        padding: 8px;
+    }
+    
+    .clue-display {
+        max-height: 30vh;
+        padding: 10px 12px;
+    }
+    
+    .game-footer {
+        padding: 8px 12px;
+    }
+    
+    .footer-btn {
+        padding: 10px 14px;
+        font-size: 0.85rem;
+    }
+    
+    .setting-item {
+        padding: 10px 12px;
+    }
+    
+    .volume-slider {
+        width: 80px;
+    }
+}
+
+@media (max-width: 360px) {
+    .category-grid {
+        grid-template-columns: repeat(2, 1fr);
     }
     
     .stats-grid {
         grid-template-columns: 1fr;
     }
     
-    .menu-text {
-        font-size: 1.2rem;
+    .title-main {
+        font-size: 1.6rem;
     }
 }
 
-@media (max-width: 480px) {
-    .title-main {
-        font-size: 1.8rem;
+/* 横向きスマホ対応 */
+@media (max-height: 500px) and (orientation: landscape) {
+    .title-container {
+        flex-direction: row;
+        gap: 30px;
+        padding: 20px;
     }
     
     .title-logo {
-        padding: 30px 40px;
+        margin-bottom: 0;
+        padding: 20px 30px;
     }
     
-    .section-title {
-        font-size: 1.8rem;
+    .title-menu {
+        max-width: 200px;
+    }
+    
+    .clue-display {
+        max-height: 25vh;
     }
     
     .card-field {
-        grid-template-columns: repeat(3, 1fr);
-    }
-    
-    .diff-text {
-        font-size: 1.2rem;
+        grid-template-columns: repeat(6, 1fr);
     }
 }
 

@@ -1,13 +1,19 @@
 /**
  * App - メインアプリケーションクラス
  * 画面遷移、ゲーム制御、UI更新を統合管理
- * 絵文字不使用・筑紫ゴシック統一・読み札履歴表示対応
+ * - 絵文字不使用（すべてSVGアイコン）
+ * - 筑紫ゴシック統一
+ * - 読み札履歴表示対応
+ * - 単元別選択機能対応
+ * - レスポンシブ対応
  */
 class App {
     constructor() {
         this.engine = new GameEngine();
         this.currentMode = 'cpu';
         this.selectedDifficulty = 3;
+        this.selectedCategories = []; // 選択された単元
+        this.allCategoriesSelected = true;
         this.timerInterval = null;
         this.gameStartTime = 0;
         
@@ -38,6 +44,7 @@ class App {
             this.engine.onGameEnd = (data) => this.showGameEnd(data);
 
             this.bindEvents();
+            this.renderCategoryGrid();
             
             console.log('App ready, showing title screen');
             
@@ -98,58 +105,171 @@ class App {
             });
         });
 
-        // 「次へ」ボタンでゲーム開始
-        document.getElementById('btn-start-difficulty').addEventListener('click', () => {
-            this.startGame();
-        });
+        // 「開始」ボタンでゲーム開始
+        const startBtn = document.getElementById('btn-start-difficulty');
+        if (startBtn) {
+            startBtn.addEventListener('click', () => {
+                this.startGame();
+            });
+        }
+
+        // 単元「すべて選択」ボタン
+        const selectAllBtn = document.getElementById('btn-select-all');
+        if (selectAllBtn) {
+            selectAllBtn.addEventListener('click', () => {
+                this.toggleSelectAllCategories();
+            });
+        }
 
         // ゲーム画面の操作
-        document.getElementById('card-grid').addEventListener('click', (e) => {
-            const card = e.target.closest('.card');
-            if (card && !card.classList.contains('taken')) {
-                const id = card.dataset.id;
-                this.handleCardTap(id, card);
-            }
-        });
+        const cardGrid = document.getElementById('card-grid');
+        if (cardGrid) {
+            cardGrid.addEventListener('click', (e) => {
+                const card = e.target.closest('.card');
+                if (card && !card.classList.contains('taken')) {
+                    const id = card.dataset.id;
+                    this.handleCardTap(id, card);
+                }
+            });
+        }
 
-        document.getElementById('btn-skip').addEventListener('click', () => {
-            this.engine.skipRound();
-        });
+        const skipBtn = document.getElementById('btn-skip');
+        if (skipBtn) {
+            skipBtn.addEventListener('click', () => {
+                this.engine.skipRound();
+            });
+        }
 
-        document.getElementById('btn-pause').addEventListener('click', () => {
-            this.engine.pause();
-            this.showScreen('screen-title');
-        });
+        const pauseBtn = document.getElementById('btn-pause');
+        if (pauseBtn) {
+            pauseBtn.addEventListener('click', () => {
+                this.engine.pause();
+                this.showScreen('screen-title');
+            });
+        }
 
-        document.getElementById('btn-hint').addEventListener('click', () => {
-            this.showHint();
-        });
+        const hintBtn = document.getElementById('btn-hint');
+        if (hintBtn) {
+            hintBtn.addEventListener('click', () => {
+                this.showHint();
+            });
+        }
 
-        document.getElementById('btn-next-clue').addEventListener('click', () => {
-            this.engine.nextClue();
-        });
+        const nextClueBtn = document.getElementById('btn-next-clue');
+        if (nextClueBtn) {
+            nextClueBtn.addEventListener('click', () => {
+                this.engine.nextClue();
+            });
+        }
 
         // 設定
-        document.getElementById('setting-voice').addEventListener('change', (e) => {
-            StorageManager.updateSetting('voiceEnabled', e.target.checked);
-            AudioManager.updateSettings({ enabled: e.target.checked });
+        const voiceToggle = document.getElementById('setting-voice');
+        if (voiceToggle) {
+            voiceToggle.addEventListener('change', (e) => {
+                StorageManager.updateSetting('voiceEnabled', e.target.checked);
+                AudioManager.updateSettings({ enabled: e.target.checked });
+            });
+        }
+
+        const voiceSpeed = document.getElementById('setting-voice-speed');
+        if (voiceSpeed) {
+            voiceSpeed.addEventListener('change', (e) => {
+                StorageManager.updateSetting('voiceSpeed', parseFloat(e.target.value));
+                AudioManager.updateSettings({ rate: parseFloat(e.target.value) });
+            });
+        }
+
+        const cardCount = document.getElementById('setting-card-count');
+        if (cardCount) {
+            cardCount.addEventListener('change', (e) => {
+                StorageManager.updateSetting('cardCount', parseInt(e.target.value));
+            });
+        }
+
+        const resetBtn = document.getElementById('btn-reset-stats');
+        if (resetBtn) {
+            resetBtn.addEventListener('click', () => {
+                if (confirm('統計データを初期化しますか？')) {
+                    StorageManager.resetAll();
+                    alert('初期化しました。');
+                }
+            });
+        }
+    }
+
+    /**
+     * 単元グリッドを動的に生成
+     */
+    renderCategoryGrid() {
+        const grid = document.getElementById('category-grid');
+        if (!grid) return;
+
+        grid.innerHTML = '';
+        const categories = this.engine.getCategories();
+        
+        // 初期状態：すべて選択
+        this.selectedCategories = [...categories];
+        this.allCategoriesSelected = true;
+
+        categories.forEach(cat => {
+            const tag = document.createElement('button');
+            tag.className = 'category-tag selected';
+            tag.textContent = this.getCategoryDisplayName(cat);
+            tag.dataset.category = cat;
+            
+            tag.addEventListener('click', () => {
+                tag.classList.toggle('selected');
+                
+                if (tag.classList.contains('selected')) {
+                    if (!this.selectedCategories.includes(cat)) {
+                        this.selectedCategories.push(cat);
+                    }
+                } else {
+                    this.selectedCategories = this.selectedCategories.filter(c => c !== cat);
+                }
+                
+                this.allCategoriesSelected = (this.selectedCategories.length === categories.length);
+                this.updateSelectAllButtonText();
+            });
+            
+            grid.appendChild(tag);
         });
 
-        document.getElementById('setting-voice-speed').addEventListener('change', (e) => {
-            StorageManager.updateSetting('voiceSpeed', parseFloat(e.target.value));
-            AudioManager.updateSettings({ rate: parseFloat(e.target.value) });
-        });
+        this.updateSelectAllButtonText();
+    }
 
-        document.getElementById('setting-card-count').addEventListener('change', (e) => {
-            StorageManager.updateSetting('cardCount', parseInt(e.target.value));
-        });
+    /**
+     * すべて選択ボタンのテキスト更新
+     */
+    updateSelectAllButtonText() {
+        const btn = document.getElementById('btn-select-all');
+        if (!btn) return;
+        btn.textContent = this.allCategoriesSelected ? 'すべて解除' : 'すべて選択';
+    }
 
-        document.getElementById('btn-reset-stats').addEventListener('click', () => {
-            if (confirm('統計データを初期化しますか？')) {
-                StorageManager.resetAll();
-                alert('初期化しました。');
+    /**
+     * すべて選択/解除のトグル
+     */
+    toggleSelectAllCategories() {
+        const tags = document.querySelectorAll('.category-tag');
+        const shouldSelect = !this.allCategoriesSelected;
+        
+        tags.forEach(tag => {
+            if (shouldSelect) {
+                tag.classList.add('selected');
+            } else {
+                tag.classList.remove('selected');
             }
         });
+        
+        if (shouldSelect) {
+            this.selectedCategories = this.engine.getCategories();
+        } else {
+            this.selectedCategories = [];
+        }
+        
+        this.allCategoriesSelected = shouldSelect;
+        this.updateSelectAllButtonText();
     }
 
     updateDifficultySelection() {
@@ -166,7 +286,7 @@ class App {
             mode: this.currentMode,
             cpuLevel: this.selectedDifficulty,
             cardCount: StorageManager.loadSettings().cardCount || 9,
-            categories: []
+            categories: this.selectedCategories.length > 0 ? this.selectedCategories : []
         };
 
         this.engine.configure(settings);
@@ -177,14 +297,20 @@ class App {
     }
 
     async updateGameUI(data) {
-        document.getElementById('timer').textContent = this.formatTime(Date.now() - this.gameStartTime);
+        const timerEl = document.getElementById('timer');
+        if (timerEl) {
+            timerEl.textContent = this.formatTime(Date.now() - this.gameStartTime);
+        }
 
         switch (data.state) {
             case 'DEAL':
                 await this.renderCards(data.round.cards);
-                document.getElementById('clue-history').innerHTML = '';
-                document.getElementById('clue-stage').textContent = 'STAGE 1';
-                document.getElementById('clue-text').textContent = '読み札が始まります';
+                const historyEl = document.getElementById('clue-history');
+                if (historyEl) historyEl.innerHTML = '';
+                const stageEl = document.getElementById('clue-stage');
+                if (stageEl) stageEl.textContent = 'STAGE 1';
+                const textEl = document.getElementById('clue-text');
+                if (textEl) textEl.textContent = '読み札が始まります';
                 break;
 
             case 'READING':
@@ -205,6 +331,7 @@ class App {
 
     async renderCards(cards) {
         const grid = document.getElementById('card-grid');
+        if (!grid) return;
         grid.innerHTML = '';
 
         const cardElements = [];
@@ -252,11 +379,15 @@ class App {
         
         if (currentStageData) {
             // 現在のstageを表示
-            document.getElementById('clue-stage').textContent = `STAGE ${round.currentStage}`;
-            document.getElementById('clue-text').textContent = currentStageData.text;
+            const stageEl = document.getElementById('clue-stage');
+            const textEl = document.getElementById('clue-text');
+            if (stageEl) stageEl.textContent = `STAGE ${round.currentStage}`;
+            if (textEl) textEl.textContent = currentStageData.text;
 
             // 前のstageを履歴に追加（重複チェック）
             const historyDiv = document.getElementById('clue-history');
+            if (!historyDiv) return;
+            
             const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
             const alreadyExists = existingStages.some(item => 
                 item.dataset.stage === String(round.currentStage)
@@ -332,16 +463,21 @@ class App {
         document.body.appendChild(modal);
         
         const structureDiv = document.getElementById('modal-structure');
-        StructureRenderer.render(structureDiv, compound.smiles, 'light', {
-            name: compound.name,
-            name_en: compound.name_en,
-            formula: compound.formula
-        });
+        if (structureDiv) {
+            StructureRenderer.render(structureDiv, compound.smiles, 'light', {
+                name: compound.name,
+                name_en: compound.name_en,
+                formula: compound.formula
+            });
+        }
         
-        document.getElementById('modal-next-btn').addEventListener('click', () => {
-            modal.remove();
-            this.engine.startNewRound();
-        });
+        const nextBtn = document.getElementById('modal-next-btn');
+        if (nextBtn) {
+            nextBtn.addEventListener('click', () => {
+                modal.remove();
+                this.engine.startNewRound();
+            });
+        }
     }
 
     showGameEnd(data) {
@@ -373,18 +509,25 @@ class App {
         
         document.body.appendChild(modal);
         
-        document.getElementById('modal-finish-btn').addEventListener('click', () => {
-            modal.remove();
-            this.showScreen('screen-title');
-        });
+        const finishBtn = document.getElementById('modal-finish-btn');
+        if (finishBtn) {
+            finishBtn.addEventListener('click', () => {
+                modal.remove();
+                this.showScreen('screen-title');
+            });
+        }
     }
 
     updateStats() {
         const stats = StorageManager.getSummary();
         
-        document.getElementById('stat-winrate').textContent = stats.accuracy + '%';
-        document.getElementById('stat-accuracy').textContent = stats.accuracy + '%';
-        document.getElementById('stat-games').textContent = stats.totalGames;
+        const winrateEl = document.getElementById('stat-winrate');
+        const accuracyEl = document.getElementById('stat-accuracy');
+        const gamesEl = document.getElementById('stat-games');
+        
+        if (winrateEl) winrateEl.textContent = stats.accuracy + '%';
+        if (accuracyEl) accuracyEl.textContent = stats.accuracy + '%';
+        if (gamesEl) gamesEl.textContent = stats.totalGames;
     }
 
     showScreen(screenId) {
@@ -400,7 +543,10 @@ class App {
         this.gameStartTime = Date.now();
         this.timerInterval = setInterval(() => {
             const elapsed = Date.now() - this.gameStartTime;
-            document.getElementById('timer').textContent = this.formatTime(elapsed);
+            const timerEl = document.getElementById('timer');
+            if (timerEl) {
+                timerEl.textContent = this.formatTime(elapsed);
+            }
         }, 100);
     }
 
@@ -426,16 +572,58 @@ class App {
 
     showHint() {
         const target = this.engine.currentRound.target;
-        alert(`ヒント: ${target.category} / 分子式: ${target.formula}`);
+        if (!target) return;
+        const categoryName = this.getCategoryDisplayName(target.category);
+        alert(`ヒント: ${categoryName} / 分子式: ${target.formula}`);
+    }
+
+    /**
+     * カテゴリの表示名を取得
+     */
+    getCategoryDisplayName(category) {
+        const names = {
+            hydrocarbon: '炭化水素',
+            aromatic: '芳香族',
+            alcohol: 'アルコール',
+            phenol: 'フェノール',
+            carbonyl: 'カルボニル',
+            acid: 'カルボン酸',
+            ester: 'エステル',
+            ether: 'エーテル',
+            amine: 'アミン',
+            nitro: 'ニトロ',
+            halide: 'ハロゲン',
+            amino_acid: 'アミノ酸',
+            sugar: '糖',
+            fatty_acid: '脂肪酸',
+            fat: '油脂',
+            amide: 'アミド',
+            heterocycle: '複素環',
+            nucleobase: '核酸塩基',
+            nitrile: 'ニトリル',
+            peptide: 'ペプチド',
+            nitrate: '硝酸エステル',
+            indicator: '指示薬',
+            soap: '石鹸',
+            surfactant: '界面活性剤',
+            pharmaceutical: '医薬品',
+            alkaloid: 'アルカロイド',
+            polysaccharide: '多糖類'
+        };
+        return names[category] || category;
     }
 
     loadSettings() {
         const settings = StorageManager.loadSettings();
         if (!settings) return;
 
-        document.getElementById('setting-voice').checked = settings.voiceEnabled;
-        document.getElementById('setting-voice-speed').value = settings.voiceSpeed;
-        document.getElementById('setting-card-count').value = settings.cardCount;
+        const voiceToggle = document.getElementById('setting-voice');
+        const voiceSpeed = document.getElementById('setting-voice-speed');
+        const cardCount = document.getElementById('setting-card-count');
+
+        if (voiceToggle) voiceToggle.checked = settings.voiceEnabled;
+        if (voiceSpeed) voiceSpeed.value = settings.voiceSpeed;
+        if (cardCount) cardCount.value = settings.cardCount;
 
         AudioManager.updateSettings({
             enabled: settings.voiceEnabled,
