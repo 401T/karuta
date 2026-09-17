@@ -1,6 +1,6 @@
 /**
  * GameEngine - ゲームの核となる状態管理とルール適用
- * 正誤判定バグ修正版
+ * オンライン同期・停止バグ修正版
  */
 class GameEngine {
     constructor() {
@@ -55,9 +55,7 @@ class GameEngine {
                 if (typeof value === 'string') {
                     trimmed[trimmedKey] = value.trim();
                 } else if (Array.isArray(value)) {
-                    trimmed[trimmedKey] = value.map(v => 
-                        typeof v === 'string' ? v.trim() : v
-                    );
+                    trimmed[trimmedKey] = value.map(v => typeof v === 'string' ? v.trim() : v);
                 } else if (typeof value === 'object' && value !== null) {
                     trimmed[trimmedKey] = this._trimObject(value);
                 } else {
@@ -70,10 +68,7 @@ class GameEngine {
 
     async loadData() {
         try {
-            const basePath = window.location.pathname.endsWith('/') 
-                ? window.location.pathname 
-                : window.location.pathname + '/';
-            
+            const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
             const [compRes, clueRes] = await Promise.all([
                 fetch(basePath + 'data/compounds.json'),
                 fetch(basePath + 'data/clues.json')
@@ -89,9 +84,7 @@ class GameEngine {
             const trimmedClues = rawClues.map(c => this._trimObject(c));
             
             trimmedClues.forEach(c => { 
-                if (c.compound_id) {
-                    this.clues[c.compound_id] = c; 
-                }
+                if (c.compound_id) this.clues[c.compound_id] = c; 
             });
             
             this.compounds.forEach(c => {
@@ -134,9 +127,7 @@ class GameEngine {
         
         let candidates = this.compounds;
         if (this.settings.categories.length > 0) {
-            candidates = candidates.filter(c => 
-                this.settings.categories.includes(c.category)
-            );
+            candidates = candidates.filter(c => this.settings.categories.includes(c.category));
         }
         
         if (candidates.length === 0) {
@@ -145,7 +136,6 @@ class GameEngine {
         }
         
         const target = candidates[Math.floor(Math.random() * candidates.length)];
-        
         const others = this.compounds
             .filter(c => c.id !== target.id)
             .sort(() => Math.random() - 0.5)
@@ -165,7 +155,7 @@ class GameEngine {
         this.state = 'DEAL';
         this._notify();
         
-        // ★ オンラインモードでホストの場合、状態を通知
+        // オンラインモードでホストの場合、状態を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_start',
@@ -196,13 +186,10 @@ class GameEngine {
             const currentClue = clueData.stages.find(s => s.stage === this.currentRound.currentStage);
             if (currentClue) {
                 AudioManager.playSound('stage');
-                
                 AudioManager.speak(currentClue.text, {
                     onEnd: () => {
                         if (this.currentRound.isActive) {
-                            const hasNext = clueData.stages.some(
-                                s => s.stage === this.currentRound.currentStage + 1
-                            );
+                            const hasNext = clueData.stages.some(s => s.stage === this.currentRound.currentStage + 1);
                             if (hasNext) {
                                 setTimeout(() => this.nextClue(), 1000);
                             }
@@ -214,7 +201,6 @@ class GameEngine {
         
         this._notify();
         
-        // ★ オンラインモードでホストの場合、stage更新を通知
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'stage_update',
@@ -239,15 +225,9 @@ class GameEngine {
         }
     }
 
-    /**
-     * プレイヤーのタップ処理（修正版）
-     * - idをトリムして比較
-     * - 誤答時は次のstageへ自動進行
-     */
     handlePlayerTap(cardId) {
         if (!this.currentRound.isActive) return;
         
-        // idをトリムして比較
         const targetId = (this.currentRound.target.id || '').trim();
         const tapId = (cardId || '').trim();
         const isCorrect = (tapId === targetId);
@@ -256,58 +236,51 @@ class GameEngine {
         if (isCorrect) {
             if (!this.isOnline || this.isHost) {
                 if (this.cpu) this.cpu.cancelThinking();
-                
                 this.combo++;
                 if (this.combo > this.maxCombo) this.maxCombo = this.combo;
-                
                 this._calculateScore(true, this.currentRound.currentStage, 'player', reactionTime);
                 AudioManager.playSound(this.combo > 1 ? 'combo' : 'correct');
                 
                 if (!this.isOnline) {
-                    StorageManager.recordGameResult({
-                        isCorrect: true,
-                        time: reactionTime,
-                        compoundId: targetId,
-                        category: this.currentRound.target.category || '',
-                        difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
-                        stage: this.currentRound.currentStage,
-                        combo: this.combo
-                    });
+                    try {
+                        StorageManager.recordGameResult({
+                            isCorrect: true,
+                            time: reactionTime,
+                            compoundId: targetId,
+                            category: this.currentRound.target.category || '',
+                            difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
+                            stage: this.currentRound.currentStage,
+                            combo: this.combo
+                        });
+                    } catch (e) {
+                        console.error('Storage error:', e);
+                    }
                 }
-                
                 this._finishRound(true);
             }
         } else {
-            // 誤答：コンボリセット、ペナルティ、次のstageへ
             if (!this.isOnline || this.isHost) {
                 this.combo = 0;
                 this._calculateScore(false, 0, 'player', reactionTime);
                 AudioManager.playSound('wrong');
                 
                 if (!this.isOnline) {
-                    StorageManager.recordGameResult({
-                        isCorrect: false,
-                        time: reactionTime,
-                        compoundId: targetId,
-                        category: this.currentRound.target.category || '',
-                        difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
-                        stage: this.currentRound.currentStage,
-                        combo: 0
-                    });
-                }
-                
-                this._notify({ type: 'wrong', id: tapId });
-                
-                // 誤答時は次のstageへ自動進行（解凍できるように）
-                const clueData = this.clues[this.currentRound.target.id];
-                if (clueData) {
-                    const hasNext = clueData.stages.some(
-                        s => s.stage === this.currentRound.currentStage + 1
-                    );
-                    if (hasNext) {
-                        setTimeout(() => this.nextClue(), 1500);
+                    try {
+                        StorageManager.recordGameResult({
+                            isCorrect: false,
+                            time: reactionTime,
+                            compoundId: targetId,
+                            category: this.currentRound.target.category || '',
+                            difficulty: this.settings.cpuLevel || this.currentRound.target.difficulty || 1,
+                            stage: this.currentRound.currentStage,
+                            combo: 0
+                        });
+                    } catch (e) {
+                        console.error('Storage error:', e);
                     }
                 }
+                this._notify({ type: 'wrong', id: tapId });
+                // 誤答時の自動 nextClue を削除（オンライン同期を乱すため）
             }
         }
         
@@ -322,7 +295,6 @@ class GameEngine {
 
     handleCpuAnswer(cardId, isCorrect) {
         if (!this.currentRound.isActive) return;
-        
         if (isCorrect) {
             this.currentRound.isActive = false;
             this.combo = 0;
@@ -338,27 +310,21 @@ class GameEngine {
 
     _calculateScore(isCorrect, stage, who = 'player', reactionTime = 0) {
         if (!isCorrect) {
-            if (who === 'player') {
-                this.scores.player = Math.max(0, this.scores.player - 50);
-            }
+            if (who === 'player') this.scores.player = Math.max(0, this.scores.player - 50);
             return;
         }
         
         const baseScore = 1000;
         const penalty = (stage - 1) * 200;
         let gained = Math.max(100, baseScore - penalty);
-        
         const diffBonus = (this.currentRound.target.difficulty || 1) * 50;
         gained += diffBonus;
         
         if (who === 'player' && this.combo > 1) {
-            const comboBonus = Math.min(this.combo * 50, 500);
-            gained += comboBonus;
+            gained += Math.min(this.combo * 50, 500);
         }
-        
         if (who === 'player' && reactionTime < 3000) {
-            const speedBonus = Math.floor((3000 - reactionTime) / 100) * 10;
-            gained += speedBonus;
+            gained += Math.floor((3000 - reactionTime) / 100) * 10;
         }
         
         if (who === 'player') {
@@ -366,7 +332,6 @@ class GameEngine {
         } else {
             this.scores.opponent += gained;
         }
-        
         this._notify({ type: 'score_update', gained: gained });
     }
 
@@ -376,7 +341,6 @@ class GameEngine {
         
         const targetId = (this.currentRound.target.id || '').trim();
         const clueData = this.clues[targetId];
-        
         const explanation = clueData && clueData.explanation ? clueData.explanation : '解説データなし';
         
         this._notify({ 
@@ -395,11 +359,20 @@ class GameEngine {
                 explanation: explanation
             });
         }
+
+        // オンラインモードでホストの場合、ラウンド終了を通知
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({
+                type: 'round_end',
+                playerWon: playerWon,
+                target: this.currentRound.target,
+                scores: this.scores
+            });
+        }
     }
 
     endGame() {
         this.state = 'IDLE';
-        
         const summary = {
             totalRounds: this.totalRounds,
             playerScore: this.scores.player,
@@ -408,11 +381,11 @@ class GameEngine {
             winner: this.scores.player > this.scores.opponent ? 'player' : 
                     this.scores.player < this.scores.opponent ? 'cpu' : 'draw'
         };
-        
         this._notify({ type: 'game_end', summary: summary });
+        if (this.onGameEnd) this.onGameEnd(summary);
         
-        if (this.onGameEnd) {
-            this.onGameEnd(summary);
+        if (this.isOnline && this.isHost && this.onOnlineStateChange) {
+            this.onOnlineStateChange({ type: 'game_end', scores: this.scores });
         }
     }
 
@@ -444,11 +417,6 @@ class GameEngine {
         }
     }
 
-    getCategories() {
-        return Array.from(this.categories).sort();
-    }
-
-    getCompoundCount() {
-        return this.compounds.length;
-    }
+    getCategories() { return Array.from(this.categories).sort(); }
+    getCompoundCount() { return this.compounds.length; }
 }
