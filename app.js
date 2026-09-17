@@ -3,16 +3,17 @@
  * 画面遷移、ゲーム制御、UI更新を統合管理
  * - 絵文字不使用（すべてSVGアイコン）
  * - 筑紫ゴシック統一
- * - 読み札履歴表示対応
+ * - 読み札履歴表示対応（画面ずれ修正版）
  * - 単元別選択機能対応
  * - レスポンシブ対応
+ * - compounds.json キー名空白対応
  */
 class App {
     constructor() {
         this.engine = new GameEngine();
         this.currentMode = 'cpu';
         this.selectedDifficulty = 3;
-        this.selectedCategories = []; // 選択された単元
+        this.selectedCategories = [];
         this.allCategoriesSelected = true;
         this.timerInterval = null;
         this.gameStartTime = 0;
@@ -96,7 +97,7 @@ class App {
             });
         });
 
-        // 難易度ボタン（クリックで選択）
+        // 難易度ボタン
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
@@ -105,7 +106,7 @@ class App {
             });
         });
 
-        // 「開始」ボタンでゲーム開始
+        // 「開始」ボタン
         const startBtn = document.getElementById('btn-start-difficulty');
         if (startBtn) {
             startBtn.addEventListener('click', () => {
@@ -207,7 +208,6 @@ class App {
         grid.innerHTML = '';
         const categories = this.engine.getCategories();
         
-        // 初期状態：すべて選択
         this.selectedCategories = [...categories];
         this.allCategoriesSelected = true;
 
@@ -238,18 +238,12 @@ class App {
         this.updateSelectAllButtonText();
     }
 
-    /**
-     * すべて選択ボタンのテキスト更新
-     */
     updateSelectAllButtonText() {
         const btn = document.getElementById('btn-select-all');
         if (!btn) return;
         btn.textContent = this.allCategoriesSelected ? 'すべて解除' : 'すべて選択';
     }
 
-    /**
-     * すべて選択/解除のトグル
-     */
     toggleSelectAllCategories() {
         const tags = document.querySelectorAll('.category-tag');
         const shouldSelect = !this.allCategoriesSelected;
@@ -338,7 +332,8 @@ class App {
         cards.forEach(c => {
             const div = document.createElement('div');
             div.className = 'card';
-            div.dataset.id = c.id;
+            // キー名空白対策：idをトリム
+            div.dataset.id = (c.id || '').trim();
 
             const contentDiv = document.createElement('div');
             contentDiv.className = 'card-content';
@@ -369,7 +364,8 @@ class App {
     }
 
     /**
-     * 読み札の履歴表示（過去のstageを累積）
+     * 読み札の履歴表示（画面ずれ修正版）
+     * requestAnimationFrame + setTimeout の二段階スクロールで確実化
      */
     updateClueWithHistory(round) {
         const clueData = this.engine.clues[round.target.id];
@@ -384,10 +380,10 @@ class App {
             if (stageEl) stageEl.textContent = `STAGE ${round.currentStage}`;
             if (textEl) textEl.textContent = currentStageData.text;
 
-            // 前のstageを履歴に追加（重複チェック）
             const historyDiv = document.getElementById('clue-history');
             if (!historyDiv) return;
             
+            // 重複チェック
             const existingStages = Array.from(historyDiv.querySelectorAll('.clue-history-item'));
             const alreadyExists = existingStages.some(item => 
                 item.dataset.stage === String(round.currentStage)
@@ -407,11 +403,20 @@ class App {
                     `;
                     historyDiv.appendChild(historyItem);
                     
-                    // 履歴を自動スクロール
-                    const cluePanel = document.querySelector('.clue-display');
-                    if (cluePanel) {
-                        cluePanel.scrollTop = cluePanel.scrollHeight;
-                    }
+                    // 画面ずれ防止：二段階スクロール
+                    // 1. DOM更新直後にrequestAnimationFrameでスクロール
+                    requestAnimationFrame(() => {
+                        const cluePanel = document.querySelector('.clue-display');
+                        if (cluePanel) {
+                            // 2. アニメーション完了後に再度スクロール（確実化）
+                            setTimeout(() => {
+                                cluePanel.scrollTo({
+                                    top: cluePanel.scrollHeight,
+                                    behavior: 'smooth'
+                                });
+                            }, 350);
+                        }
+                    });
                 }
             }
 
@@ -577,9 +582,6 @@ class App {
         alert(`ヒント: ${categoryName} / 分子式: ${target.formula}`);
     }
 
-    /**
-     * カテゴリの表示名を取得
-     */
     getCategoryDisplayName(category) {
         const names = {
             hydrocarbon: '炭化水素',
