@@ -3,180 +3,216 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>構造決定かるた | 高校化学・有機化学</title>
+    <title>化学構造式かるた</title>
     <link rel="stylesheet" href="style.css">
-    <link rel="manifest" href="manifest.json">
-    <meta name="apple-mobile-web-app-capable" content="yes">
-    <meta name="apple-mobile-web-app-status-bar-style" content="default">
-    <meta name="theme-color" content="#ffffff">
-    
-    <!-- クリーンで可読性の高い日本語フォント -->
     <link rel="preconnect" href="https://fonts.googleapis.com">
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
     <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700&display=swap" rel="stylesheet">
 </head>
 <body>
-    <!-- ローディング画面 -->
-    <div id="loading-screen" class="loading-screen active">
-        <div class="loading-content">
-            <div class="loading-logo">
-                <svg viewBox="0 0 100 100" class="loading-icon">
-                    <rect x="10" y="10" width="80" height="80" rx="8" fill="none" stroke="#1E3A8A" stroke-width="2"/>
-                    <text x="50" y="62" font-size="36" text-anchor="middle" fill="#1E3A8A" font-family="'Noto Sans JP', sans-serif" font-weight="700">化</text>
-                </svg>
+    <!-- タイトル画面 -->
+    <div id="screen-title" class="screen active">
+        <div class="title-container">
+            <div class="title-decoration">
+                <div class="glow-point top-left"></div>
+                <div class="glow-point bottom-right"></div>
             </div>
-            <h1 class="loading-title">構造決定かるた</h1>
-            <div class="loading-bar">
-                <div class="loading-progress"></div>
+            <div class="title-main">
+                <div class="title-magnifier">
+                    <span class="title-kanji">化学</span>
+                    <span class="title-subtext">構造式かるた</span>
+                </div>
+                <div class="title-icon">
+                    <svg viewBox="0 0 100 100" class="molecule-icon">
+                        <circle cx="50" cy="50" r="8" fill="white"/>
+                        <circle cx="30" cy="35" r="6" fill="white"/>
+                        <circle cx="70" cy="35" r="6" fill="white"/>
+                        <circle cx="25" cy="65" r="6" fill="white"/>
+                        <circle cx="75" cy="65" r="6" fill="white"/>
+                        <line x1="50" y1="50" x2="30" y2="35" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="70" y2="35" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="25" y2="65" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="75" y2="65" stroke="white" stroke-width="2"/>
+                    </svg>
+                </div>
             </div>
-            <p class="loading-text">データを読み込んでいます...</p>
+            <div class="title-cards">
+                <div class="floating-card card-1"></div>
+                <div class="floating-card card-2"></div>
+                <div class="floating-card card-3"></div>
+            </div>
         </div>
+        
+        <nav class="bottom-nav">
+            <button class="nav-btn active" data-screen="screen-menu">
+                <svg viewBox="0 0 24 24" class="nav-icon">
+                    <rect x="3" y="3" width="7" height="7" rx="1"/>
+                    <rect x="14" y="3" width="7" height="7" rx="1"/>
+                    <rect x="3" y="14" width="7" height="7" rx="1"/>
+                    <rect x="14" y="14" width="7" height="7" rx="1"/>
+                </svg>
+                <span class="nav-text">プレイ</span>
+            </button>
+            <button class="nav-btn" data-screen="screen-list">
+                <svg viewBox="0 0 24 24" class="nav-icon">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 2v4M12 18v4M2 12h4M18 12h4"/>
+                </svg>
+                <span class="nav-text">構造式一覧</span>
+            </button>
+            <button class="nav-btn">
+                <svg viewBox="0 0 24 24" class="nav-icon">
+                    <path d="M10 13a5 5 0 0 0 7.54.54l3-3a5 5 0 0 0-7.07-7.07l-1.72 1.71"/>
+                    <path d="M14 11a5 5 0 0 0-7.54-.54l-3 3a5 5 0 0 0 7.07 7.07l1.71-1.71"/>
+                </svg>
+                <span class="nav-text">外部リンク</span>
+            </button>
+            <button class="nav-btn" data-screen="screen-settings">
+                <svg viewBox="0 0 24 24" class="nav-icon">
+                    <circle cx="12" cy="12" r="3"/>
+                    <path d="M12 1v6m0 6v6m11-7h-6m-6 0H1m20.07-4.93l-4.24 4.24M7.17 16.83l-4.24 4.24m18.31 0l-4.24-4.24M7.17 7.17L2.93 2.93"/>
+                </svg>
+                <span class="nav-text">設定</span>
+            </button>
+        </nav>
     </div>
 
     <!-- メインメニュー -->
     <div id="screen-menu" class="screen">
-        <div class="menu-container">
-            <header class="menu-header">
-                <h1 class="app-title">
-                    <span class="title-main">構造決定かるた</span>
-                    <span class="title-sub">高校化学・有機化学 構造決定トレーニング</span>
-                </h1>
-            </header>
-
-            <nav class="menu-nav">
-                <button class="menu-btn menu-btn-primary" data-mode="cpu">
-                    <span class="btn-content">
-                        <span class="btn-title">CPU対戦</span>
-                        <span class="btn-desc">7段階の難易度で思考力を競う</span>
-                    </span>
-                    <span class="btn-arrow">→</span>
-                </button>
-
-                <button class="menu-btn menu-btn-primary" data-mode="local">
-                    <span class="btn-content">
-                        <span class="btn-title">友達対戦</span>
-                        <span class="btn-desc">同一端末で対戦モード</span>
-                    </span>
-                    <span class="btn-arrow">→</span>
-                </button>
-
-                <button class="menu-btn menu-btn-secondary" data-mode="practice">
-                    <span class="btn-content">
-                        <span class="btn-title">一人練習</span>
-                        <span class="btn-desc">自分のペースで反復学習</span>
-                    </span>
-                    <span class="btn-arrow">→</span>
-                </button>
-
-                <button class="menu-btn menu-btn-secondary" data-mode="training">
-                    <span class="btn-content">
-                        <span class="btn-title">構造決定トレーニング</span>
-                        <span class="btn-desc">段階的に情報を提示して推論</span>
-                    </span>
-                    <span class="btn-arrow">→</span>
-                </button>
-
-                <div class="menu-divider"></div>
-
-                <button class="menu-btn menu-btn-outline" data-mode="stats">
-                    <span class="btn-content">
-                        <span class="btn-title">成績・統計</span>
-                        <span class="btn-desc">学習記録と苦手分野を確認</span>
-                    </span>
-                </button>
-
-                <button class="menu-btn menu-btn-outline" data-mode="settings">
-                    <span class="btn-content">
-                        <span class="btn-title">設定</span>
-                        <span class="btn-desc">音声・表示設定</span>
-                    </span>
-                </button>
-            </nav>
-
-            <footer class="menu-footer">
-                <p class="footer-text">Version 2.0 | 収録化合物数: <span id="compound-count">0</span></p>
-            </footer>
-        </div>
-    </div>
-
-    <!-- 設定画面 -->
-    <div id="screen-settings" class="screen">
-        <div class="screen-container">
-            <header class="screen-header">
-                <button class="back-btn" data-back="menu">←</button>
-                <h2 class="screen-title">設定</h2>
-            </header>
-
-            <div class="settings-content">
-                <section class="settings-section">
-                    <h3 class="section-title">音声設定</h3>
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <span class="label-text">音声読み上げ</span>
-                            <label class="toggle">
-                                <input type="checkbox" id="setting-voice" checked>
-                                <span class="toggle-slider"></span>
-                            </label>
-                        </label>
+        <div class="menu-network">
+            <div class="network-center">
+                <div class="center-circle">
+                    <svg viewBox="0 0 100 100" class="center-molecule">
+                        <circle cx="50" cy="50" r="12" fill="white" opacity="0.9"/>
+                        <circle cx="30" cy="30" r="8" fill="white" opacity="0.7"/>
+                        <circle cx="70" cy="30" r="8" fill="white" opacity="0.7"/>
+                        <circle cx="30" cy="70" r="8" fill="white" opacity="0.7"/>
+                        <circle cx="70" cy="70" r="8" fill="white" opacity="0.7"/>
+                        <line x1="50" y1="50" x2="30" y2="30" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="70" y2="30" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="30" y2="70" stroke="white" stroke-width="2"/>
+                        <line x1="50" y1="50" x2="70" y2="70" stroke="white" stroke-width="2"/>
+                    </svg>
+                    <h1 class="center-title">基本構造編</h1>
+                    <p class="center-subtitle">出題範囲を変更</p>
+                </div>
+            </div>
+            
+            <div class="network-nodes">
+                <div class="node node-cpu" data-mode="cpu">
+                    <div class="node-circle">
+                        <span class="node-icon">️</span>
+                        <span class="node-label">CPU対戦</span>
+                        <span class="node-sublabel">VS CPU</span>
                     </div>
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <span class="label-text">音声速度</span>
-                            <select id="setting-voice-speed" class="setting-select">
-                                <option value="0.75">0.75倍（遅い）</option>
-                                <option value="1.0" selected>1.0倍（標準）</option>
-                                <option value="1.25">1.25倍（速い）</option>
-                                <option value="1.5">1.5倍（非常に速い）</option>
-                            </select>
-                        </label>
+                </div>
+                
+                <div class="node node-challenge" data-mode="challenge">
+                    <div class="node-circle">
+                        <span class="node-icon">⭐</span>
+                        <span class="node-label">チャレンジ</span>
+                        <span class="node-sublabel">CHALLENGE</span>
                     </div>
-                </section>
-
-                <section class="settings-section">
-                    <h3 class="section-title">表示設定</h3>
-                    <div class="setting-item">
-                        <label class="setting-label">
-                            <span class="label-text">カード表示数</span>
-                            <select id="setting-card-count" class="setting-select">
-                                <option value="6">6枚（初心者）</option>
-                                <option value="9" selected>9枚（標準）</option>
-                                <option value="12">12枚（上級者）</option>
-                                <option value="16">16枚（最上級）</option>
-                            </select>
-                        </label>
+                </div>
+                
+                <div class="node node-time" data-mode="time">
+                    <div class="node-circle">
+                        <span class="node-icon">⏱️</span>
+                        <span class="node-label">タイム<br>アタック</span>
+                        <span class="node-sublabel">TIME ATTACK</span>
                     </div>
-                </section>
-
-                <section class="settings-section">
-                    <h3 class="section-title">データ管理</h3>
-                    <button class="btn btn-danger" id="btn-reset-stats">統計データを初期化</button>
-                </section>
+                </div>
+                
+                <div class="node node-guest">
+                    <div class="node-circle">
+                        <span class="node-icon">👤</span>
+                        <span class="node-label">ゲスト</span>
+                        <span class="node-sublabel">名前を変更</span>
+                    </div>
+                </div>
+                
+                <div class="node node-ranking" data-screen="screen-stats">
+                    <div class="node-circle">
+                        <span class="node-icon">👑</span>
+                        <span class="node-label">ランキング</span>
+                        <span class="node-sublabel">RANKING</span>
+                    </div>
+                </div>
             </div>
         </div>
+        
+        <button class="back-btn" data-screen="screen-title">戻る</button>
     </div>
 
-    <!-- ゲーム設定画面 -->
-    <div id="screen-game-setup" class="screen">
-        <div class="screen-container">
-            <header class="screen-header">
-                <button class="back-btn" data-back="menu">←</button>
-                <h2 class="screen-title" id="setup-title">ゲーム設定</h2>
-            </header>
-
-            <div class="setup-content">
-                <section class="setup-section">
-                    <h3 class="section-title">難易度</h3>
-                    <div class="difficulty-grid" id="difficulty-grid"></div>
-                </section>
-
-                <section class="setup-section">
-                    <h3 class="section-title">カテゴリフィルタ</h3>
-                    <div class="category-tags" id="category-tags"></div>
-                </section>
-
-                <button class="btn btn-primary btn-large" id="btn-start-game">ゲーム開始</button>
+    <!-- 難易度選択画面 -->
+    <div id="screen-difficulty" class="screen">
+        <div class="difficulty-header">
+            <h1 class="difficulty-title">難易度</h1>
+            <p class="difficulty-subtitle">対戦する難易度を選択してください</p>
+        </div>
+        
+        <div class="difficulty-grid">
+            <div class="difficulty-card hard" data-level="7">
+                <div class="card-corner top-left"></div>
+                <div class="card-corner bottom-right"></div>
+                <svg viewBox="0 0 100 100" class="difficulty-icon">
+                    <circle cx="50" cy="50" r="10" fill="none" stroke="white" stroke-width="2"/>
+                    <circle cx="50" cy="50" r="20" fill="none" stroke="white" stroke-width="1.5"/>
+                    <circle cx="50" cy="50" r="30" fill="none" stroke="white" stroke-width="1"/>
+                    <line x1="50" y1="20" x2="50" y2="35" stroke="white" stroke-width="2"/>
+                    <line x1="50" y1="65" x2="50" y2="80" stroke="white" stroke-width="2"/>
+                    <line x1="20" y1="50" x2="35" y2="50" stroke="white" stroke-width="2"/>
+                    <line x1="65" y1="50" x2="80" y2="50" stroke="white" stroke-width="2"/>
+                </svg>
+                <h2 class="difficulty-name">難しい</h2>
+                <p class="difficulty-desc">読みの途中でも<br>札が確定した時に<br>素早く取ってきます</p>
+            </div>
+            
+            <div class="difficulty-card normal selected" data-level="3">
+                <div class="card-corner top-left"></div>
+                <div class="card-corner bottom-right"></div>
+                <svg viewBox="0 0 100 100" class="difficulty-icon">
+                    <circle cx="50" cy="50" r="8" fill="white"/>
+                    <circle cx="30" cy="35" r="6" fill="white"/>
+                    <circle cx="70" cy="35" r="6" fill="white"/>
+                    <circle cx="35" cy="75" r="6" fill="white"/>
+                    <circle cx="65" cy="75" r="6" fill="white"/>
+                    <line x1="50" y1="50" x2="30" y2="35" stroke="white" stroke-width="2"/>
+                    <line x1="50" y1="50" x2="70" y2="35" stroke="white" stroke-width="2"/>
+                    <line x1="50" y1="50" x2="35" y2="75" stroke="white" stroke-width="2"/>
+                    <line x1="50" y1="50" x2="65" y2="75" stroke="white" stroke-width="2"/>
+                </svg>
+                <h2 class="difficulty-name">普通</h2>
+                <p class="difficulty-desc">読みの途中でも<br>札が確定した時に<br>取ってきます</p>
+            </div>
+            
+            <div class="difficulty-card easy" data-level="1">
+                <div class="card-corner top-left"></div>
+                <div class="card-corner bottom-right"></div>
+                <svg viewBox="0 0 100 100" class="difficulty-icon">
+                    <circle cx="50" cy="50" r="10" fill="white"/>
+                    <circle cx="30" cy="70" r="8" fill="white"/>
+                    <circle cx="70" cy="70" r="8" fill="white"/>
+                    <line x1="50" y1="50" x2="30" y2="70" stroke="white" stroke-width="3"/>
+                    <line x1="50" y1="50" x2="70" y2="70" stroke="white" stroke-width="3"/>
+                </svg>
+                <h2 class="difficulty-name">易しい</h2>
+                <p class="difficulty-desc">読みを最後まで<br>聞いてから<br>取ってきます</p>
+            </div>
+            
+            <div class="difficulty-card practice" data-mode="practice">
+                <div class="card-corner top-left"></div>
+                <div class="card-corner bottom-right"></div>
+                <svg viewBox="0 0 100 100" class="difficulty-icon">
+                    <circle cx="50" cy="35" r="12" fill="white"/>
+                    <path d="M30 85 Q50 75 70 85" fill="white"/>
+                </svg>
+                <h2 class="difficulty-name">練習</h2>
+                <p class="difficulty-desc">1人で練習できます</p>
             </div>
         </div>
+        
+        <button class="back-btn" data-screen="screen-menu">戻る</button>
     </div>
 
     <!-- ゲーム画面 -->
@@ -186,13 +222,13 @@
                 <button class="icon-btn" id="btn-pause">⏸</button>
                 <div class="score-display">
                     <div class="score-item player">
-                        <span class="score-label">PLAYER</span>
                         <span class="score-value" id="score-player">0</span>
+                        <span class="score-label">PLAYER</span>
                     </div>
                     <div class="score-divider">VS</div>
                     <div class="score-item cpu">
-                        <span class="score-label">CPU</span>
                         <span class="score-value" id="score-cpu">0</span>
+                        <span class="score-label">CPU</span>
                     </div>
                 </div>
             </div>
@@ -211,8 +247,8 @@
                 </div>
             </div>
             <div class="clue-controls">
-                <button class="clue-btn" id="btn-hint" title="ヒント">💡</button>
-                <button class="clue-btn" id="btn-next-clue" title="次の情報">⏭</button>
+                <button class="clue-btn" id="btn-hint">💡</button>
+                <button class="clue-btn" id="btn-next-clue">⏭</button>
             </div>
         </div>
 
@@ -232,9 +268,7 @@
                 <h2 class="result-title" id="result-title">正解</h2>
                 <div class="result-score" id="result-score">+1000</div>
             </div>
-
             <div class="result-structure" id="result-structure"></div>
-
             <div class="result-details">
                 <div class="detail-item">
                     <span class="detail-label">化合物名</span>
@@ -245,63 +279,10 @@
                     <span class="detail-value" id="result-time">-</span>
                 </div>
             </div>
-
             <div class="result-explanation" id="result-explanation"></div>
-
             <div class="result-actions">
                 <button class="btn btn-secondary" id="btn-next-round">次の問題へ</button>
                 <button class="btn btn-primary" id="btn-finish-game">ゲーム終了</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 一時停止画面 -->
-    <div id="screen-pause" class="screen modal-screen">
-        <div class="modal-content modal-small">
-            <h2 class="modal-title">一時停止</h2>
-            <div class="pause-actions">
-                <button class="btn btn-primary" id="btn-resume">再開</button>
-                <button class="btn btn-secondary" id="btn-quit">ゲームを終了</button>
-            </div>
-        </div>
-    </div>
-
-    <!-- 統計画面 -->
-    <div id="screen-stats" class="screen">
-        <div class="screen-container">
-            <header class="screen-header">
-                <button class="back-btn" data-back="menu">←</button>
-                <h2 class="screen-title">成績・統計</h2>
-            </header>
-
-            <div class="stats-content">
-                <section class="stats-section">
-                    <h3 class="section-title">本日の統計</h3>
-                    <div class="stats-grid">
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-today-games">0</div>
-                            <div class="stat-label">プレイ回数</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-today-accuracy">0%</div>
-                            <div class="stat-label">正答率</div>
-                        </div>
-                        <div class="stat-card">
-                            <div class="stat-value" id="stat-today-avg-time">0.0s</div>
-                            <div class="stat-label">平均回答時間</div>
-                        </div>
-                    </div>
-                </section>
-
-                <section class="stats-section">
-                    <h3 class="section-title">分野別正答率</h3>
-                    <div class="accuracy-bars" id="accuracy-bars"></div>
-                </section>
-
-                <section class="stats-section">
-                    <h3 class="section-title">苦手分野</h3>
-                    <div class="weakness-list" id="weakness-list"></div>
-                </section>
             </div>
         </div>
     </div>
