@@ -3,10 +3,11 @@
  * 画面遷移、ゲーム制御、UI更新を統合管理
  * - 絵文字不使用（すべてSVGアイコン）
  * - 筑紫ゴシック統一
- * - 読み札履歴表示対応（画面ずれ修正版）
+ * - 読み札履歴表示対応（画面ずれ完全修正版）
  * - 単元別選択機能対応
  * - レスポンシブ対応
  * - compounds.json キー名空白対応
+ * - デザイン統一（全画面共通背景）
  */
 class App {
     constructor() {
@@ -305,6 +306,10 @@ class App {
                 if (stageEl) stageEl.textContent = 'STAGE 1';
                 const textEl = document.getElementById('clue-text');
                 if (textEl) textEl.textContent = '読み札が始まります';
+                
+                // カードフィールドのスクロールをリセット
+                const cardField = document.getElementById('card-grid');
+                if (cardField) cardField.scrollTop = 0;
                 break;
 
             case 'READING':
@@ -364,8 +369,9 @@ class App {
     }
 
     /**
-     * 読み札の履歴表示（画面ずれ修正版）
-     * requestAnimationFrame + setTimeout の二段階スクロールで確実化
+     * 読み札の履歴表示（画面ずれ完全修正版）
+     * .clue-display は固定高さ (28vh) + overflow-y: auto なので、
+     * ここでのスクロール操作は内部のみで、画面全体はずれない。
      */
     updateClueWithHistory(round) {
         const clueData = this.engine.clues[round.target.id];
@@ -403,26 +409,24 @@ class App {
                     `;
                     historyDiv.appendChild(historyItem);
                     
-                    // 画面ずれ防止：二段階スクロール
-                    // 1. DOM更新直後にrequestAnimationFrameでスクロール
+                    // 画面ずれ防止：.clue-display 内部のみをスクロール
                     requestAnimationFrame(() => {
                         const cluePanel = document.querySelector('.clue-display');
                         if (cluePanel) {
-                            // 2. アニメーション完了後に再度スクロール（確実化）
-                            setTimeout(() => {
-                                cluePanel.scrollTo({
-                                    top: cluePanel.scrollHeight,
-                                    behavior: 'smooth'
-                                });
-                            }, 350);
+                            cluePanel.scrollTo({
+                                top: cluePanel.scrollHeight,
+                                behavior: 'smooth'
+                            });
                         }
                     });
                 }
             }
 
-            // 初回表示時（Stage 1）は履歴をクリア
+            // 初回表示時（Stage 1）は履歴をクリアし、スクロールもリセット
             if (round.currentStage === 1) {
                 historyDiv.innerHTML = '';
+                const cluePanel = document.querySelector('.clue-display');
+                if (cluePanel) cluePanel.scrollTop = 0;
             }
         }
     }
@@ -535,11 +539,20 @@ class App {
         if (gamesEl) gamesEl.textContent = stats.totalGames;
     }
 
+    /**
+     * 画面切り替え（スクロール位置リセット付き）
+     */
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
         const target = document.getElementById(screenId);
         if (target) {
             target.classList.add('active');
+            
+            // 遷移先の画面内のスクロール可能な要素をリセット
+            const scrollables = target.querySelectorAll('.clue-display, .card-field, .settings-container, .stats-container, .difficulty-container, .title-container');
+            scrollables.forEach(el => {
+                el.scrollTop = 0;
+            });
         }
     }
 
