@@ -170,17 +170,22 @@ const OnlineManager = {
         this.cleanup();
     },
 
+    /**
+     * ルーム状態の監視（ゲーム状態変更）
+     * 修正: ルーム全体を監視し、settings と gameState の両方を渡す
+     */
     onRoomUpdate(callback) {
         if (!this.roomRef) return;
         this.onStateChange = callback;
 
-        const listener = this.roomRef.child('gameState').on('value', (snapshot) => {
+        // this.roomRef.child('gameState') ではなく this.roomRef 全体を監視
+        const listener = this.roomRef.on('value', (snapshot) => {
             if (snapshot.exists() && callback) {
                 callback(snapshot.val());
             }
         });
 
-        this.listeners.push({ ref: this.roomRef.child('gameState'), event: 'value', callback: listener });
+        this.listeners.push({ ref: this.roomRef, event: 'value', callback: listener });
     },
 
     onTaps(callback) {

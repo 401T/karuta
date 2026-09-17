@@ -2,10 +2,9 @@
  * App - メインアプリケーションクラス（完全修正版）
  * 
  * 修正内容：
- * 1. handleCardTapの二重正誤判定を修正（game.jsに委譲）
- * 2. オンライン対戦機能を統合
- * 3. 解説表示を確実に
- * 4. CPU戦で間違えた時に次のstageへ自動進行
+ * 1. 部屋作成・参加時の settings 参照エラーを修正
+ * 2. CPU戦で間違えた際の解説表示を確実にした（IDの trim 比較）
+ * 3. オンライン初期化失敗時のエラーハンドリングを強化
  */
 class App {
     constructor() {
@@ -41,7 +40,10 @@ class App {
             
             // オンライン機能の初期化（失敗しても続行）
             if (typeof OnlineManager !== 'undefined') {
-                OnlineManager.init();
+                const onlineReady = OnlineManager.init();
+                if (!onlineReady) {
+                    console.warn('Online mode is disabled due to configuration.');
+                }
             }
             
             this.loadSettings();
@@ -108,14 +110,12 @@ class App {
         const selectAllBtn = document.getElementById('btn-select-all');
         if (selectAllBtn) selectAllBtn.addEventListener('click', () => this.toggleSelectAllCategories());
 
-        // カードタップ処理（修正：game.jsに委譲）
         const cardGrid = document.getElementById('card-grid');
         if (cardGrid) {
             cardGrid.addEventListener('click', (e) => {
                 const card = e.target.closest('.card');
                 if (card && !card.classList.contains('taken')) {
-                    const id = card.dataset.id;
-                    this.handleCardTap(id, card);
+                    this.handleCardTap(card.dataset.id, card);
                 }
             });
         }
@@ -171,7 +171,6 @@ class App {
             });
         }
 
-        // オンライン対戦ボタン
         const onlineBtn = document.getElementById('btn-online');
         if (onlineBtn) {
             onlineBtn.addEventListener('click', () => this.showOnlineMenu());
@@ -212,27 +211,473 @@ class App {
     }
 
     /**
-     * カードタップ処理（修正版）
-     * 正誤判定はgame.jsに委譲し、ここではUI更新のみ
+     * オンライン対戦メニュー表示
      */
-    handleCardTap(id, element) {
-        // オンラインモード時はオンライン処理
-        if (this.isOnlineMode) {
-            this.handleOnlineCardTap(id, element);
+    showOnlineMenu() {
+        if (typeof OnlineManager === 'undefined') {
+            alert('オンライン機能が見つかりません。online.js が読み込まれているか確認してください。');
+            return;
+        }
+        if (!OnlineManager.init()) {
+            alert('オンライン機能が利用できません。Firebaseの設定（online.js内）を確認してください。');
             return;
         }
 
-        // 通常モード：game.jsに処理を委譲
-        this.engine.handlePlayerTap(id);
+        document.querySelectorAll('.modal-screen').forEach(m => m.remove());
 
-        // UI更新（正誤判定はgame.js側で行われる）
-        const targetId = (this.engine.currentRound.target.id || '').trim();
-        const tapId = (id || '').trim();
-        const isCorrect = (tapId === targetId);
+        const modal = document.createElement('div');
+        modal.className = 'screen active modal-screen';
+        modal.style.zIndex = '1000';
+        modal.id = 'online-menu-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">オンライン対戦</h2>
+                
+                <div style="margin-bottom: 20px;">
+                    <button class="btn btn-primary" id="btn-create-room" style="width: 100%; margin-bottom: 10px; min-height: 48px;">ルーム作成</button>
+                    <p style="font-size: 0.8rem; color: var(--text-light);">対戦相手とルームを共有</p>
+                </div>
 
-        if (isCorrect) {
-            element.classList.add('correct');
-            setTimeout(() => element.classList.add('taken'), 600);
+                <div style="margin-bottom: 20px;">
+                    <input type="text" id="room-id-input" placeholder="ルームID（6桁）" 
+                           style="width: 100%; padding: 10px; border: 2px solid var(--card-border); border-radius: 2px; text-align: center; font-size: 1.2rem; letter-spacing: 0.3em; text-transform: uppercase; min-height: 44px; box-sizing: border-box;">
+                    <button class="btn btn-secondary" id="btn-join-room" style="width: 100%; margin-top: 10px; min-height: 48px;">ルーム参加</button>
+                </div>
+
+                <button class="btn btn-danger" id="btn-cancel-online" style="width: 100%; min-height: 44px;">キャンセル</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
+        document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
+        document.getElementById('btn-cancel-online').addEventListener('click', () => modal.remove());
+    }
+
+    /**
+     * オンラインルーム作成（ホスト）
+     */
+    async createOnlineRoom() {
+        try {
+            const settings = {
+                mode: 'online',
+                cardCount: StorageManager.loadSettings().cardCount || 9,
+                categories: this.selectedCategories.length > 0 ? this.selectedCategories : [],
+                difficulty: this.selectedDifficulty
+            };
+
+            const roomId = await OnlineManager.createRoom(settings);
+            this.isHost = true;
+
+            const onlineMenu = document.getElementById('online-menu-modal');
+            if (onlineMenu) onlineMenu.remove();
+
+            this.showWaitingRoom(roomId);
+
+            OnlineManager.onRoomUpdate((roomData) => {
+                console.log('Room update (host):', roomData);
+                if (roomData && roomData.gameState && roomData.gameState.phase === 'starting') {
+                    this.startOnlineGameAsHost(roomData);
+                }
+            });
+
+        } catch (e) {
+            console.error('Failed to create room:', e);
+            alert('ルーム作成に失敗しました: ' + e.message);
+        }
+    }
+
+    /**
+     * オンラインルーム参加（ゲスト）
+     */
+    async joinOnlineRoom() {
+        try {
+            const roomIdInput = document.getElementById('room-id-input');
+            const roomId = roomIdInput.value.trim().toUpperCase();
+
+            if (!roomId || roomId.length !== 6) {
+                alert('6桁のルームIDを入力してください');
+                return;
+            }
+
+            await OnlineManager.joinRoom(roomId);
+            this.isHost = false;
+
+            const onlineMenu = document.getElementById('online-menu-modal');
+            if (onlineMenu) onlineMenu.remove();
+
+            this.showWaitingRoomForGuest(roomId);
+
+            OnlineManager.onRoomUpdate((roomData) => {
+                console.log('Room update (guest):', roomData);
+                if (roomData && roomData.gameState && roomData.gameState.phase !== 'waiting' && roomData.gameState.phase !== 'starting') {
+                    this.startOnlineGameAsGuest(roomData);
+                }
+            });
+
+        } catch (e) {
+            console.error('Failed to join room:', e);
+            alert('ルーム参加に失敗しました: ' + e.message);
+        }
+    }
+
+    /**
+     * 待機画面表示（ホスト用）
+     */
+    showWaitingRoom(roomId) {
+        const existing = document.getElementById('waiting-room-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'screen active modal-screen';
+        modal.style.zIndex = '1000';
+        modal.id = 'waiting-room-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">対戦相手を待っています...</h2>
+                
+                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
+                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
+                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
+                </div>
+
+                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
+                    上記のルームIDを対戦相手に共有してください
+                </p>
+
+                <button class="btn btn-primary" id="btn-start-game" style="width: 100%; margin-bottom: 15px; min-height: 48px;">ゲーム開始</button>
+
+                <div class="loading-spinner" style="margin: 20px auto;"></div>
+
+                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px;">キャンセル</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('btn-start-game').addEventListener('click', () => {
+            // ホストがゲーム開始を宣言
+            OnlineManager.updateGameState({ phase: 'starting' }).then(() => {
+                this.startOnlineGameAsHost({ settings: { cardCount: 9, categories: [] } }); // 仮のデータを渡す
+            });
+        });
+
+        document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
+            if (typeof OnlineManager !== 'undefined') {
+                await OnlineManager.leaveRoom();
+            }
+            modal.remove();
+            this.isOnlineMode = false;
+            this.isHost = false;
+        });
+    }
+
+    /**
+     * 待機画面表示（ゲスト用）
+     */
+    showWaitingRoomForGuest(roomId) {
+        const existing = document.getElementById('waiting-room-modal');
+        if (existing) existing.remove();
+
+        const modal = document.createElement('div');
+        modal.className = 'screen active modal-screen';
+        modal.style.zIndex = '1000';
+        modal.id = 'waiting-room-modal';
+        modal.innerHTML = `
+            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
+                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">ホストの開始を待っています...</h2>
+                
+                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
+                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
+                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
+                </div>
+
+                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
+                    ホストがゲームを開始するまでお待ちください
+                </p>
+
+                <div class="loading-spinner" style="margin: 20px auto;"></div>
+
+                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px;">キャンセル</button>
+            </div>
+        `;
+        document.body.appendChild(modal);
+
+        document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
+            if (typeof OnlineManager !== 'undefined') {
+                await OnlineManager.leaveRoom();
+            }
+            modal.remove();
+            this.isOnlineMode = false;
+            this.isHost = false;
+        });
+    }
+
+    /**
+     * ホストとしてオンラインゲーム開始
+     */
+    startOnlineGameAsHost(roomData) {
+        const waitingModal = document.getElementById('waiting-room-modal');
+        if (waitingModal) waitingModal.remove();
+
+        this.isOnlineMode = true;
+        this.isPracticeMode = false;
+
+        const gameScreen = document.getElementById('screen-game');
+        if (gameScreen) {
+            gameScreen.classList.remove('practice-mode');
+        }
+
+        const playerLabel = document.getElementById('player-score-label');
+        const cpuLabel = document.getElementById('cpu-score-label');
+        if (playerLabel) playerLabel.textContent = 'あなた';
+        if (cpuLabel) cpuLabel.textContent = '相手';
+
+        // ★ roomData.settings が存在しない場合のフォールバック
+        const settings = roomData.settings || {};
+
+        const gameSettings = {
+            mode: 'online',
+            isOnline: true,
+            isHost: true,
+            cardCount: settings.cardCount || 9,
+            categories: settings.categories || []
+        };
+        this.engine.configure(gameSettings);
+        
+        // Firebase同期コールバックを設定
+        this.engine.onOnlineStateChange = (state) => {
+            this.handleOnlineStateChange(state);
+        };
+        
+        // ゲーム開始
+        this.engine.startGame(10);
+
+        // Firebase同期設定
+        this.setupOnlineSync();
+
+        this.showScreen('screen-game');
+    }
+
+    /**
+     * オンライン状態変更のハンドラ
+     */
+    async handleOnlineStateChange(state) {
+        if (!this.isOnlineMode || !this.isHost) return;
+        
+        switch (state.type) {
+            case 'round_start':
+                await OnlineManager.setRoundData(state.cards, state.target, state.round);
+                await OnlineManager.updateScores(state.scores);
+                break;
+            case 'stage_update':
+                await OnlineManager.updateStage(state.currentStage);
+                break;
+            case 'round_end':
+                await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
+                await OnlineManager.updateScores(state.scores);
+                break;
+            case 'game_end':
+                await OnlineManager.finishGame(state.scores);
+                break;
+        }
+    }
+
+    /**
+     * ゲストとしてオンラインゲーム開始
+     */
+    startOnlineGameAsGuest(roomData) {
+        const waitingModal = document.getElementById('waiting-room-modal');
+        if (waitingModal) waitingModal.remove();
+
+        this.isOnlineMode = true;
+        this.isPracticeMode = false;
+
+        const gameScreen = document.getElementById('screen-game');
+        if (gameScreen) {
+            gameScreen.classList.remove('practice-mode');
+        }
+
+        const playerLabel = document.getElementById('player-score-label');
+        const cpuLabel = document.getElementById('cpu-score-label');
+        if (playerLabel) playerLabel.textContent = 'あなた';
+        if (cpuLabel) cpuLabel.textContent = '相手';
+
+        // ★ roomData.settings が存在しない場合のフォールバック
+        const settings = roomData.settings || {};
+
+        const gameSettings = {
+            mode: 'online',
+            isOnline: true,
+            isHost: false,
+            cardCount: settings.cardCount || 9,
+            categories: settings.categories || []
+        };
+        this.engine.configure(gameSettings);
+
+        this.setupOnlineSync();
+
+        if (roomData.gameState) {
+            this.syncOnlineGameState(roomData.gameState);
+        }
+
+        this.showScreen('screen-game');
+    }
+
+    /**
+     * オンライン同期設定
+     */
+    setupOnlineSync() {
+        OnlineManager.onRoomUpdate((roomData) => {
+            if (roomData && roomData.gameState) {
+                this.onlineGameState = roomData.gameState;
+                this.syncOnlineGameState(roomData.gameState);
+            }
+        });
+
+        OnlineManager.onTaps((taps) => {
+            this.handleOpponentTap(taps);
+        });
+    }
+
+    /**
+     * オンラインゲーム状態の同期
+     */
+    async syncOnlineGameState(gameState) {
+        if (!gameState) return;
+
+        const playerScoreEl = document.getElementById('score-player');
+        const cpuScoreEl = document.getElementById('score-cpu');
+        const roundDisplayEl = document.getElementById('round-display');
+
+        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player;
+        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
+        if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
+
+        if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
+            const currentCards = document.querySelectorAll('.card');
+            if (currentCards.length === 0) {
+                await this.renderOnlineCards(gameState.cards);
+            }
+        } else if (gameState.phase === 'reading') {
+            this.updateOnlineClue(gameState);
+        } else if (gameState.phase === 'finished') {
+            this.showGameEnd({
+                playerScore: gameState.scores.player,
+                cpuScore: gameState.scores.opponent,
+                winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
+                       gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
+            });
+        }
+    }
+
+    /**
+     * オンライン用カード描画
+     */
+    async renderOnlineCards(cards) {
+        const grid = document.getElementById('card-grid');
+        if (!grid) return;
+        grid.innerHTML = '';
+
+        const cardElements = [];
+        cards.forEach(c => {
+            const div = document.createElement('div');
+            div.className = 'card';
+            div.dataset.id = (c.id || '').trim();
+            const contentDiv = document.createElement('div');
+            contentDiv.className = 'card-content';
+            div.appendChild(contentDiv);
+            grid.appendChild(div);
+            cardElements.push({ element: contentDiv, compound: c });
+        });
+
+        const promises = cardElements.map(({ element, compound }, index) => {
+            return new Promise((resolve) => {
+                setTimeout(() => {
+                    StructureRenderer.render(element, compound.smiles, 'light', {
+                        name: compound.name,
+                        name_en: compound.name_en,
+                        formula: compound.formula
+                    }).then(resolve);
+                }, index * 50);
+            });
+        });
+
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
+        await Promise.race([Promise.all(promises), timeoutPromise]);
+    }
+
+    /**
+     * オンライン用読み札更新
+     */
+    updateOnlineClue(gameState) {
+        const stageEl = document.getElementById('clue-stage');
+        const textEl = document.getElementById('clue-text');
+        
+        if (stageEl) stageEl.textContent = `STAGE ${gameState.currentStage}`;
+        
+        if (gameState.target && this.engine.clues[gameState.target.id]) {
+            const clueData = this.engine.clues[gameState.target.id];
+            const stageData = clueData.stages.find(s => s.stage === gameState.currentStage);
+            if (textEl && stageData) {
+                textEl.textContent = stageData.text;
+            }
+        }
+
+        this.updateClueWithHistory({
+            target: gameState.target,
+            currentStage: gameState.currentStage
+        });
+    }
+
+    /**
+     * オンライン対戦中のカードタップ処理
+     */
+    async handleOnlineCardTap(id, element) {
+        if (!this.isOnlineMode) return;
+
+        await OnlineManager.recordTap(id);
+        
+        const target = this.onlineGameState ? this.onlineGameState.target : null;
+        if (target) {
+            const targetId = (target.id || '').trim();
+            const tapId = (id || '').trim();
+            const isCorrect = (tapId === targetId);
+            
+            if (isCorrect) {
+                element.classList.add('correct');
+                setTimeout(() => element.classList.add('taken'), 600);
+            } else {
+                element.classList.add('wrong');
+                setTimeout(() => element.classList.remove('wrong'), 600);
+            }
+        }
+    }
+
+    /**
+     * 相手のタップ処理
+     */
+    handleOpponentTap(taps) {
+        if (!this.onlineGameState) return;
+
+        for (const playerId in taps) {
+            const tap = taps[playerId];
+            const card = document.querySelector(`.card[data-id="${tap.cardId}"]`);
+            if (card && !card.classList.contains('taken')) {
+                const target = this.onlineGameState.target;
+                if (target) {
+                    const targetId = (target.id || '').trim();
+                    const tapId = (tap.cardId || '').trim();
+                    const isCorrect = (tapId === targetId);
+                    
+                    if (isCorrect) {
+                        card.classList.add('correct');
+                        setTimeout(() => card.classList.add('taken'), 600);
+                    } else {
+                        card.classList.add('wrong');
+                        setTimeout(() => card.classList.remove('wrong'), 600);
+                    }
+                }
+            }
         }
     }
 
@@ -444,6 +889,28 @@ class App {
         }
     }
 
+    /**
+     * カードタップ処理（統計記録付き・ID比較修正）
+     */
+    handleCardTap(id, element) {
+        if (this.isOnlineMode) {
+            this.handleOnlineCardTap(id, element);
+            return;
+        }
+
+        this.engine.handlePlayerTap(id);
+
+        // ★ IDを trim して比較することで、空白による不一致を防止
+        const targetId = (this.engine.currentRound.target.id || '').trim();
+        const tapId = (id || '').trim();
+        const isCorrect = (tapId === targetId);
+
+        if (isCorrect) {
+            element.classList.add('correct');
+            setTimeout(() => element.classList.add('taken'), 600);
+        }
+    }
+
     flashCard(id, type) {
         const card = document.querySelector(`.card[data-id="${id}"]`);
         if (card) {
@@ -452,11 +919,23 @@ class App {
         }
     }
 
+    /**
+     * 正解/不正解モーダル表示（解説表示を確実にする）
+     */
     showRoundResult(data) {
         const playerWon = data.playerWon;
         const compound = data.target;
-        // 解説を確実に取得
-        const explanation = data.explanation || '解説はありません。';
+        
+        // ★ explanation を確実に取得（game.js から渡されない場合のフォールバック）
+        let explanation = '解説はありません。';
+        if (data.explanation) {
+            explanation = data.explanation;
+        } else if (compound && compound.id) {
+            const clueData = this.engine.clues[(compound.id || '').trim()];
+            if (clueData && clueData.explanation) {
+                explanation = clueData.explanation;
+            }
+        }
         
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
@@ -503,6 +982,9 @@ class App {
         }
     }
 
+    /**
+     * ゲーム終了処理（CPU戦績記録付き）
+     */
     showGameEnd(data) {
         if (!this.isPracticeMode && data.winner) {
             StorageManager.recordCpuResult(data.winner);
@@ -601,7 +1083,6 @@ class App {
         entries.forEach(item => {
             const row = document.createElement('div');
             row.className = 'bar-item';
-            
             const isLow = item.rate < 50;
             
             row.innerHTML = `
@@ -661,490 +1142,6 @@ class App {
     setText(id, text) {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
-    }
-
-    /**
-     * オンライン対戦メニュー表示
-     */
-    showOnlineMenu() {
-        if (typeof OnlineManager === 'undefined' || !OnlineManager.init()) {
-            alert('オンライン機能が利用できません。Firebaseの設定を確認してください。');
-            return;
-        }
-
-        document.querySelectorAll('.modal-screen').forEach(m => m.remove());
-
-        const modal = document.createElement('div');
-        modal.className = 'screen active modal-screen';
-        modal.style.zIndex = '1000';
-        modal.id = 'online-menu-modal';
-        modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">オンライン対戦</h2>
-                
-                <div style="margin-bottom: 20px;">
-                    <button class="btn btn-primary" id="btn-create-room" style="width: 100%; margin-bottom: 10px; min-height: 48px;">ルーム作成</button>
-                    <p style="font-size: 0.8rem; color: var(--text-light);">対戦相手とルームを共有</p>
-                </div>
-
-                <div style="margin-bottom: 20px;">
-                    <input type="text" id="room-id-input" placeholder="ルームID（6桁）" 
-                           style="width: 100%; padding: 10px; border: 2px solid var(--card-border); border-radius: 2px; text-align: center; font-size: 1.2rem; letter-spacing: 0.3em; text-transform: uppercase; min-height: 44px; box-sizing: border-box;">
-                    <button class="btn btn-secondary" id="btn-join-room" style="width: 100%; margin-top: 10px; min-height: 48px;">ルーム参加</button>
-                </div>
-
-                <button class="btn btn-danger" id="btn-cancel-online" style="width: 100%; min-height: 44px;">キャンセル</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
-        document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
-        document.getElementById('btn-cancel-online').addEventListener('click', () => modal.remove());
-    }
-
-    async createOnlineRoom() {
-        try {
-            const settings = {
-                mode: 'online',
-                cardCount: StorageManager.loadSettings().cardCount || 9,
-                categories: this.selectedCategories.length > 0 ? this.selectedCategories : [],
-                difficulty: this.selectedDifficulty
-            };
-
-            const roomId = await OnlineManager.createRoom(settings);
-            this.isHost = true;
-
-            const onlineMenu = document.getElementById('online-menu-modal');
-            if (onlineMenu) onlineMenu.remove();
-
-            this.showWaitingRoom(roomId);
-
-            OnlineManager.onRoomUpdate((roomData) => {
-                console.log('Room update (host):', roomData);
-                if (roomData && roomData.guest) {
-                    this.startOnlineGameAsHost(roomData);
-                }
-            });
-
-        } catch (e) {
-            console.error('Failed to create room:', e);
-            alert('ルーム作成に失敗しました: ' + e.message);
-        }
-    }
-
-    async joinOnlineRoom() {
-        try {
-            const roomIdInput = document.getElementById('room-id-input');
-            const roomId = roomIdInput.value.trim().toUpperCase();
-
-            if (!roomId || roomId.length !== 6) {
-                alert('6桁のルームIDを入力してください');
-                return;
-            }
-
-            await OnlineManager.joinRoom(roomId);
-            this.isHost = false;
-
-            const onlineMenu = document.getElementById('online-menu-modal');
-            if (onlineMenu) onlineMenu.remove();
-
-            this.showWaitingRoomForGuest(roomId);
-
-            OnlineManager.onRoomUpdate((roomData) => {
-                console.log('Room update (guest):', roomData);
-                if (roomData && roomData.gameState && roomData.gameState.phase !== 'waiting') {
-                    this.startOnlineGameAsGuest(roomData);
-                }
-            });
-
-        } catch (e) {
-            console.error('Failed to join room:', e);
-            alert('ルーム参加に失敗しました: ' + e.message);
-        }
-    }
-
-    showWaitingRoom(roomId) {
-        const existing = document.getElementById('waiting-room-modal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.className = 'screen active modal-screen';
-        modal.style.zIndex = '1000';
-        modal.id = 'waiting-room-modal';
-        
-        // ホストの場合はゲーム開始ボタンを表示
-        const hostButtons = this.isHost ? `
-            <button class="btn btn-primary" id="btn-start-game" style="width: 100%; margin-bottom: 10px; min-height: 48px;">ゲーム開始</button>
-        ` : '';
-        
-        modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">
-                    ${this.isHost ? '対戦相手を待っています...' : 'ホストの開始を待っています...'}
-                </h2>
-                
-                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
-                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
-                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
-                </div>
-
-                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
-                    ${this.isHost ? '上記のルームIDを対戦相手に共有してください' : 'ホストがゲームを開始するまでお待ちください'}
-                </p>
-
-                ${hostButtons}
-
-                <div class="loading-spinner" style="margin: 20px auto;"></div>
-
-                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px;">キャンセル</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        // ホスト用のゲーム開始ボタン
-        if (this.isHost) {
-            document.getElementById('btn-start-game').addEventListener('click', () => this.startOnlineGameAsHost(roomId));
-        }
-
-        document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
-            if (typeof OnlineManager !== 'undefined') {
-                await OnlineManager.leaveRoom();
-            }
-            modal.remove();
-            this.isOnlineMode = false;
-            this.isHost = false;
-        });
-    }
-
-    showWaitingRoomForGuest(roomId) {
-        const existing = document.getElementById('waiting-room-modal');
-        if (existing) existing.remove();
-
-        const modal = document.createElement('div');
-        modal.className = 'screen active modal-screen';
-        modal.style.zIndex = '1000';
-        modal.id = 'waiting-room-modal';
-        modal.innerHTML = `
-            <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">ホストの開始を待っています...</h2>
-                
-                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
-                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
-                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
-                </div>
-
-                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">
-                    ホストがゲームを開始するまでお待ちください
-                </p>
-
-                <div class="loading-spinner" style="margin: 20px auto;"></div>
-
-                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px;">キャンセル</button>
-            </div>
-        `;
-        document.body.appendChild(modal);
-
-        document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
-            if (typeof OnlineManager !== 'undefined') {
-                await OnlineManager.leaveRoom();
-            }
-            modal.remove();
-            this.isOnlineMode = false;
-            this.isHost = false;
-        });
-    }
-
-    startOnlineGameAsHost(roomData) {
-        const waitingModal = document.getElementById('waiting-room-modal');
-        if (waitingModal) waitingModal.remove();
-
-        this.isOnlineMode = true;
-        this.isPracticeMode = false;
-
-        const gameScreen = document.getElementById('screen-game');
-        if (gameScreen) {
-            gameScreen.classList.remove('practice-mode');
-        }
-
-        const playerLabel = document.getElementById('player-score-label');
-        const cpuLabel = document.getElementById('cpu-score-label');
-        if (playerLabel) playerLabel.textContent = 'あなた';
-        if (cpuLabel) cpuLabel.textContent = '相手';
-
-        // ゲーム設定
-        const settings = {
-            mode: 'online',
-            isOnline: true,
-            isHost: true,
-            cardCount: roomData.settings.cardCount || 9,
-            categories: roomData.settings.categories || []
-        };
-        this.engine.configure(settings);
-        
-        // ★ Firebase同期コールバックを設定
-        this.engine.onOnlineStateChange = (state) => {
-            this.handleOnlineStateChange(state);
-        };
-        
-        // ゲーム開始（これでFirebaseに状態が送信される）
-        this.engine.startGame(10);
-
-        // Firebase同期設定
-        this.setupOnlineSync();
-
-        this.showScreen('screen-game');
-    }
-
-    /**
-     * オンライン状態変更のハンドラ
-     */
-    async handleOnlineStateChange(state) {
-        if (!this.isOnlineMode || !this.isHost) return;
-        
-        switch (state.type) {
-            case 'round_start':
-                // ラウンド開始時にカードと正解をFirebaseに保存
-                await OnlineManager.setRoundData(
-                    state.cards,
-                    state.target,
-                    state.round
-                );
-                await OnlineManager.updateScores(state.scores);
-                break;
-                
-            case 'stage_update':
-                // stage更新をFirebaseに保存
-                await OnlineManager.updateStage(state.currentStage);
-                break;
-                
-            case 'player_tap':
-                // プレイヤーのタップ結果を保存（必要な場合）
-                break;
-                
-            case 'round_end':
-                // ラウンド終了
-                await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
-                await OnlineManager.updateScores(state.scores);
-                break;
-                
-            case 'game_end':
-                // ゲーム終了
-                await OnlineManager.finishGame(state.scores);
-                break;
-        }
-    }
-
-    startOnlineGameAsGuest(roomData) {
-        const waitingModal = document.getElementById('waiting-room-modal');
-        if (waitingModal) waitingModal.remove();
-
-        this.isOnlineMode = true;
-        this.isPracticeMode = false;
-
-        const gameScreen = document.getElementById('screen-game');
-        if (gameScreen) {
-            gameScreen.classList.remove('practice-mode');
-        }
-
-        const playerLabel = document.getElementById('player-score-label');
-        const cpuLabel = document.getElementById('cpu-score-label');
-        if (playerLabel) playerLabel.textContent = 'あなた';
-        if (cpuLabel) cpuLabel.textContent = '相手';
-
-        const settings = {
-            mode: 'online',
-            isOnline: true,
-            isHost: false,
-            cardCount: roomData.settings.cardCount || 9,
-            categories: roomData.settings.categories || []
-        };
-        this.engine.configure(settings);
-
-        this.setupOnlineSync();
-
-        if (roomData.gameState) {
-            this.syncOnlineGameState(roomData.gameState);
-        }
-
-        this.showScreen('screen-game');
-    }
-
-    setupOnlineSync() {
-        // ゲーム状態の監視
-        OnlineManager.onRoomUpdate((roomData) => {
-            if (roomData && roomData.gameState) {
-                this.onlineGameState = roomData.gameState;
-                this.syncOnlineGameState(roomData.gameState);
-            }
-        });
-
-        // タップの監視
-        OnlineManager.onTaps((taps) => {
-            this.handleOpponentTap(taps);
-        });
-    }
-
-    /**
-     * オンラインゲーム状態の同期
-     */
-    async syncOnlineGameState(gameState) {
-        if (!gameState) return;
-
-        const playerScoreEl = document.getElementById('score-player');
-        const cpuScoreEl = document.getElementById('score-cpu');
-        const roundDisplayEl = document.getElementById('round-display');
-
-        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player;
-        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
-        if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
-
-        // ★ phaseが'waiting'から'dealing'に変わったらゲーム開始
-        if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
-            // まだカードが表示されていない場合のみ描画
-            const currentCards = document.querySelectorAll('.card');
-            if (currentCards.length === 0) {
-                await this.renderOnlineCards(gameState.cards);
-            }
-        } else if (gameState.phase === 'reading') {
-            this.updateOnlineClue(gameState);
-        } else if (gameState.phase === 'finished') {
-            this.showGameEnd({
-                playerScore: gameState.scores.player,
-                cpuScore: gameState.scores.opponent,
-                winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
-                    gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
-            });
-        }
-    }
-
-    async syncOnlineGameState(gameState) {
-        if (!gameState) return;
-
-        const playerScoreEl = document.getElementById('score-player');
-        const cpuScoreEl = document.getElementById('score-cpu');
-        const roundDisplayEl = document.getElementById('round-display');
-
-        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player;
-        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
-        if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
-
-        switch (gameState.phase) {
-            case 'dealing':
-                if (gameState.cards && gameState.cards.length > 0) {
-                    await this.renderOnlineCards(gameState.cards);
-                }
-                break;
-
-            case 'reading':
-                this.updateOnlineClue(gameState);
-                break;
-
-            case 'result':
-                break;
-
-            case 'finished':
-                this.showGameEnd({
-                    playerScore: gameState.scores.player,
-                    cpuScore: gameState.scores.opponent,
-                    winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
-                           gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
-                });
-                break;
-        }
-    }
-
-    async renderOnlineCards(cards) {
-        const grid = document.getElementById('card-grid');
-        if (!grid) return;
-        grid.innerHTML = '';
-
-        const cardElements = [];
-        cards.forEach(c => {
-            const div = document.createElement('div');
-            div.className = 'card';
-            div.dataset.id = (c.id || '').trim();
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'card-content';
-            div.appendChild(contentDiv);
-            grid.appendChild(div);
-            cardElements.push({ element: contentDiv, compound: c });
-        });
-
-        const promises = cardElements.map(({ element, compound }, index) => {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    StructureRenderer.render(element, compound.smiles, 'light', {
-                        name: compound.name,
-                        name_en: compound.name_en,
-                        formula: compound.formula
-                    }).then(resolve);
-                }, index * 50);
-            });
-        });
-
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
-        await Promise.race([Promise.all(promises), timeoutPromise]);
-    }
-
-    updateOnlineClue(gameState) {
-        const stageEl = document.getElementById('clue-stage');
-        const textEl = document.getElementById('clue-text');
-        
-        if (stageEl) stageEl.textContent = `STAGE ${gameState.currentStage}`;
-        
-        if (gameState.target && this.engine.clues[gameState.target.id]) {
-            const clueData = this.engine.clues[gameState.target.id];
-            const stageData = clueData.stages.find(s => s.stage === gameState.currentStage);
-            if (textEl && stageData) {
-                textEl.textContent = stageData.text;
-            }
-        }
-
-        this.updateClueWithHistory({
-            target: gameState.target,
-            currentStage: gameState.currentStage
-        });
-    }
-
-    async handleOnlineCardTap(cardId, element) {
-        if (!this.isOnlineMode) return;
-
-        await OnlineManager.recordTap(cardId);
-        
-        const target = this.onlineGameState ? this.onlineGameState.target : null;
-        if (target) {
-            const isCorrect = (cardId === target.id);
-            if (isCorrect) {
-                element.classList.add('correct');
-                setTimeout(() => element.classList.add('taken'), 600);
-            } else {
-                element.classList.add('wrong');
-                setTimeout(() => element.classList.remove('wrong'), 600);
-            }
-        }
-    }
-
-    handleOpponentTap(taps) {
-        if (!this.onlineGameState) return;
-
-        for (const playerId in taps) {
-            const tap = taps[playerId];
-            const card = document.querySelector(`.card[data-id="${tap.cardId}"]`);
-            if (card && !card.classList.contains('taken')) {
-                const target = this.onlineGameState.target;
-                if (target) {
-                    const isCorrect = (tap.cardId === target.id);
-                    if (isCorrect) {
-                        card.classList.add('correct');
-                        setTimeout(() => card.classList.add('taken'), 600);
-                    } else {
-                        card.classList.add('wrong');
-                        setTimeout(() => card.classList.remove('wrong'), 600);
-                    }
-                }
-            }
-        }
     }
 
     renderReference() {
