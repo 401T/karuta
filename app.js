@@ -1,10 +1,5 @@
 /**
- * App - メインアプリケーションクラス（完全修正版）
- * 
- * 修正内容：
- * 1. オンラインモードでホスト/ゲスト双方にエフェクトを表示
- * 2. 正解後の「次の問題へ」でホストが Firebase 状態を更新し、ゲストが同期
- * 3. compounds.json / clues.json のキー名空白に対応 (.trim())
+ * App - メインアプリケーションクラス（オンライン対戦修正版）
  */
 class App {
     constructor() {
@@ -19,6 +14,7 @@ class App {
         this.referenceCurrentCategory = 'all';
         this.onlineGameState = null;
         this.hasShownResult = false;
+        this.lastProcessedStage = 0; // 読み札重複防止
         
         this.init();
     }
@@ -399,12 +395,14 @@ class App {
         this.isOnlineMode = true;
         this.isPracticeMode = false;
         this.hasShownResult = false;
+        this.lastProcessedStage = 0;
 
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             gameScreen.classList.remove('practice-mode');
         }
 
+        // ★ 修正: ラベルを「あなた」と「相手」に設定
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = 'あなた';
@@ -420,7 +418,6 @@ class App {
         };
         this.engine.configure(gameSettings);
         
-        // ホストがゲーム状態を変更した際に Firebase に同期するコールバック
         this.engine.onOnlineStateChange = (state) => {
             this.handleOnlineStateChange(state);
         };
@@ -437,12 +434,14 @@ class App {
         this.isOnlineMode = true;
         this.isPracticeMode = false;
         this.hasShownResult = false;
+        this.lastProcessedStage = 0;
 
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             gameScreen.classList.remove('practice-mode');
         }
 
+        // ★ 修正: ラベルを「あなた」と「相手」に設定
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = 'あなた';
@@ -467,9 +466,6 @@ class App {
         this.showScreen('screen-game');
     }
 
-    /**
-     * ホスト側のゲーム状態変更を Firebase に送信
-     */
     async handleOnlineStateChange(state) {
         if (!this.isOnlineMode || !this.isHost) return;
         
@@ -483,7 +479,6 @@ class App {
                 await OnlineManager.updateStage(state.currentStage);
                 break;
             case 'round_end':
-                // 勝者情報を Firebase に保存
                 await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
                 await OnlineManager.updateScores(state.scores);
                 await OnlineManager.updateGameState({ phase: 'result' });
@@ -503,21 +498,14 @@ class App {
             }
         });
 
+        // ★ 修正: ゲストのタップを監視し、ホストに通知
         OnlineManager.onTaps((taps) => {
             this.handleOpponentTap(taps);
         });
     }
 
-    /**
-     * Firebase からゲーム状態を受け取り、UI を更新
-     */
     async syncOnlineGameState(gameState) {
         if (!gameState) return;
-
-        // ★ ラウンド開始時にフラグをリセット
-        if (gameState.phase === 'dealing') {
-            this.hasShownResult = false;
-        }
 
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
@@ -540,6 +528,7 @@ class App {
                 const clueData = this.engine.clues[targetId];
                 const explanation = clueData ? clueData.explanation : '解説データなし';
                 
+                // ★ 修正: ゲスト側でもリザルト画面を表示
                 this.showRoundResult({
                     playerWon: gameState.roundWinner === 'player',
                     target: gameState.target,
@@ -551,7 +540,7 @@ class App {
                 playerScore: gameState.scores.player,
                 cpuScore: gameState.scores.opponent,
                 winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
-                    gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
+                       gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
             });
         }
     }
@@ -565,7 +554,6 @@ class App {
         cards.forEach(c => {
             const div = document.createElement('div');
             div.className = 'card';
-            // キー名空白対策
             div.dataset.id = (c.id || '').trim();
             const contentDiv = document.createElement('div');
             contentDiv.className = 'card-content';
@@ -607,23 +595,23 @@ class App {
             }
         }
 
-        this.updateClueWithHistory({
-            target: gameState.target,
-            currentStage: gameState.currentStage
-        });
+        // ★ 修正: 読み札の重複防止
+        if (gameState.currentStage !== this.lastProcessedStage) {
+            this.lastProcessedStage = gameState.currentStage;
+            this.updateClueWithHistory({
+                target: gameState.target,
+                currentStage: gameState.currentStage
+            });
+        }
     }
 
-    /**
-     * オンライン対戦中のカードタップ処理
-     */
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
 
         if (this.isHost) {
-            // ホスト：game.js に処理を委譲し、正誤判定を行う
+            // ホスト：game.js に処理を委譲
             this.engine.handlePlayerTap(id);
             
-            // ローカルUI更新（エフェクト）
             const targetId = (this.engine.currentRound.target.id || '').trim();
             const tapId = (id || '').trim();
             const isCorrect = (tapId === targetId);
@@ -636,10 +624,9 @@ class App {
                 setTimeout(() => element.classList.remove('wrong'), 600);
             }
         } else {
-            // ゲスト：Firebase にタップを記録
+            // ★ 修正: ゲストはFirebaseにタップを記録
             await OnlineManager.recordTap(id);
             
-            // ローカルUI更新（自分のタップに対するフィードバック）
             const target = this.onlineGameState ? this.onlineGameState.target : null;
             if (target) {
                 const targetId = (target.id || '').trim();
@@ -657,9 +644,6 @@ class App {
         }
     }
 
-    /**
-     * 相手のタップ処理（エフェクト表示）
-     */
     handleOpponentTap(taps) {
         if (!this.onlineGameState) return;
 
@@ -746,6 +730,7 @@ class App {
         this.isPracticeMode = (this.selectedDifficulty === 0);
         this.isOnlineMode = false;
         this.hasShownResult = false;
+        this.lastProcessedStage = 0;
         
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',
@@ -766,6 +751,7 @@ class App {
             }
         }
         
+        // ★ 修正: CPU戦時のラベル
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = '得点';
@@ -785,17 +771,11 @@ class App {
 
         switch (data.state) {
             case 'DEAL':
-                // ★ ラウンド開始時にフラグをリセット
+                // ★ 修正: ラウンド開始時にフラグをリセット
                 this.hasShownResult = false;
+                this.lastProcessedStage = 0;
                 
-                if (this.isOnlineMode) {
-                    if (this.isHost) {
-                        await this.renderOnlineCards(data.round.cards);
-                        this.engine.startReading();
-                    }
-                } else {
-                    await this.renderCards(data.round.cards);
-                }
+                await this.renderCards(data.round.cards);
                 const historyEl = document.getElementById('clue-history');
                 if (historyEl) historyEl.innerHTML = '';
                 const stageEl = document.getElementById('clue-stage');
@@ -912,7 +892,6 @@ class App {
             return;
         }
 
-        // オフラインモード（CPU戦・練習）
         this.engine.handlePlayerTap(id);
         
         const targetId = (this.engine.currentRound.target.id || '').trim();
@@ -933,10 +912,6 @@ class App {
         }
     }
 
-    /**
-     * 正解/不正解モーダル表示
-     * 「次の問題へ」ボタンでホストのみが次のラウンドを開始
-     */
     showRoundResult(data) {
         if (this.hasShownResult) return;
         this.hasShownResult = true;
@@ -987,7 +962,7 @@ class App {
                 modal.remove();
                 this.hasShownResult = false;
                 
-                // ホストのみ次のラウンドを開始（Firebase 同期によりゲストも進む）
+                // ホストのみ次のラウンドを開始
                 if (this.isHost || !this.isOnlineMode) {
                     this.engine.startNewRound();
                 }
@@ -1016,6 +991,9 @@ class App {
                 </div>
             `;
         } else {
+            // ★ 修正: オンライン対戦時は「あなた」vs「相手」
+            const playerLabel = this.isOnlineMode ? 'あなた' : 'PLAYER';
+            const opponentLabel = this.isOnlineMode ? '相手' : 'CPU';
             const message = data.winner === 'player' ? '勝利' : 
                            data.winner === 'cpu' ? '敗北' : '引き分け';
             
@@ -1025,11 +1003,11 @@ class App {
                     <div style="font-size: 1.4rem; margin-bottom: 20px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${message}</div>
                     <div style="display: flex; justify-content: space-around; margin-bottom: 25px; gap: 15px;">
                         <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">PLAYER</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">${playerLabel}</div>
                             <div style="font-size: 1.8rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore}</div>
                         </div>
                         <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">CPU</div>
+                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">${opponentLabel}</div>
                             <div style="font-size: 1.8rem; color: var(--accent-red); font-family: var(--font-display); font-weight: 900;">${data.cpuScore}</div>
                         </div>
                     </div>
