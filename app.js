@@ -1,17 +1,28 @@
 /* =========================================================================
-app.js  —  メインアプリケーション（オンライン対戦 修正版 v3）
-【症状: 2問目以降、読み札が読まれはじめない／ゲームが進まない】への対策
- 1) ホストの読み上げ開始をカード描画の完了から切り離した
-    （描画が 15 秒タイムアウトすると startReading 自体が呼ばれなかった）
- 2) startReading(true) で state 汚染による永久停止を防止
- 3) 前ラウンドの result スナップショットで現在のラウンドを殺さない
-    （forceRoundEndLocal にラウンド番号照合を追加／不一致なら DB を修復）
- 4) syncOnlineGameState に同期シーケンスを導入し、
-    古い dealing スナップショットが読み札表示を消す事故を防止
- 5) resetClueDisplay は「ラウンドが変わったとき」だけ実行
- 6) オンライン常時ウォッチドッグ（3秒間隔）
-    ホスト: DB の round/phase がズレていたら書き戻し＋読み上げ再点火
-    ゲスト: 表示だけ取り残されていたら最新状態を再適用
+app.js  —  メインアプリケーション（オンライン対戦 修正版 v4）
+【今回の症状: 正解時の得点がホストにしか入らない（ゲストは 0 のまま）】
+
+▼ 根本原因（書き込み順序の逆転）
+   ゲスト handleOnlineCardTap:
+     ① updateGameState({phase:'result'})   ← 先に書く
+     ② recordTap(...)                      ← 後に書く
+   ホスト側で起きること:
+     ① を受けて syncOnlineGameState → forceRoundEndLocal()
+        → currentRound.isActive = false
+     ② を受けて handleRemoteTaps →
+        「if (!round.isActive) return」でゲストの正解タップを破棄
+        → scoreOpponentCorrect() が一度も走らない
+        → scores.opponent（＝ゲストの得点）が永久に加算されない
+
+▼ 修正
+   1) ゲストは「taps → result」の順で書く（online.js の直列キューで順序保証）
+   2) handleRemoteTaps から isActive 依存を排除。
+      勝敗確定・二重加算の判定は engine.scoreOpponentCorrect() に集約
+   3) どちらの順で届いても得点が確定するよう、
+      加算後は必ず syncScoresToRoom() で DB に書き戻す
+   4) ホストの誤答 -50 と同じペナルティをゲストにも適用（対称化）
+   5) ホスト自身のタップ（正誤とも）も即座に DB へ scores 反映
+   6) ホストの得点表示は engine（正本）優先 → DB反映前のちらつき防止
 ========================================================================= */
 class App {
     constructor() {
@@ -33,8 +44,9 @@ class App {
         this.tapSeq = 0;
         this.gameEndShown = false;
         this.leftHandled = false;
-        this.syncSeq = 0;                 // ★ v3
-        this._onlineWatchdog = null;      // ★ v3
+        this.syncSeq = 0;
+        this._onlineWatchdog = null;
+        this.scoredRemoteRound = -1;    // ★ v4: 相手タップを加算したラウンド
         // UI状態
         this.hasShownResult = false;
         this.roundResultModal = null;
@@ -364,7 +376,7 @@ class App {
         this.setupOnlineSync();
         this.showScreen('screen-game');
         this.engine.startGame(10);
-        this.startOnlineWatchdog();   // ★ v3
+        this.startOnlineWatchdog();
     }
     startOnlineGameAsGuest(roomData) {
         if (this.onlineGameStarted) return;
@@ -391,10 +403,10 @@ class App {
         this.setupOnlineSync();
         if (roomData && roomData.gameState) this.syncOnlineGameState(roomData.gameState, roomData);
         this.showScreen('screen-game');
-        this.startOnlineWatchdog();   // ★ v3
+        this.startOnlineWatchdog();
     }
     resetRoundUIState() {
-        this.syncSeq++;                 // ★ v3: 実行中の同期を無効化
+        this.syncSeq++;
         this.hasShownResult = false;
         this.onlineGameState = null;
         this.onlineRound = -1;
@@ -404,11 +416,12 @@ class App {
         this.gameEndShown = false;
         this.leftHandled = false;
         this.historyTargetId = null;
+        this.scoredRemoteRound = -1;   // ★ v4
         this.closeRoundResultModal();
     }
     resetOnlineState() {
         this.engine.pause();
-        this.stopOnlineWatchdog();      // ★ v3
+        this.stopOnlineWatchdog();
         this.isOnlineMode = false;
         this.isHost = false;
         this.onlineGameStarted = false;
@@ -425,25 +438,36 @@ class App {
             switch (state.type) {
                 case 'round_start':
                     await OnlineManager.setRoundData(state.cards, state.target, state.round, state.totalRounds, 0);
-                    await OnlineManager.updateScores(state.scores || { player: 0, opponent: 0 });
+                    await OnlineManager.updateScores(this.engine.getAuthoritativeScores());
                     break;
                 case 'stage_update':
                     await OnlineManager.updateStage(state.currentStage, state.round);
+                    break;
+                /* ★ v4: ホスト自身のタップ（誤答 -50 含む）を即座に反映 */
+                case 'player_tap':
+                    await OnlineManager.updateScores(this.engine.getAuthoritativeScores());
                     break;
                 case 'round_end':
                     await OnlineManager.finishRound(
                         state.playerWon ? 'player' : 'opponent',
                         state.round || this.engine.roundNumber,
-                        state.scores || this.engine.scores
+                        this.engine.getAuthoritativeScores()
                     );
                     break;
                 case 'game_end':
-                    await OnlineManager.finishGame(state.scores || this.engine.scores);
+                    await OnlineManager.finishGame(this.engine.getAuthoritativeScores());
                     break;
             }
         } catch (e) {
             console.error('handleOnlineStateChange error:', e);
         }
+    }
+    /** ★ v4: ホストの正本スコアを必ず DB に書き戻す */
+    syncScoresToRoom() {
+        if (!this.isOnlineMode || !this.isHost) return Promise.resolve();
+        if (typeof OnlineManager === 'undefined') return Promise.resolve();
+        return OnlineManager.updateScores(this.engine.getAuthoritativeScores())
+            .catch(e => console.error('syncScoresToRoom error:', e));
     }
     setupOnlineSync() {
         OnlineManager.onRoomUpdate((roomData) => {
@@ -471,7 +495,7 @@ class App {
         this.showScreen('screen-title');
         alert(message || '対戦相手が退出しました');
     }
-    /* ========================= ★ v3: オンライン常時ウォッチドッグ ========================= */
+    /* ========================= ウォッチドッグ ========================= */
     startOnlineWatchdog() {
         this.stopOnlineWatchdog();
         this._onlineWatchdog = setInterval(() => this.onlineWatchdogTick(), 3000);
@@ -492,22 +516,26 @@ class App {
                 if (!r || !r.isActive) return;
                 const myRound = this.engine.roundNumber;
                 const myStage = Number(r.currentStage) || 0;
-                // DB が前ラウンドのまま → ラウンドデータを書き戻す（ステージは維持）
                 if (dbRound !== myRound) {
-                    console.warn('[watchdog] db round', dbRound, '!= engine round', myRound, '-> resend round data');
+                    console.warn('[watchdog] db round', dbRound, '!= engine round', myRound, '-> resend');
                     await OnlineManager.setRoundData(r.cards, r.target, myRound, this.engine.totalRounds, myStage);
+                    await OnlineManager.updateScores(this.engine.getAuthoritativeScores());
                     return;
                 }
-                // 読み上げたのに phase が result/dealing のまま → 復旧
                 if (myStage > 0 && gs.phase !== 'reading' && gs.phase !== 'finished') {
-                    console.warn('[watchdog] phase stuck at', gs.phase, '-> repair to reading stage', myStage);
+                    console.warn('[watchdog] phase stuck at', gs.phase, '-> repair');
                     await OnlineManager.updateStage(myStage, myRound);
                     return;
                 }
-                // ローカルの読み上げ自体が止まっていたら点火
+                /* ★ v4: DB のスコアが正本とズレていたら書き戻す */
+                const dbScores = gs.scores || {};
+                const mine = this.engine.getAuthoritativeScores();
+                if (this.num(dbScores.player) !== mine.player || this.num(dbScores.opponent) !== mine.opponent) {
+                    await OnlineManager.updateScores(mine);
+                    return;
+                }
                 this.engine.ensureReading();
             } else {
-                // ゲスト: 表示だけ取り残されている場合の再適用（冪等）
                 this.onlineGameState = gs;
                 if (gs.phase === 'reading') this.updateOnlineClue(gs);
             }
@@ -515,79 +543,89 @@ class App {
             console.error('onlineWatchdogTick error:', e);
         }
     }
-    /* ===================================================================== */
+    /* ========================= 状態同期 ========================= */
     async syncOnlineGameState(gameState, roomData) {
         if (!gameState) return;
-        const mySeq = ++this.syncSeq;   // ★ v3: 同期シーケンス
+        const mySeq = ++this.syncSeq;
         this.onlineGameState = gameState;
         const round = Number(gameState.round) || 0;
         const phase = gameState.phase || 'waiting';
         const roundChanged = (round !== this.onlineRound);
 
-        /* 新ラウンド検出：結果表示フラグを確実にリセット */
         if (roundChanged) {
             this.onlineRound = round;
             this.hasShownResult = false;
             this.renderedRound = -1;
             this.processedTaps = {};
             this.historyTargetId = null;
+            this.scoredRemoteRound = -1;   // ★ v4
             this.closeRoundResultModal();
         }
-        // スコア表示（ホスト＝player / ゲスト＝opponent）
+
+        /* ★ v4: スコア表示
+           ホスト＝エンジンが正本（DB反映前のちらつき／巻き戻りを防止）
+           ゲスト＝DB の scores.opponent が自分の得点 */
         const scores = gameState.scores || {};
-        const myScore = this.isHost ? this.num(scores.player) : this.num(scores.opponent);
-        const oppScore = this.isHost ? this.num(scores.opponent) : this.num(scores.player);
+        let myScore, oppScore;
+        if (this.isHost) {
+            const mine = this.engine.getAuthoritativeScores();
+            myScore = mine.player;
+            oppScore = mine.opponent;
+        } else {
+            myScore = this.num(scores.opponent);
+            oppScore = this.num(scores.player);
+        }
         this.setText('score-player', myScore);
         this.setText('score-cpu', oppScore);
         const total = this.num(gameState.totalRounds) || this.engine.totalRounds || 10;
         this.setText('round-display', `${round} / ${total}`);
 
-        // カード描画（ゲスト側・ラウンドごとに1回だけ／表示をブロックしない）
         const cards = gameState.cards;
         if (!this.isHost && Array.isArray(cards) && cards.length > 0 && this.renderedRound !== round) {
             this.renderedRound = round;
             this.resetClueDisplay();
-            this.renderOnlineCards(cards).catch(() => { });   // ★ v3: await しない
+            this.renderOnlineCards(cards).catch(() => { });
         }
 
-        // ★ v3: dealing での表示クリアは「ラウンドが変わったとき」だけ
-        //   （古い dealing スナップショットが読み札を消す事故の防止）
         if (phase === 'reading') {
             this.updateOnlineClue(gameState);
         } else if (phase === 'dealing' && roundChanged && !this.isHost) {
             this.resetClueDisplay();
         }
 
-        // 結果表示（resultRound が現在のラウンドと一致するときだけ）
         if (phase === 'result' && !this.hasShownResult) {
             const resultRound = (gameState.resultRound === undefined || gameState.resultRound === null)
                 ? round : Number(gameState.resultRound);
             if (resultRound === round) {
+                const winner = gameState.roundWinner;
                 if (this.isHost) {
-                    /* ★ v3: 自分のエンジンが別のラウンドを進めているのに
-                       前ラウンドの result が届いた場合は「終了処理をしない」
-                       ＝旧版はここで currentRound を殺し、以後 startReading が
-                       永久に no-op になって 2 問目以降が進行不能だった */
+                    /* 前ラウンドの result が混ざった場合は現在のラウンドを殺さない */
                     if (resultRound !== this.engine.roundNumber && this.engine.currentRound.isActive) {
                         console.warn('[sync] stale result for round', resultRound, '-> repair db');
                         const r = this.engine.currentRound;
                         OnlineManager.setRoundData(r.cards, r.target, this.engine.roundNumber,
                             this.engine.totalRounds, Number(r.currentStage) || 0);
+                        this.syncScoresToRoom();
                         return;
                     }
                     this.hasShownResult = true;
                     if (this.engine.currentRound.isActive) {
                         this.engine.forceRoundEndLocal(resultRound);
                     }
+                    /* ★ v4: 相手が勝ったのにタップが未処理なら、ここで得点を確定させる
+                       （taps が result より遅れて届いたケースの最終保険） */
+                    if (winner === 'opponent' && this.scoredRemoteRound !== resultRound) {
+                        this.creditOpponentFromRoom(resultRound, gs_target(gameState));
+                    }
+                    this.syncScoresToRoom();
                 } else {
                     this.hasShownResult = true;
                 }
-                if (mySeq !== this.syncSeq) return; // さらに新しい同期が入った
+                if (mySeq !== this.syncSeq) return;
                 const target = gameState.target;
                 if (target) {
                     const clueData = this.engine.clues[String(target.id || '').trim()];
                     const explanation = (clueData && clueData.explanation) ? clueData.explanation : '解説データなし';
-                    const winner = gameState.roundWinner;
                     this.showRoundResult({
                         playerWon: this.isHost ? (winner === 'player') : (winner === 'opponent'),
                         target: target,
@@ -596,19 +634,42 @@ class App {
                 }
             }
         }
+
         if (phase === 'finished' && !this.gameEndShown) {
             this.gameEndShown = true;
             const s = gameState.scores || {};
-            const hostScore = this.num(s.player);
-            const guestScore = this.num(s.opponent);
-            const mine = this.isHost ? hostScore : guestScore;
-            const other = this.isHost ? guestScore : hostScore;
+            let mine, other;
+            if (this.isHost) {
+                const a = this.engine.getAuthoritativeScores();
+                mine = a.player; other = a.opponent;
+            } else {
+                mine = this.num(s.opponent); other = this.num(s.player);
+            }
             this.showGameEnd({
                 playerScore: mine,
                 cpuScore: other,
                 maxCombo: this.engine.maxCombo,
                 winner: mine > other ? 'player' : (mine < other ? 'cpu' : 'draw')
             });
+        }
+        /* gameState.target を取り出す小さなヘルパ（ローカル関数） */
+        function gs_target(gs) { return gs && gs.target ? gs.target : null; }
+    }
+    /**
+     * ★ v4: taps が届かない／遅れた場合の最終保険
+     *   DB の roundWinner='opponent' を根拠に、ゲストの得点を確定させる。
+     */
+    creditOpponentFromRoom(resultRound, target) {
+        if (!this.isHost || !this.isOnlineMode) return;
+        if (this.scoredRemoteRound === resultRound) return;
+        if (this.engine.roundNumber !== resultRound) return;
+        const stage = (this.onlineGameState && Number(this.onlineGameState.currentStage)) ||
+            (this.engine.currentRound && this.engine.currentRound.currentStage) || 1;
+        const scored = this.engine.scoreOpponentCorrect(stage);
+        this.scoredRemoteRound = resultRound;
+        if (scored) {
+            console.log('[score] credited opponent from room state (round ' + resultRound + ')');
+            this.syncScoresToRoom();
         }
     }
     num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
@@ -653,7 +714,6 @@ class App {
                 }, index * 50);
             });
         });
-        // ★ v3: タイムアウトを 15s → 6s に短縮（描画ハング時の影響を最小化）
         const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
         await Promise.race([Promise.all(promises), timeoutPromise]);
         return renderRound;
@@ -697,13 +757,17 @@ class App {
         const stage = Number(gs.currentStage) || 0;
         this.tapSeq++;
         const meta = { round: round, stage: stage, seq: this.tapSeq };
+
         if (this.isHost) {
+            // ホストはエンジン経由（得点・終了処理・Firebase通知）
             this.engine.handlePlayerTap(tapId);
             if (isCorrect && element) element.classList.add('correct');
+            this.syncScoresToRoom();   // ★ v4: 誤答 -50 も即反映
             try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
             return;
         }
-        // ゲスト
+
+        /* ---------- ゲスト ---------- */
         if (isCorrect) {
             if (element) element.classList.add('correct');
             this.hasShownResult = true;
@@ -711,6 +775,13 @@ class App {
             const clueData = this.engine.clues[targetId];
             const explanation = (clueData && clueData.explanation) ? clueData.explanation : '解説データなし';
             this.showRoundResult({ playerWon: true, target: gs.target, explanation: explanation });
+
+            /* ★ v4 最重要修正: 「タップ → 結果」の順で書く。
+               旧版は result を先に書いていたため、ホスト側で
+                 result 受信 → forceRoundEndLocal() → isActive = false
+                 taps  受信 → handleRemoteTaps が return（得点加算されない）
+               となり、ゲストの得点が永久に入らなかった。 */
+            try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
             try {
                 await OnlineManager.updateGameState({
                     phase: 'result',
@@ -718,17 +789,26 @@ class App {
                     resultRound: round
                 });
             } catch (e) { console.error(e); }
-        } else {
-            if (element) {
-                element.classList.add('wrong');
-                setTimeout(() => element.classList.remove('wrong'), 600);
-            }
-            try { AudioManager.playSound('wrong'); } catch (e) { }
+            return;
         }
+
+        // ゲストの誤答
+        if (element) {
+            element.classList.add('wrong');
+            setTimeout(() => element.classList.remove('wrong'), 600);
+        }
+        try { AudioManager.playSound('wrong'); } catch (e) { }
         try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
     }
+    /**
+     * ★ v4: 相手のタップ処理（ホスト＝得点判定の正本 / ゲスト＝演出のみ）
+     *   isActive に依存しない。二重加算・勝敗確定後の加算は
+     *   engine.scoreOpponentCorrect() 側で一括ガードする。
+     */
     handleRemoteTaps(taps) {
         if (!this.isOnlineMode || !taps) return;
+
+        /* ---------- ゲスト: 演出のみ ---------- */
         if (!this.isHost) {
             Object.keys(taps).forEach(pid => {
                 const tap = taps[pid];
@@ -742,40 +822,69 @@ class App {
                 const cardEl = this.findCardElement(tapId);
                 if (!cardEl) return;
                 const targetId = gs && gs.target ? String(gs.target.id || '').trim() : '';
-                if (tapId === targetId) {
-                    cardEl.classList.add('correct');
-                } else {
+                if (tapId === targetId) cardEl.classList.add('correct');
+                else {
                     cardEl.classList.add('wrong');
                     setTimeout(() => cardEl.classList.remove('wrong'), 600);
                 }
             });
             return;
         }
+
+        /* ---------- ホスト: 得点の正本 ---------- */
         const round = this.engine.currentRound;
-        if (!round || !round.isActive || !round.target) return;
+        if (!round || !round.target) return;
         const targetId = String(round.target.id || '').trim();
         const currentRoundNo = this.engine.roundNumber;
+
         Object.keys(taps).forEach(pid => {
             const tap = taps[pid];
             if (!tap || !tap.cardId) return;
             const tapRound = Number(tap.round) || 0;
-            if (tapRound && tapRound !== currentRoundNo) return;
+            if (tapRound && tapRound !== currentRoundNo) return;   // 前ラウンドのタップは無視
             const key = `${tapRound}_${tap.seq || tap.timestamp || 0}_${tap.cardId}`;
-            if (this.processedTaps[pid] === key) return;
+            if (this.processedTaps[pid] === key) return;           // 同一タップの再処理防止
             this.processedTaps[pid] = key;
+
             const tapId = String(tap.cardId).trim();
             const cardEl = this.findCardElement(tapId);
             const isCorrect = (tapId === targetId);
+
             if (isCorrect) {
                 if (cardEl) cardEl.classList.add('correct');
-                if (!this.engine.currentRound.isActive) return;
-                const stage = Number(tap.stage) || this.engine.currentRound.currentStage || 1;
-                this.engine.scoreOpponentCorrect(stage);
-                this.engine._finishRound(false);
+                const stage = Number(tap.stage) || round.currentStage || 1;
+                /* ★ v4: isActive が false（result 先行受信）でも加算できる */
+                const scored = this.engine.scoreOpponentCorrect(stage);
+                this.scoredRemoteRound = currentRoundNo;
+                if (!scored) {
+                    console.log('[score] opponent credit skipped (already settled) round', currentRoundNo);
+                    return;
+                }
+                console.log('[score] opponent +' , this.engine.scores.opponent, '(round', currentRoundNo, 'stage', stage, ')');
+                if (round.isActive) {
+                    // 通常経路: 終了処理 → finishRound(winner, round, scores) でDB反映
+                    this.engine._finishRound(false);
+                } else {
+                    // result スナップショットで既に終了済み → 得点だけ書き戻す
+                    this.syncScoresToRoom();
+                    if (!this.hasShownResult) {
+                        this.hasShownResult = true;
+                        const clueData = this.engine.clues[targetId];
+                        this.showRoundResult({
+                            playerWon: false,
+                            target: round.target,
+                            explanation: (clueData && clueData.explanation) ? clueData.explanation : '解説データなし'
+                        });
+                    }
+                }
             } else {
                 if (cardEl) {
                     cardEl.classList.add('wrong');
                     setTimeout(() => cardEl.classList.remove('wrong'), 600);
+                }
+                /* ★ v4: ゲストの誤答にもホストと同じ -50（対称化） */
+                if (this.engine.scoreOpponentWrong()) {
+                    this.syncScoresToRoom();
                 }
             }
         });
@@ -799,6 +908,7 @@ class App {
     /* ========================= ゲームUI ========================= */
     async updateGameUI(data) {
         if (!data) return;
+        /* ★ v4: ホストはエンジン、ゲストはDB（syncOnlineGameState側）が正本 */
         const scores = data.scores || { player: 0, opponent: 0 };
         this.setText('score-player', scores.player || 0);
         this.setText('score-cpu', scores.opponent || 0);
@@ -807,6 +917,7 @@ class App {
             case 'DEAL':
                 this.hasShownResult = false;
                 this.historyTargetId = null;
+                this.scoredRemoteRound = -1;   // ★ v4
                 this.closeRoundResultModal();
                 if (this.isOnlineMode) {
                     this.onlineRound = data.roundNumber;
@@ -814,13 +925,7 @@ class App {
                     this.processedTaps = {};
                     if (this.isHost) {
                         this.resetClueDisplay();
-                        /* ★ v3 最重要修正:
-                           旧版は「await renderOnlineCards() の完了後」に
-                           startReading() を呼んでいた。描画が 1 枚でもハングすると
-                           15 秒待たされ、その間に届いた前ラウンドの result で
-                           state が RESULT に変わると startReading が永久に no-op →
-                           2 問目以降、読み札が一切始まらなくなっていた。
-                           → 読み上げタイマーを先に起動し、描画は並行実行にする。 */
+                        // 読み上げ開始をカード描画の完了に依存させない
                         this.engine.startReading(true);
                         this.renderOnlineCards(data.round.cards).catch(() => { });
                     }
@@ -870,7 +975,6 @@ class App {
         await Promise.race([Promise.all(promises), timeoutPromise]);
         this.engine.startReading(true);
     }
-    /** 読み札履歴（STAGE 1〜current-1 を冪等に再構築） */
     updateClueWithHistory(round) {
         if (!round || !round.target) return;
         const targetId = String(round.target.id || '').trim();
@@ -947,6 +1051,15 @@ class App {
             ? (playerWon ? '正解' : '確認')
             : (playerWon ? '正解' : '不正解');
         const resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
+        /* ★ v4: 現在の得点も結果画面に表示 */
+        const sc = this.isHost
+            ? this.engine.getAuthoritativeScores()
+            : (() => {
+                const s = (this.onlineGameState && this.onlineGameState.scores) || {};
+                return { player: this.num(s.player), opponent: this.num(s.opponent) };
+            })();
+        const myNow = this.isHost ? sc.player : sc.opponent;
+        const oppNow = this.isHost ? sc.opponent : sc.player;
         modal.innerHTML =
             `<div class="modal-content" style="background: var(--card-bg); border: 3px solid ${resultColor}; border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
                 <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: ${resultColor}; font-family: var(--font-display); letter-spacing: 0.15em;">${resultTitle}</h2>
@@ -955,6 +1068,16 @@ class App {
                 </div>
                 <div style="font-size: 1.2rem; margin-bottom: 6px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;"></div>
                 <div class="modal-formula" style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 15px;"></div>
+                <div style="display: flex; justify-content: space-around; gap: 10px; margin-bottom: 15px;">
+                    <div style="flex:1; background: var(--tatami-light); border: 2px solid var(--card-border); border-radius: 2px; padding: 8px 4px;">
+                        <div style="font-size: 0.7rem; color: var(--text-light); letter-spacing: 0.1em; font-family: var(--font-display);">あなた</div>
+                        <div class="modal-my-score" style="font-size: 1.4rem; font-weight: 900; color: var(--accent-green); font-family: var(--font-display);">${myNow}</div>
+                    </div>
+                    <div style="flex:1; background: var(--tatami-light); border: 2px solid var(--card-border); border-radius: 2px; padding: 8px 4px;">
+                        <div style="font-size: 0.7rem; color: var(--text-light); letter-spacing: 0.1em; font-family: var(--font-display);">${this.isOnlineMode ? '相手' : 'CPU'}</div>
+                        <div class="modal-opp-score" style="font-size: 1.4rem; font-weight: 900; color: var(--accent-red); font-family: var(--font-display);">${oppNow}</div>
+                    </div>
+                </div>
                 <div style="font-size: 0.85rem; color: var(--text-dark); line-height: 1.7; margin-bottom: 20px; text-align: left; background: var(--tatami-light); padding: 12px 14px; border-radius: 2px; border-left: 4px solid var(--accent-gold); font-family: var(--font-main);">
                     <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-green); letter-spacing: 0.1em; margin-bottom: 4px; font-family: var(--font-display);">解説</div>
                     <div class="modal-explanation"></div>
@@ -991,12 +1114,32 @@ class App {
                 });
             }
         }
+        /* ★ v4: 得点の遅延反映（相手が勝った直後など）をモーダル内にも反映 */
+        if (this.isOnlineMode) {
+            this._refreshModalScores = () => {
+                if (!this.roundResultModal) return;
+                let m, o;
+                if (this.isHost) {
+                    const a = this.engine.getAuthoritativeScores();
+                    m = a.player; o = a.opponent;
+                } else {
+                    const s = (this.onlineGameState && this.onlineGameState.scores) || {};
+                    m = this.num(s.opponent); o = this.num(s.player);
+                }
+                const mEl = this.roundResultModal.querySelector('.modal-my-score');
+                const oEl = this.roundResultModal.querySelector('.modal-opp-score');
+                if (mEl) mEl.textContent = m;
+                if (oEl) oEl.textContent = o;
+            };
+            setTimeout(() => { if (this._refreshModalScores) this._refreshModalScores(); }, 700);
+            setTimeout(() => { if (this._refreshModalScores) this._refreshModalScores(); }, 1800);
+        }
     }
     showGameEnd(data) {
         if (!data) return;
         if (this.gameEndShown && this.isOnlineMode) return;
         this.gameEndShown = true;
-        this.stopOnlineWatchdog();   // ★ v3
+        this.stopOnlineWatchdog();
         if (!this.isPracticeMode && data.winner) {
             try { StorageManager.recordCpuResult(data.winner); } catch (e) { }
         }
@@ -1103,7 +1246,8 @@ class App {
         this.historyTargetId = null;
         this.renderedRound = -1;
         this.onlineRound = -1;
-        this.stopOnlineWatchdog();   // ★ v3
+        this.scoredRemoteRound = -1;   // ★ v4
+        this.stopOnlineWatchdog();
         this.closeRoundResultModal();
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',

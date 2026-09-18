@@ -1,12 +1,20 @@
 /* =========================================================================
-game.js  —  GameEngine（修正版 v3）
-【2枚目以降のオンライン対戦で読み札が始まらない問題への対策】
-・startReading(force) … state 判定で永久に止まらないよう強制起動を許可
-・進行ウォッチドッグ … 「読み上げが一度も始まらない／途中で止まる」を
-  検出して自動的に nextClue を再点火する（ラウンドトークン付き）
-・読み上げ onEnd 保険 … TTS の onEnd が返ってこなくても次ステージへ進む
-・forceRoundEndLocal(forRound) … 前ラウンドの結果で現在のラウンドを
-  殺されないようにラウンド番号照合を追加
+game.js  —  GameEngine（修正版 v4）
+【今回の修正: オンラインで「ゲストが正解しても得点が入らない」】
+原因:
+  ゲストは「phase=result」を先に書き、「taps」を後に書いていた。
+  → ホストは result スナップショットで forceRoundEndLocal() を実行し
+    currentRound.isActive = false になる
+  → 直後に届くゲストの taps を handleRemoteTaps が
+    「!isActive だから return」で捨てていた
+  → scoreOpponentCorrect() が一度も呼ばれず、ゲストの得点が永久に 0
+
+対策（エンジン側）:
+・scoreOpponentCorrect() に「勝敗確定済み / 加算済み」判定を集約し、
+   isActive の状態に依存せず 1 回だけ確実に加算できるようにした
+・currentRound.winner を導入（ホストが先に正解した場合は相手に加点しない）
+・scoreOpponentWrong() を追加（ホストと同じ -50 を相手にも適用＝対称化）
+・getAuthoritativeScores() を追加（DB書き戻し用）
 ========================================================================= */
 class GameEngine {
     constructor() {
@@ -31,9 +39,10 @@ class GameEngine {
         this.onOnlineStateChange = null;
         this._readTimer = null;
         this._clueTimer = null;
-        this._watchdogTimer = null;   // ★ v3
+        this._watchdogTimer = null;
         this._roundToken = 0;
-        this._lastClueAt = 0;          // ★ v3
+        this._lastClueAt = 0;
+        this._opponentScoredRound = -1;   // ★ v4: 相手得点の加算済みラウンド
     }
     _emptyRound() {
         return {
@@ -43,7 +52,8 @@ class GameEngine {
             maxStage: 4,
             isActive: false,
             startTime: 0,
-            token: 0
+            token: 0,
+            winner: null        // ★ v4: null | 'player' | 'opponent'
         };
     }
     _clearReadTimer() {
@@ -52,7 +62,6 @@ class GameEngine {
     _clearClueTimer() {
         if (this._clueTimer) { clearTimeout(this._clueTimer); this._clueTimer = null; }
     }
-    /* ★ v3: ウォッチドッグ */
     _clearWatchdog() {
         if (this._watchdogTimer) { clearInterval(this._watchdogTimer); this._watchdogTimer = null; }
     }
@@ -61,13 +70,7 @@ class GameEngine {
         this._clearClueTimer();
         this._clearWatchdog();
     }
-    /**
-     * ★ v3: 進行ウォッチドッグ
-     *  ・currentStage が 0 のまま 4 秒経過 → 読み上げを強制点火
-     *  ・最後の読み札から 16 秒経過 → 次ステージへ強制進行
-     *  （TTS の onEnd 消失・state 不一致・Firebase 書き込み失敗などで
-     *    ラウンドが固まった場合の最終防衛線）
-     */
+    /** 進行ウォッチドッグ（v3踏襲） */
     _startWatchdog(token) {
         this._clearWatchdog();
         if (this.isOnline && !this.isHost) return;
@@ -91,13 +94,10 @@ class GameEngine {
             }
         }, 1000);
     }
-    /** ★ v3: 外部（App）から「読み上げが始まっているか」を保証する */
     ensureReading() {
         if (!this.currentRound || !this.currentRound.isActive) return;
         if (this.isOnline && !this.isHost) return;
-        if (this.currentRound.currentStage === 0 && !this._readTimer) {
-            this.startReading(true);
-        }
+        if (this.currentRound.currentStage === 0 && !this._readTimer) this.startReading(true);
     }
     _clueOf(targetId) {
         return this.clues[String(targetId || '').trim()] || null;
@@ -163,6 +163,7 @@ class GameEngine {
         this.scores = { player: 0, opponent: 0 };
         this.combo = 0;
         this.maxCombo = 0;
+        this._opponentScoredRound = -1;   // ★ v4
         this.currentRound = this._emptyRound();
         this._notify();
         this.startNewRound();
@@ -176,6 +177,7 @@ class GameEngine {
         }
         this.roundNumber++;
         this._roundToken++;
+        this._opponentScoredRound = -1;   // ★ v4: ラウンドごとにリセット
         const token = this._roundToken;
         let candidates = this.compounds;
         if (this.settings.categories && this.settings.categories.length > 0) {
@@ -198,11 +200,12 @@ class GameEngine {
             maxStage: this._maxStage(target),
             isActive: true,
             startTime: Date.now(),
-            token: token
+            token: token,
+            winner: null            // ★ v4
         };
         this.state = 'DEAL';
         this._lastClueAt = Date.now();
-        this._startWatchdog(token);   // ★ v3: 描画やFirebaseの成否に依存しない進行保証
+        this._startWatchdog(token);
         this._notify();
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
@@ -216,21 +219,16 @@ class GameEngine {
             });
         }
     }
-    /**
-     * ★ v3: force=true で state 判定を bypass できる
-     *   （前ラウンドの result スナップショット等で state が汚染されても
-     *     読み上げが二度と始まらなくなる事故を防止）
-     */
     startReading(force = false) {
         if (!this.currentRound.isActive) return;
         if (this.isOnline && !this.isHost) return;
-        if (this.currentRound.currentStage > 0) return; // 既に読み始め済み
-        if (this._readTimer) return;                    // 二重起動防止
+        if (this.currentRound.currentStage > 0) return;
+        if (this._readTimer) return;
         if (!force && this.state !== 'DEAL') return;
         const token = this.currentRound.token;
         this._readTimer = setTimeout(() => {
             this._readTimer = null;
-            if (this.currentRound.token !== token) return; // 古いラウンドのタイマーは無視
+            if (this.currentRound.token !== token) return;
             if (!this.currentRound.isActive) return;
             this.nextClue();
         }, 1500);
@@ -242,15 +240,14 @@ class GameEngine {
         if (!target) return;
         const clueData = this._clueOf(target.id);
         const maxStage = this._maxStage(target);
-        if (this.currentRound.currentStage >= maxStage) return; // 読み切り
+        if (this.currentRound.currentStage >= maxStage) return;
         this._clearClueTimer();
         const token = this.currentRound.token;
         this.currentRound.currentStage++;
         this.state = 'READING';
-        this._lastClueAt = Date.now();   // ★ v3
+        this._lastClueAt = Date.now();
         const stageNow = this.currentRound.currentStage;
 
-        /* ★ v3: 次ステージ進行を 1 本化（onEnd 消失時の保険タイマー付き） */
         let advanced = false;
         const advance = () => {
             if (advanced) return;
@@ -267,7 +264,6 @@ class GameEngine {
                 if (this.currentRound.token === token) this.nextClue();
             }, 1000);
         };
-        // 保険: 読み上げの onEnd が返ってこなくても 15 秒で次へ
         this._clueTimer = setTimeout(() => { this._clueTimer = null; advance(); }, 15000);
 
         if (clueData) {
@@ -368,7 +364,12 @@ class GameEngine {
             this._scheduleNextClue(1500);
         }
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
-            this.onOnlineStateChange({ type: 'player_tap', cardId: tapId, isCorrect: isCorrect });
+            this.onOnlineStateChange({
+                type: 'player_tap',
+                cardId: tapId,
+                isCorrect: isCorrect,
+                scores: this.scores      // ★ v4: 誤答ペナルティも即時反映
+            });
         }
     }
     handleCpuAnswer(cardId, isCorrect) {
@@ -385,14 +386,40 @@ class GameEngine {
             this._scheduleNextClue(1500);
         }
     }
-    scoreOpponentCorrect(stage) {
-        this.combo = 0;
-        this._calculateScore(true, Number(stage) || this.currentRound.currentStage || 1, 'opponent', 0);
-    }
+    /* =====================================================================
+       ★ v4: オンライン相手（ゲスト）の得点 API
+       isActive に依存せず、かつ「1ラウンド1回だけ」確実に加算する。
+       ===================================================================== */
     /**
-     * ★ v3: forRound を渡すと「そのラウンドの結果ではない」場合に無視する
-     *   （前ラウンドの result スナップショットで現在のラウンドを殺す事故の防止）
+     * @returns {boolean} 加算できたかどうか（false = 加算不要／確定済み）
      */
+    scoreOpponentCorrect(stage) {
+        // ホストがすでに正解して勝敗が決まっている → 相手には加点しない
+        if (this.currentRound.winner === 'player') return false;
+        // 同一ラウンドで二重加算しない
+        if (this._opponentScoredRound === this.roundNumber) return false;
+        this._opponentScoredRound = this.roundNumber;
+        this.currentRound.winner = 'opponent';
+        this.combo = 0;
+        const st = Number(stage) || this.currentRound.currentStage || 1;
+        this._calculateScore(true, st, 'opponent', 0);
+        return true;
+    }
+    /** ★ v4: 相手の誤答ペナルティ（ホストと同じ -50） */
+    scoreOpponentWrong() {
+        if (this.currentRound.winner) return false;
+        this.scores.opponent = Math.max(0, this.scores.opponent - 50);
+        this._notify({ type: 'score_update' });
+        return true;
+    }
+    /** ★ v4: DB書き戻し用の正本スコア */
+    getAuthoritativeScores() {
+        return {
+            player: Number(this.scores.player) || 0,
+            opponent: Number(this.scores.opponent) || 0
+        };
+    }
+    /** ラウンド番号照合付きローカル終了（v3踏襲） */
     forceRoundEndLocal(forRound) {
         if (typeof forRound === 'number' && forRound > 0 && forRound !== this.roundNumber) {
             console.warn('forceRoundEndLocal ignored: stale round', forRound, 'current', this.roundNumber);
@@ -420,13 +447,14 @@ class GameEngine {
         }
         if (who === 'player') this.scores.player += gained;
         else this.scores.opponent += gained;
-        this._notify({ type: 'score_update', gained: gained });
+        this._notify({ type: 'score_update', gained: gained, who: who });
     }
     _finishRound(playerWon) {
-        if (!this.currentRound.isActive) return; // ★ v3: 二重終了防止
+        if (!this.currentRound.isActive) return;
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
         this.currentRound.isActive = false;
+        this.currentRound.winner = playerWon ? 'player' : 'opponent';   // ★ v4
         this.state = 'RESULT';
         const target = this.currentRound.target || {};
         const clueData = this._clueOf(target.id);
@@ -448,7 +476,7 @@ class GameEngine {
                 round: this.roundNumber,
                 playerWon: playerWon,
                 target: target,
-                scores: this.scores,
+                scores: this.getAuthoritativeScores(),   // ★ v4
                 phase: 'result'
             });
         }
@@ -467,7 +495,11 @@ class GameEngine {
         this._notify({ type: 'game_end', summary: summary });
         if (this.onGameEnd) this.onGameEnd(summary);
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
-            this.onOnlineStateChange({ type: 'game_end', scores: this.scores, phase: 'finished' });
+            this.onOnlineStateChange({
+                type: 'game_end',
+                scores: this.getAuthoritativeScores(),   // ★ v4
+                phase: 'finished'
+            });
         }
     }
     skipRound() {
