@@ -1,9 +1,9 @@
 /**
 App - メインアプリケーションクラス（オンライン対戦 最終修正版）
 修正内容：
-・ゲストが正解した場合、直接showRoundResultを呼ぶ
-・ホストが正解した場合、engine._finishRound経由でshowRoundResultを呼ぶ
-・両者の画面に結果が表示されるように修正
+・takenクラスを追加しない（グレイアウト防止）
+・ホスト・ゲスト両方で正解時に即座にshowRoundResultを呼ぶ
+・hasShownResultフラグを確実に管理
 */
 class App {
 constructor() {
@@ -89,7 +89,7 @@ this.showScreen(nextScreen);
   if (cardGrid) {
       cardGrid.addEventListener('click', (e) => {
           const card = e.target.closest('.card');
-          if (card && !card.classList.contains('taken')) {
+          if (card && !card.classList.contains('correct')) {
               this.handleCardTap(card.dataset.id, card);
           }
       });
@@ -498,11 +498,13 @@ const textEl = document.getElementById('clue-text');
 }
 /**
  * ★ 修正: オンラインモードでのカードタップ処理
- * ホストが正解: engine._finishRound経由でshowRoundResultを呼ぶ
- * ゲストが正解: 直接showRoundResultを呼ぶ
+ * takenクラスを追加しない
+ * ホストが正解: _finishRound(true) → onRoundEnd → showRoundResult
+ * ゲストが正解: 直接showRoundResult + Firebase通知
  */
 async handleOnlineCardTap(id, element) {
 if (!this.isOnlineMode) return;
+ if (this.hasShownResult) return;
  if (this.onlineGameState && this.onlineGameState.roundWinner) return;
  
  const target = this.onlineGameState ? this.onlineGameState.target : null;
@@ -513,30 +515,28 @@ if (!this.isOnlineMode) return;
  const isCorrect = (tapId === targetId);
  
  if (isCorrect) {
+     // correctクラスのみ追加（takenは追加しない）
      element.classList.add('correct');
      
-     // Firebaseに勝者とphaseをセット
-     const winner = this.isHost ? 'player' : 'opponent';
-     await OnlineManager.updateGameState({ 
-         roundWinner: winner,
-         phase: 'result'
-     });
-     
      if (this.isHost) {
-         // ホストが正解: engine経由で終了（onRoundEnd → showRoundResult）
+         // ホストが正解: engine経由で終了
          this.engine._finishRound(true);
      } else {
          // ゲストが正解: 直接showRoundResultを呼ぶ
-         if (!this.hasShownResult) {
-             this.hasShownResult = true;
-             const clueData = this.engine.clues[targetId];
-             const explanation = clueData ? clueData.explanation : '解説データなし';
-             this.showRoundResult({
-                 playerWon: true,
-                 target: target,
-                 explanation: explanation
-             });
-         }
+         this.hasShownResult = true;
+         const clueData = this.engine.clues[targetId];
+         const explanation = clueData ? clueData.explanation : '解説データなし';
+         this.showRoundResult({
+             playerWon: true,
+             target: target,
+             explanation: explanation
+         });
+         
+         // Firebaseに勝者を通知
+         await OnlineManager.updateGameState({ 
+             roundWinner: 'opponent',
+             phase: 'result'
+         });
      }
  } else {
      element.classList.add('wrong');
@@ -547,10 +547,11 @@ if (!this.isOnlineMode) return;
 }
 /**
  * ★ 修正: 相手のタップ処理（ホストのみ）
- * ゲストが正解した場合、engine._finishRound経由でshowRoundResultを呼ぶ
+ * ゲストが正解した場合、_finishRound(false)を呼ぶ
  */
 handleOpponentTap(taps) {
 if (!this.isHost || !this.onlineGameState) return;
+if (this.hasShownResult) return;
 if (!this.engine.currentRound.isActive) return;
 
 for (const playerId in taps) {
