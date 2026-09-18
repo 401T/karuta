@@ -1907,7 +1907,7 @@ class App {
                 item.dataset.id = String(compound.id || '').trim();
                 const structInner = unlocked
                     ? ''
-                    : `<div class="ref-lock">${this._lockSvg()}<span>未解锁</span></div>`;
+                    : `<div class="ref-lock">${this._lockSvg()}<span>未解放</span></div>`;
                 item.innerHTML =
                     `<div class="reference-item-structure ${unlocked ? '' : 'locked'}" data-smiles="${unlocked ? (compound.smiles || '') : ''}">${structInner}</div>
                      <div class="reference-item-name">${compound.name || ''}</div>
@@ -1940,7 +1940,7 @@ class App {
         const unlocked = ProgressManager.isUnlocked(compoundId);
 
         this.setText('detail-name', compound.name || '');
-        this.setText('detail-formula', unlocked ? (compound.formula || '') : '???（未解锁）');
+        this.setText('detail-formula', unlocked ? (compound.formula || '') : '???（未解放）');
 
         const structureDiv = document.getElementById('detail-structure');
         if (structureDiv) {
@@ -1956,7 +1956,7 @@ class App {
                     `<div class="ref-lock" style="color:#8b8676;">
                         ${this._lockSvg()}
                         <span>構造式はロック中</span>
-                        <span style="font-size:.65rem;opacity:.8;">CPU戦でこの化合物に正解すると解锁</span>
+                        <span style="font-size:.65rem;opacity:.8;">CPU戦でこの化合物に正解すると解放</span>
                      </div>`;
             }
         }
