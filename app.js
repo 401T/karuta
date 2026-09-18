@@ -1,5 +1,10 @@
 /**
- * App - メインアプリケーションクラス（オンライン対戦修正版）
+ * App - メインアプリケーションクラス（オンライン対戦完全修正版）
+ * 
+ * 修正内容：
+ * 1. ホストがゲストの正解を検知したらラウンドを終了
+ * 2. ゲスト側でホストの正解エフェクトを表示
+ * 3. ゲーム進行の同期を確実に
  */
 class App {
     constructor() {
@@ -14,7 +19,6 @@ class App {
         this.referenceCurrentCategory = 'all';
         this.onlineGameState = null;
         this.hasShownResult = false;
-        this.lastProcessedStage = 0; // 読み札重複防止
         
         this.init();
     }
@@ -395,14 +399,12 @@ class App {
         this.isOnlineMode = true;
         this.isPracticeMode = false;
         this.hasShownResult = false;
-        this.lastProcessedStage = 0;
 
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             gameScreen.classList.remove('practice-mode');
         }
 
-        // ★ 修正: ラベルを「あなた」と「相手」に設定
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = 'あなた';
@@ -434,14 +436,12 @@ class App {
         this.isOnlineMode = true;
         this.isPracticeMode = false;
         this.hasShownResult = false;
-        this.lastProcessedStage = 0;
 
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             gameScreen.classList.remove('practice-mode');
         }
 
-        // ★ 修正: ラベルを「あなた」と「相手」に設定
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = 'あなた';
@@ -498,7 +498,6 @@ class App {
             }
         });
 
-        // ★ 修正: ゲストのタップを監視し、ホストに通知
         OnlineManager.onTaps((taps) => {
             this.handleOpponentTap(taps);
         });
@@ -523,12 +522,23 @@ class App {
             this.updateOnlineClue(gameState);
         } else if (gameState.phase === 'result' && !this.hasShownResult) {
             this.hasShownResult = true;
+            
+            // ★ 修正: 正解カードにエフェクトを追加（ゲスト側）
+            if (!this.isHost && gameState.target) {
+                const targetId = (gameState.target.id || '').trim();
+                const correctCard = document.querySelector(`.card[data-id="${targetId}"]`);
+                if (correctCard && !correctCard.classList.contains('taken')) {
+                    correctCard.classList.add('correct');
+                    setTimeout(() => correctCard.classList.add('taken'), 600);
+                }
+            }
+            
+            // 解説モーダルを表示
             if (gameState.target) {
                 const targetId = (gameState.target.id || '').trim();
                 const clueData = this.engine.clues[targetId];
                 const explanation = clueData ? clueData.explanation : '解説データなし';
                 
-                // ★ 修正: ゲスト側でもリザルト画面を表示
                 this.showRoundResult({
                     playerWon: gameState.roundWinner === 'player',
                     target: gameState.target,
@@ -595,21 +605,16 @@ class App {
             }
         }
 
-        // ★ 修正: 読み札の重複防止
-        if (gameState.currentStage !== this.lastProcessedStage) {
-            this.lastProcessedStage = gameState.currentStage;
-            this.updateClueWithHistory({
-                target: gameState.target,
-                currentStage: gameState.currentStage
-            });
-        }
+        this.updateClueWithHistory({
+            target: gameState.target,
+            currentStage: gameState.currentStage
+        });
     }
 
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
 
         if (this.isHost) {
-            // ホスト：game.js に処理を委譲
             this.engine.handlePlayerTap(id);
             
             const targetId = (this.engine.currentRound.target.id || '').trim();
@@ -624,7 +629,6 @@ class App {
                 setTimeout(() => element.classList.remove('wrong'), 600);
             }
         } else {
-            // ★ 修正: ゲストはFirebaseにタップを記録
             await OnlineManager.recordTap(id);
             
             const target = this.onlineGameState ? this.onlineGameState.target : null;
@@ -644,26 +648,33 @@ class App {
         }
     }
 
+    /**
+     * ★ 修正: 相手のタップ処理（ホストのみ）
+     * ゲストが正解した場合、ラウンドを終了する
+     */
     handleOpponentTap(taps) {
-        if (!this.onlineGameState) return;
+        if (!this.onlineGameState || !this.isHost) return;
 
         for (const playerId in taps) {
             const tap = taps[playerId];
+            const target = this.onlineGameState.target;
+            if (!target) continue;
+            
+            const targetId = (target.id || '').trim();
+            const tapId = (tap.cardId || '').trim();
+            const isCorrect = (tapId === targetId);
+            
             const card = document.querySelector(`.card[data-id="${tap.cardId}"]`);
             if (card && !card.classList.contains('taken')) {
-                const target = this.onlineGameState.target;
-                if (target) {
-                    const targetId = (target.id || '').trim();
-                    const tapId = (tap.cardId || '').trim();
-                    const isCorrect = (tapId === targetId);
+                if (isCorrect) {
+                    card.classList.add('correct');
+                    setTimeout(() => card.classList.add('taken'), 600);
                     
-                    if (isCorrect) {
-                        card.classList.add('correct');
-                        setTimeout(() => card.classList.add('taken'), 600);
-                    } else {
-                        card.classList.add('wrong');
-                        setTimeout(() => card.classList.remove('wrong'), 600);
-                    }
+                    // ★ 修正: ゲストが正解した場合、ホスト側でラウンドを終了
+                    this.engine.handleOpponentWin();
+                } else {
+                    card.classList.add('wrong');
+                    setTimeout(() => card.classList.remove('wrong'), 600);
                 }
             }
         }
@@ -730,7 +741,6 @@ class App {
         this.isPracticeMode = (this.selectedDifficulty === 0);
         this.isOnlineMode = false;
         this.hasShownResult = false;
-        this.lastProcessedStage = 0;
         
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',
@@ -751,7 +761,6 @@ class App {
             }
         }
         
-        // ★ 修正: CPU戦時のラベル
         const playerLabel = document.getElementById('player-score-label');
         const cpuLabel = document.getElementById('cpu-score-label');
         if (playerLabel) playerLabel.textContent = '得点';
@@ -771,11 +780,16 @@ class App {
 
         switch (data.state) {
             case 'DEAL':
-                // ★ 修正: ラウンド開始時にフラグをリセット
                 this.hasShownResult = false;
-                this.lastProcessedStage = 0;
                 
-                await this.renderCards(data.round.cards);
+                if (this.isOnlineMode) {
+                    if (this.isHost) {
+                        await this.renderOnlineCards(data.round.cards);
+                        this.engine.startReading();
+                    }
+                } else {
+                    await this.renderCards(data.round.cards);
+                }
                 const historyEl = document.getElementById('clue-history');
                 if (historyEl) historyEl.innerHTML = '';
                 const stageEl = document.getElementById('clue-stage');
@@ -991,7 +1005,6 @@ class App {
                 </div>
             `;
         } else {
-            // ★ 修正: オンライン対戦時は「あなた」vs「相手」
             const playerLabel = this.isOnlineMode ? 'あなた' : 'PLAYER';
             const opponentLabel = this.isOnlineMode ? '相手' : 'CPU';
             const message = data.winner === 'player' ? '勝利' : 
