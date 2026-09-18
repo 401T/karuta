@@ -1439,10 +1439,10 @@ class App {
         const unlockedNow = targetId && ProgressManager.isUnlocked(targetId);
         const lockBadge = !this.isOnlineMode
             ? (unlockedNow
-                ? `<div class="unlock-badge">🔓 資料アンロック済み</div>`
+                ? `<div class="unlock-badge">資料アンロック済み</div>`
                 : (this.isPracticeMode
                     ? `<div class="lock-badge">練習モードはアンロック対象外</div>`
-                    : `<div class="lock-badge">🔒 正解すると資料が解放</div>`))
+                    : `<div class="lock-badge">正解すると資料が解放</div>`))
             : '';
 
         modal.innerHTML =
