@@ -1,10 +1,9 @@
 /**
 App - メインアプリケーションクラス（オンライン対戦 最終修正版）
 修正内容：
-・カードのtakenクラス追加を削除（グレイアウト防止）
-・ホスト・ゲスト両方で正解時に即座に結果画面を表示
-・hasShownResultフラグのリセットタイミングを修正
-・次の問題への遷移を確実に
+・ゲストが正解した場合、直接showRoundResultを呼ぶ
+・ホストが正解した場合、engine._finishRound経由でshowRoundResultを呼ぶ
+・両者の画面に結果が表示されるように修正
 */
 class App {
 constructor() {
@@ -393,7 +392,7 @@ if (!this.isOnlineMode || !this.isHost) return;
       case 'round_end':
           await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
           await OnlineManager.updateScores(state.scores);
-          await OnlineManager.updateGameState({ phase: 'result' });
+          await OnlineManager.updateGameState({ phase: 'result', roundWinner: state.playerWon ? 'player' : 'opponent' });
           break;
       case 'game_end':
           await OnlineManager.finishGame(state.scores);
@@ -433,8 +432,9 @@ if (!gameState) return;
           const targetId = (gameState.target.id || '').trim();
           const clueData = this.engine.clues[targetId];
           const explanation = clueData ? clueData.explanation : '解説データなし';
+          const isPlayerWinner = gameState.roundWinner === 'player';
           this.showRoundResult({
-              playerWon: gameState.roundWinner === 'player',
+              playerWon: this.isHost ? isPlayerWinner : !isPlayerWinner,
               target: gameState.target,
               explanation: explanation
           });
@@ -498,7 +498,8 @@ const textEl = document.getElementById('clue-text');
 }
 /**
  * ★ 修正: オンラインモードでのカードタップ処理
- * takenクラスを追加しない（グレイアウト防止）
+ * ホストが正解: engine._finishRound経由でshowRoundResultを呼ぶ
+ * ゲストが正解: 直接showRoundResultを呼ぶ
  */
 async handleOnlineCardTap(id, element) {
 if (!this.isOnlineMode) return;
@@ -512,7 +513,6 @@ if (!this.isOnlineMode) return;
  const isCorrect = (tapId === targetId);
  
  if (isCorrect) {
-     // ★ correctクラスのみ追加（takenは追加しない）
      element.classList.add('correct');
      
      // Firebaseに勝者とphaseをセット
@@ -522,21 +522,21 @@ if (!this.isOnlineMode) return;
          phase: 'result'
      });
      
-     // ローカルで即座に結果を表示
-     if (!this.hasShownResult) {
-         this.hasShownResult = true;
-         const clueData = this.engine.clues[targetId];
-         const explanation = clueData ? clueData.explanation : '解説データなし';
-         this.showRoundResult({
-             playerWon: this.isHost,
-             target: target,
-             explanation: explanation
-         });
-     }
-     
-     // ホストはエンジンのラウンドを終了
      if (this.isHost) {
+         // ホストが正解: engine経由で終了（onRoundEnd → showRoundResult）
          this.engine._finishRound(true);
+     } else {
+         // ゲストが正解: 直接showRoundResultを呼ぶ
+         if (!this.hasShownResult) {
+             this.hasShownResult = true;
+             const clueData = this.engine.clues[targetId];
+             const explanation = clueData ? clueData.explanation : '解説データなし';
+             this.showRoundResult({
+                 playerWon: true,
+                 target: target,
+                 explanation: explanation
+             });
+         }
      }
  } else {
      element.classList.add('wrong');
@@ -547,10 +547,12 @@ if (!this.isOnlineMode) return;
 }
 /**
  * ★ 修正: 相手のタップ処理（ホストのみ）
- * takenクラスを追加しない
+ * ゲストが正解した場合、engine._finishRound経由でshowRoundResultを呼ぶ
  */
 handleOpponentTap(taps) {
-if (!this.onlineGameState) return;
+if (!this.isHost || !this.onlineGameState) return;
+if (!this.engine.currentRound.isActive) return;
+
 for (const playerId in taps) {
 const tap = taps[playerId];
 const target = this.onlineGameState.target;
@@ -561,8 +563,10 @@ if (!target) continue;
  const card = document.querySelector(`.card[data-id="${tap.cardId}"]`);
  if (card && !card.classList.contains('correct')) {
      if (isCorrect) {
-         // ★ correctクラスのみ追加
          card.classList.add('correct');
+         // ゲストが正解したので、ホストは敗北として終了
+         this.engine._finishRound(false);
+         return;
      } else {
          card.classList.add('wrong');
          setTimeout(() => card.classList.remove('wrong'), 600);
@@ -778,10 +782,6 @@ card.classList.add(type);
 setTimeout(() => card.classList.remove(type), 600);
 }
 }
-/**
- * ★ 修正: 結果画面表示
- * 次の問題へボタンでホストが次のラウンドを開始
- */
 showRoundResult(data) {
 if (this.hasShownResult) return;
 this.hasShownResult = true;
@@ -825,8 +825,6 @@ this.hasShownResult = true;
       nextBtn.addEventListener('click', () => {
           modal.remove();
           this.hasShownResult = false;
-          
-          // ホストのみ次のラウンドを開始
           if (this.isHost || !this.isOnlineMode) {
               this.engine.startNewRound();
           }
