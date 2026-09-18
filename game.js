@@ -1,18 +1,21 @@
 /* =========================================================================
-   game.js  —  GameEngine v6
+   game.js  —  GameEngine v7
    -------------------------------------------------------------------------
-   【v6 の修正】
-   ★修正3: 取り札が全て描画される前に読み上げが始まる
-     ・cardsReady フラグを導入。startNewRound で false にし、
-       UI 側が「全カード描画完了」を通知して初めて読み上げを許可する。
-     ・startReading() は cardsReady でない場合は _pendingRead に保留。
-     ・watchdog も cardsReady 前は stage0 の強制進行を行わない。
-   【v5 からの継続修正】
-     ・最終札到達 → 最終解答フェーズ（時間切れで自動終了＝ボタンが死なない）
-     ・_finishRound の完全冪等化（settled）
-     ・CPU 誤答にも -50（対称化）
-     ・onCorrectAnswer フック（資料アンロック）
-   ★修正4: cardCount を settings から確実に参照（0/NaN ガード付き）
+   【v7 の修正／追加】
+   ★カードが1枚も出ない問題（エンジン側の要因）を排除
+     ・cardsReady ゲートは維持しつつ、setCardsReady が呼ばれなくても
+       WATCHDOG_FORCE_MS 経過後は自動的に読み上げへ進む保険を追加
+       （UI 側の描画が何らかの理由で完了通知できない場合でも進行する）
+   ★詳細統計用の計測（内部時計）
+     ・r.readStartAt / r.stageStartedAt を保持
+     ・onAnswerRecord(payload) を新設し、正誤・反応時間(ms)・
+       読み札からの経過・誤答回数・コンボ等を毎回通知
+   ★アンロック条件の厳格化サポート
+     ・r.playerMisses を数え、perfect（誤答なしの一発正解）を meta で通知
+   ・CPU の反応時間を lastCpuReactionMs として保持（段位特典の表示用）
+   【v6 からの継続】
+     ・最終札 → 最終解答フェーズ（時間切れで自動終了＝ボタンが死なない）
+     ・_finishRound の完全冪等化 / CPU 誤答 -50 / cardCount 安全化
 ========================================================================= */
 class GameEngine {
     constructor() {
@@ -31,7 +34,7 @@ class GameEngine {
         this.totalRounds = 10;
         this.combo = 0;
         this.maxCombo = 0;
-        this.roundWins = { player: 0, opponent: 0, timeout: 0 };
+        this.roundWins = { player: 0, opponent: 0, timeout: 0, perfect: 0 };
 
         this.cpu = null;
         this.settings = { cardCount: 9, cpuLevel: 3, categories: [] };
@@ -41,6 +44,7 @@ class GameEngine {
         this.onGameEnd = null;
         this.onOnlineStateChange = null;
         this.onCorrectAnswer = null;
+        this.onAnswerRecord = null;      // ★ 詳細統計用
 
         this._readTimer = null;
         this._clueTimer = null;
@@ -51,16 +55,16 @@ class GameEngine {
         this._opponentScoredRound = -1;
         this._playerTimes = [];
 
-        // ★ 修正3: カード描画完了ゲート
         this.cardsReady = false;
         this._pendingRead = false;
 
         this.finalDeadline = 0;
         this.FINAL_ANSWER_WINDOW = 10000;
-        this.READ_START_DELAY = 1000;   // 札が揃ってから読み上げ開始までの間
+        this.READ_START_DELAY = 1000;
+        this.WATCHDOG_FORCE_MS = 9000;   // ★ 描画完了通知が来なくても最大9秒で読み上げ開始
+        this.lastCpuReactionMs = 0;
     }
 
-    /* ========================= ラウンド雛形 ========================= */
     _emptyRound() {
         return {
             target: null,
@@ -69,23 +73,25 @@ class GameEngine {
             maxStage: 4,
             isActive: false,
             startTime: 0,
+            readStartAt: 0,        // ★ 読み上げ開始の内部時計
+            stageStartedAt: 0,     // ★ 現在の読み札が出た瞬間
             token: 0,
             winner: null,
             settled: false,
             isFinal: false,
             finalPhase: false,
-            reason: null
+            reason: null,
+            playerMisses: 0,       // ★ このラウンドのプレイヤー誤答数
+            cpuMisses: 0
         };
     }
 
-    /* ========================= タイマー管理 ========================= */
     _clearReadTimer() { if (this._readTimer) { clearTimeout(this._readTimer); this._readTimer = null; } }
     _clearClueTimer() { if (this._clueTimer) { clearTimeout(this._clueTimer); this._clueTimer = null; } }
     _clearFinalTimer() { if (this._finalTimer) { clearTimeout(this._finalTimer); this._finalTimer = null; } this.finalDeadline = 0; }
     _clearWatchdog() { if (this._watchdogTimer) { clearInterval(this._watchdogTimer); this._watchdogTimer = null; } }
     _clearTimers() { this._clearReadTimer(); this._clearClueTimer(); this._clearFinalTimer(); this._clearWatchdog(); }
 
-    /** ★ 修正3: UI が「全カード描画完了」を通知する */
     setCardsReady(ready) {
         this.cardsReady = !!ready;
         if (this.cardsReady && this._pendingRead) {
@@ -95,11 +101,11 @@ class GameEngine {
         this._notify({ type: 'cards_ready', cardsReady: this.cardsReady });
     }
 
-    /** 進行ウォッチドッグ（読み上げが止まったときの保険） */
     _startWatchdog(token) {
         this._clearWatchdog();
         if (this.isOnline && !this.isHost) return;
         this._lastClueAt = Date.now();
+        const roundStartedAt = Date.now();
         this._watchdogTimer = setInterval(() => {
             const r = this.currentRound;
             if (!r || r.token !== token || !r.isActive || r.settled) { this._clearWatchdog(); return; }
@@ -107,9 +113,20 @@ class GameEngine {
             if (r.finalPhase) return;
 
             const idle = Date.now() - (this._lastClueAt || r.startTime || Date.now());
+
             if (r.currentStage === 0) {
-                // ★ 修正3: カードが揃うまでは絶対に読み上げない
-                if (!this.cardsReady) { this._lastClueAt = Date.now(); return; }
+                if (!this.cardsReady) {
+                    // ★ 保険: 描画完了通知が来なくても一定時間で強制開始
+                    if (Date.now() - roundStartedAt > this.WATCHDOG_FORCE_MS) {
+                        console.warn('[watchdog] cardsReady not signaled -> force ready');
+                        this.cardsReady = true;
+                        this._lastClueAt = Date.now();
+                        this.startReading(true);
+                    } else {
+                        this._lastClueAt = Date.now();
+                    }
+                    return;
+                }
                 if (idle > 5000) {
                     console.warn('[watchdog] reading never started -> force nextClue (round ' + this.roundNumber + ')');
                     this._clearReadTimer();
@@ -131,7 +148,6 @@ class GameEngine {
         if (this.currentRound.currentStage === 0 && !this._readTimer) this.startReading(true);
     }
 
-    /* ========================= データ ========================= */
     _clueOf(targetId) { return this.clues[String(targetId || '').trim()] || null; }
 
     _maxStage(target) {
@@ -140,7 +156,6 @@ class GameEngine {
         return 4;
     }
 
-    /** ★ 修正4: カード枚数を安全に取得（NaN / 0 / 範囲外を防止） */
     getCardCount() {
         let n = parseInt(this.settings && this.settings.cardCount, 10);
         if (!isFinite(n) || n <= 0) n = 9;
@@ -188,7 +203,6 @@ class GameEngine {
         }
     }
 
-    /* ========================= 設定・開始 ========================= */
     configure(settings) {
         this.settings = Object.assign({}, this.settings, settings || {});
         if (settings && settings.isOnline !== undefined) this.isOnline = settings.isOnline;
@@ -197,7 +211,6 @@ class GameEngine {
             this.cpu = settings.cpuLevel > 0 ? new CPUPlayer(settings.cpuLevel) : null;
         }
         if (settings && settings.mode) this.mode = settings.mode;
-        // ★ 修正4: cardCount の型を強制
         if (settings && settings.cardCount !== undefined) {
             const n = parseInt(settings.cardCount, 10);
             this.settings.cardCount = isFinite(n) && n > 0 ? n : 9;
@@ -211,12 +224,13 @@ class GameEngine {
         this.scores = { player: 0, opponent: 0 };
         this.combo = 0;
         this.maxCombo = 0;
-        this.roundWins = { player: 0, opponent: 0, timeout: 0 };
+        this.roundWins = { player: 0, opponent: 0, timeout: 0, perfect: 0 };
         this._opponentScoredRound = -1;
         this._playerTimes = [];
         this.currentRound = this._emptyRound();
         this.cardsReady = false;
         this._pendingRead = false;
+        this.lastCpuReactionMs = 0;
         if (this.cpu && this.cpu.reset) this.cpu.reset();
         this._notify();
         this.startNewRound();
@@ -232,7 +246,7 @@ class GameEngine {
         this._roundToken++;
         this._opponentScoredRound = -1;
         this.finalDeadline = 0;
-        this.cardsReady = false;      // ★ 修正3: 毎ラウンド、描画完了を待つ
+        this.cardsReady = false;
         this._pendingRead = false;
         const token = this._roundToken;
 
@@ -258,12 +272,16 @@ class GameEngine {
             maxStage: this._maxStage(target),
             isActive: true,
             startTime: 0,
+            readStartAt: 0,
+            stageStartedAt: 0,
             token: token,
             winner: null,
             settled: false,
             isFinal: false,
             finalPhase: false,
-            reason: null
+            reason: null,
+            playerMisses: 0,
+            cpuMisses: 0
         };
         this.state = 'DEAL';
         this._lastClueAt = Date.now();
@@ -290,12 +308,12 @@ class GameEngine {
         if (r.currentStage > 0) return;
         if (this._readTimer) return;
         if (!force && this.state !== 'DEAL') return;
-
-        // ★ 修正3: カードが揃っていなければ保留（setCardsReady で再開）
         if (!this.cardsReady) { this._pendingRead = true; return; }
 
         const token = r.token;
-        r.startTime = Date.now();
+        const now = Date.now();
+        r.startTime = now;
+        r.readStartAt = now;
         this._readTimer = setTimeout(() => {
             this._readTimer = null;
             if (this.currentRound.token !== token) return;
@@ -304,7 +322,6 @@ class GameEngine {
         }, this.READ_START_DELAY);
     }
 
-    /* ========================= 読み札進行 ========================= */
     nextClue() {
         const r = this.currentRound;
         if (!r || !r.isActive || r.settled) return;
@@ -315,7 +332,6 @@ class GameEngine {
         const clueData = this._clueOf(target.id);
         const maxStage = this._maxStage(target);
 
-        // 最終札まで読み終えていたら最終解答フェーズへ
         if (r.currentStage >= maxStage) { this._enterFinalPhase(); return; }
 
         this._clearClueTimer();
@@ -324,9 +340,11 @@ class GameEngine {
 
         r.currentStage++;
         r.isFinal = (r.currentStage >= maxStage);
+        r.stageStartedAt = Date.now();          // ★ 内部時計
+        if (!r.startTime) r.startTime = r.stageStartedAt;
+        if (!r.readStartAt) r.readStartAt = r.stageStartedAt;
         this.state = 'READING';
         this._lastClueAt = Date.now();
-        if (!r.startTime) r.startTime = Date.now();
         const stageNow = r.currentStage;
 
         let advanced = false;
@@ -350,7 +368,6 @@ class GameEngine {
             }, 1000);
         };
 
-        // 読み上げが取得できなかった場合の保険
         this._clueTimer = setTimeout(() => { this._clueTimer = null; advance(); }, 15000);
 
         if (clueData) {
@@ -385,13 +402,13 @@ class GameEngine {
             this.cpu.startThinking(target.id, r.cards, stageNow, (actionType, cardId) => {
                 if (this.currentRound.token !== token) return;
                 if (this.currentRound.settled || !this.currentRound.isActive) return;
+                this.lastCpuReactionMs = this.cpu.lastReactionMs || 0;
                 if (actionType === 'tap') this.handleCpuAnswer(cardId, true);
                 else this.handleCpuAnswer(cardId, false);
             }, this._cpuContext(r.isFinal));
         }
     }
 
-    /** 最終解答フェーズ（読み札を出し切ったあとの制限時間） */
     _enterFinalPhase() {
         const r = this.currentRound;
         if (!r || !r.isActive || r.settled) return;
@@ -420,6 +437,7 @@ class GameEngine {
             this.cpu.startThinking(r.target ? r.target.id : '', r.cards, r.currentStage, (actionType, cardId) => {
                 if (this.currentRound.token !== token) return;
                 if (this.currentRound.settled || !this.currentRound.isActive) return;
+                this.lastCpuReactionMs = this.cpu.lastReactionMs || 0;
                 if (actionType === 'tap') this.handleCpuAnswer(cardId, true);
                 else this.handleCpuAnswer(cardId, false);
             }, this._cpuContext(true));
@@ -499,8 +517,29 @@ class GameEngine {
         const targetId = String(target ? target.id : '').trim();
         const tapId = String(cardId || '').trim();
         const isCorrect = (tapId === targetId);
-        const reactionTime = Date.now() - (r.startTime || Date.now());
+        const now = Date.now();
+        const reactionTime = now - (r.startTime || now);
+        const stageReaction = now - (r.stageStartedAt || r.startTime || now);
         const stageNow = r.currentStage;
+
+        // ★ 詳細統計用の計測レコード
+        const record = {
+            t: now,
+            mode: this.isOnline ? 'online' : this.mode,
+            difficulty: this.settings.cpuLevel || 0,
+            compoundId: targetId,
+            compoundName: target ? (target.name || '') : '',
+            category: target ? (target.category || '') : '',
+            correct: isCorrect,
+            stage: stageNow,
+            maxStage: r.maxStage,
+            reactionMs: Math.max(0, Math.round(reactionTime)),
+            stageReactionMs: Math.max(0, Math.round(stageReaction)),
+            combo: this.combo + (isCorrect ? 1 : 0),
+            missesBefore: r.playerMisses,
+            cardCount: r.cards ? r.cards.length : 0,
+            round: this.roundNumber
+        };
 
         if (isCorrect) {
             if (this.cpu) this.cpu.cancelThinking();
@@ -524,20 +563,29 @@ class GameEngine {
                 } catch (e) { console.error('Storage error:', e); }
             }
 
+            record.perfect = (r.playerMisses === 0);   // ★ 誤答なしの一発正解
+            record.combo = this.combo;
+
+            if (this.onAnswerRecord) { try { this.onAnswerRecord(record); } catch (e) { console.error(e); } }
+
             if (this.onCorrectAnswer) {
                 try {
                     this.onCorrectAnswer(target, {
                         mode: this.mode, isOnline: this.isOnline,
-                        stage: stageNow, round: this.roundNumber,
+                        stage: stageNow, maxStage: r.maxStage, round: this.roundNumber,
                         difficulty: this.settings.cpuLevel || 0,
-                        combo: this.combo, reactionTime: reactionTime
+                        combo: this.combo, reactionTime: reactionTime,
+                        perfect: record.perfect,          // ★ アンロック判定に使用
+                        misses: r.playerMisses
                     });
                 } catch (e) { console.error('onCorrectAnswer error:', e); }
             }
 
+            if (record.perfect) this.roundWins.perfect++;
             this._finishRound(true, 'player');
         } else {
             this.combo = 0;
+            r.playerMisses++;                             // ★ 誤答を計上
             this._calculateScore(false, 0, 'player', reactionTime);
             AudioManager.playSound('wrong');
             if (!this.isOnline) {
@@ -550,6 +598,9 @@ class GameEngine {
                     });
                 } catch (e) { console.error('Storage error:', e); }
             }
+            record.perfect = false;
+            if (this.onAnswerRecord) { try { this.onAnswerRecord(record); } catch (e) { console.error(e); } }
+
             this._notify({ type: 'wrong', id: tapId });
             this._scheduleNextClue(1600);
         }
@@ -571,6 +622,7 @@ class GameEngine {
             AudioManager.playSound('wrong');
             this._finishRound(false, 'cpu');
         } else {
+            r.cpuMisses++;
             this.scores.opponent = Math.max(0, this.scores.opponent - 50);
             this._notify({ type: 'cpu_wrong', id: cardId });
             AudioManager.playSound('wrong');
@@ -668,13 +720,18 @@ class GameEngine {
             explanation: explanation,
             reason: r.reason,
             stage: r.currentStage,
-            combo: this.combo
+            combo: this.combo,
+            perfect: playerWon && r.playerMisses === 0 && r.reason === 'player'
         });
 
         if (this.onRoundEnd) {
             this.onRoundEnd({
                 playerWon: playerWon, target: target,
-                explanation: explanation, reason: r.reason
+                explanation: explanation, reason: r.reason,
+                stage: r.currentStage,
+                playerMisses: r.playerMisses,
+                cpuReactionMs: this.lastCpuReactionMs,
+                perfect: playerWon && r.playerMisses === 0 && r.reason === 'player'
             });
         }
 
@@ -728,7 +785,6 @@ class GameEngine {
         try { AudioManager.stop(); } catch (e) { }
     }
 
-    /* ========================= 通知 ========================= */
     _notify(data = {}) {
         if (!this.onUpdate) return;
         const r = this.currentRound;

@@ -1,16 +1,16 @@
 /* =========================================================================
-   cpu.js  —  CPUPlayer v2.1 「ユーザーと競る」バランス型 AI
+   cpu.js  —  CPUPlayer v2.2 「ユーザーと競る」バランス型 AI
    -------------------------------------------------------------------------
-   【設計方針】
-     1) 反応時間は人間の「読み＋判断」レンジ（1.2〜9.5秒）に収める
-     2) insightStage（気づく読み札）を 1〜3 に設定
-     3) hesitate（迷って1札見送る）で取りこぼしを作る
-     4) errorRate で官能基が近い別札を叩かせる（人間と同じミス）
-     5) ラバーバンド: 点差・連勝に応じて ±25% の範囲でのみ強さを動かす
-     6) 最終札では必ずアクションする（進行が止まらない）
-   【v2.1 変更】
-     ・startThinking の ctx 未指定時も this.ctx を使って安全に動くよう修正
-     ・cancelThinking 後に isThinking が残るケースを明示的にクリア
+   【v2.2 変更】
+   ・lastReactionMs / lastAction を公開（統計画面で「CPUの思考時間」を表示する
+     段位特典に使用）
+   ・startThinking の ctx 未指定時も this.ctx で安全に動作
+   ・cancelThinking で isThinking を確実にクリア
+   【設計方針（据え置き）】
+   1) 反応時間は人間の「読み＋判断」レンジ（1.2〜9.5秒）
+   2) insightStage 1〜3 / hesitate で取りこぼし / errorRate で人間らしい誤答
+   3) ラバーバンド: 点差・連勝に応じて ±25% の範囲でのみ強弱
+   4) 最終札では必ずアクション（進行が止まらない）
 ========================================================================= */
 class CPUPlayer {
     constructor(level = 3) {
@@ -26,9 +26,11 @@ class CPUPlayer {
         this.speedMult = 1;
         this.errorMult = 1;
         this.log = [];
+        // ★v2.2: 統計表示用
+        this.lastReactionMs = 0;
+        this.lastAction = null;      // { type, stage, correct }
     }
 
-    /** レベル別プロファイル（0 = 練習モードは CPU なし） */
     _getParams(level) {
         const profiles = {
             1: { name: '易しい', insightStage: 3, baseTime: 5400, stageReduction: 800, hesitate: 0.45, errorRate: 0.26, finalErrorRate: 0.14, minTime: 2000, maxTime: 9500 },
@@ -48,7 +50,6 @@ class CPUPlayer {
         this._recalculate();
     }
 
-    /** ラバーバンド：点差と連勝から speed / error の倍率を決める */
     _recalculate() {
         const c = this.ctx;
         const diff = (Number(c.cpuScore) || 0) - (Number(c.playerScore) || 0);
@@ -87,14 +88,6 @@ class CPUPlayer {
         this.ctx.playerAvgTime = this.log.reduce((a, b) => a + b, 0) / this.log.length;
     }
 
-    /**
-     * 思考開始
-     * @param {string} targetId    正解カードID
-     * @param {Array}  cards       場のカード
-     * @param {number} currentStage 現在の読み札ステージ
-     * @param {Function} onComplete (actionType, cardId) => void
-     * @param {Object} [ctx]       状況コンテキスト
-     */
     startThinking(targetId, cards, currentStage, onComplete, ctx) {
         if (ctx) this.setContext(ctx);
         if (this.isThinking) return;
@@ -105,11 +98,9 @@ class CPUPlayer {
         const maxStage = Number(this.ctx.maxStage) || 4;
         const isFinal = !!(this.ctx && this.ctx.isFinalStage) || stage >= maxStage;
 
-        // 1) まだ気づいていない → 待機
         const canSolve = (stage >= p.insightStage) || isFinal;
         if (!canSolve) { this.isThinking = false; return; }
 
-        // 2) 迷い（確信できたばかりの札では見送ることがある）
         if (!isFinal && stage === p.insightStage && Math.random() < p.hesitate * this.errorMult) {
             this.isThinking = false;
             return;
@@ -117,7 +108,6 @@ class CPUPlayer {
 
         this.isThinking = true;
 
-        // 3) 反応時間
         const over = Math.max(0, stage - p.insightStage);
         let reactionTime = p.baseTime - over * p.stageReduction;
         reactionTime *= this.speedMult;
@@ -126,7 +116,6 @@ class CPUPlayer {
         if (avg < 2500) reactionTime *= 0.92;
         reactionTime = Math.max(p.minTime, Math.min(p.maxTime, reactionTime));
 
-        // 4) 正誤判定
         const baseErr = isFinal ? p.finalErrorRate : p.errorRate;
         const willMiss = Math.random() < (baseErr * this.errorMult);
 
@@ -138,15 +127,17 @@ class CPUPlayer {
             reactionTime *= 1.12;
         }
 
+        this.lastReactionMs = Math.round(reactionTime);
+
         this.thinkingTimer = setTimeout(() => {
             this.thinkingTimer = null;
             this.isThinking = false;
+            this.lastAction = { type: actionType, stage: stage, correct: actionType === 'tap', ms: this.lastReactionMs };
             try { onComplete(actionType, actionId); }
             catch (e) { console.error('CPU callback error:', e); }
         }, reactionTime);
     }
 
-    /** 誤答候補（タグ・単元・分子式が近いものを優先） */
     _findDistractor(targetId, cards) {
         const list = Array.isArray(cards) ? cards.filter(c => c && String(c.id) !== String(targetId)) : [];
         if (list.length === 0) return targetId;
@@ -179,6 +170,8 @@ class CPUPlayer {
         this.log = [];
         this.speedMult = 1;
         this.errorMult = 1;
+        this.lastReactionMs = 0;
+        this.lastAction = null;
     }
 }
 
