@@ -514,6 +514,11 @@ class App {
     async syncOnlineGameState(gameState) {
         if (!gameState) return;
 
+        // ★ ラウンド開始時にフラグをリセット
+        if (gameState.phase === 'dealing') {
+            this.hasShownResult = false;
+        }
+
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
         const roundDisplayEl = document.getElementById('round-display');
@@ -522,19 +527,15 @@ class App {
         if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
         if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
 
-        // phase に基づいて処理を分岐
         if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
-            // ゲストはカードを描画（ホストは updateGameUI で描画済み）
             if (!this.isHost) {
                 await this.renderOnlineCards(gameState.cards);
             }
         } else if (gameState.phase === 'reading') {
             this.updateOnlineClue(gameState);
         } else if (gameState.phase === 'result' && !this.hasShownResult) {
-            // ラウンド終了時、ゲストも解説モーダルを表示
             this.hasShownResult = true;
             if (gameState.target) {
-                // 解説データを取得
                 const targetId = (gameState.target.id || '').trim();
                 const clueData = this.engine.clues[targetId];
                 const explanation = clueData ? clueData.explanation : '解説データなし';
@@ -550,7 +551,7 @@ class App {
                 playerScore: gameState.scores.player,
                 cpuScore: gameState.scores.opponent,
                 winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
-                       gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
+                    gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
             });
         }
     }
@@ -774,7 +775,6 @@ class App {
     }
 
     async updateGameUI(data) {
-        // オンラインモードでもホストはUIを更新する
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
         const roundDisplayEl = document.getElementById('round-display');
@@ -785,11 +785,12 @@ class App {
 
         switch (data.state) {
             case 'DEAL':
-                // オンラインモードではホストのみカードを描画
+                // ★ ラウンド開始時にフラグをリセット
+                this.hasShownResult = false;
+                
                 if (this.isOnlineMode) {
                     if (this.isHost) {
                         await this.renderOnlineCards(data.round.cards);
-                        // ホストのみ読み札を開始
                         this.engine.startReading();
                     }
                 } else {
