@@ -2081,7 +2081,7 @@ class App {
         const nextBtn = document.getElementById('btn-next-clue');
         if (nextBtn) {
             nextBtn.disabled = !canNext || guestTurn || this.hasShownResult || this._dealing;
-            nextBtn.textContent = isFinal ? '最終札' : '次の札';
+            nextBtn.textContent = isFinal ? '最終札' : '次';
             nextBtn.title = isFinal ? '読み札はすべて読み終えました' : '次の読み札へ';
         }
         const skipBtn = document.getElementById('btn-skip');
