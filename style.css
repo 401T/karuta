@@ -6,7 +6,7 @@
 
 @font-face {
     font-family: 'TsukuGo';
-    src: url('./fonts/FOT-TsukuGoPro-R.otf') format('opentype');
+    src: url('./fonts/FOT-TsukuBRdGothicStd-M.otf') format('opentype');
     font-weight: normal;
     font-style: normal;
     font-display: swap;
@@ -14,7 +14,7 @@
 
 @font-face {
     font-family: 'TsukuGo';
-    src: url('./fonts/FOT-TsukuoldGoPro-B.otf') format('opentype');
+    src: url('./fonts/FOT-TsukuBRdGothicStd-E.otf') format('opentype');
     font-weight: bold;
     font-style: normal;
     font-display: swap;
