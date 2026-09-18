@@ -1,9 +1,9 @@
 /**
-App - メインアプリケーションクラス（オンライン対戦完全修正版）
+App - メインアプリケーションクラス（オンライン対戦 最終修正版）
 修正内容：
-ホストがゲストの正解を検知したらラウンドを終了
-ゲスト側でホストの正解エフェクトを表示
-ゲーム進行の同期を確実に
+・ホストが正解 → _finishRound(true) → Firebase phase:result → ゲストが結果表示
+・ゲストが正解 → ローカルで即座に結果表示 + ホストが _finishRound(false) → Firebase phase:result
+・handleOpponentTap でゲストの正解を検知したら必ず _finishRound を呼ぶ
 */
 class App {
 constructor() {
@@ -392,7 +392,7 @@ if (!this.isOnlineMode || !this.isHost) return;
       case 'round_end':
           await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
           await OnlineManager.updateScores(state.scores);
-          await OnlineManager.updateGameState({ phase: 'result' });
+          await OnlineManager.updateGameState({ phase: 'result', roundWinner: state.playerWon ? 'player' : 'opponent' });
           break;
       case 'game_end':
           await OnlineManager.finishGame(state.scores);
@@ -416,7 +416,6 @@ if (!gameState) return;
  const playerScoreEl = document.getElementById('score-player');
   const cpuScoreEl = document.getElementById('score-cpu');
   const roundDisplayEl = document.getElementById('round-display');
-  // 得点をFirebaseから取得
   if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player || 0;
   if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent || 0;
   if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
@@ -432,8 +431,9 @@ if (!gameState) return;
           const targetId = (gameState.target.id || '').trim();
           const clueData = this.engine.clues[targetId];
           const explanation = clueData ? clueData.explanation : '解説データなし';
+          const isPlayerWinner = gameState.roundWinner === 'player';
           this.showRoundResult({
-              playerWon: gameState.roundWinner === 'player',
+              playerWon: this.isHost ? isPlayerWinner : !isPlayerWinner,
               target: gameState.target,
               explanation: explanation
           });
@@ -510,16 +510,33 @@ if (!this.isOnlineMode) return;
  const tapId = (id || '').trim();
  const isCorrect = (tapId === targetId);
  
- // ローカルUIへの即座のフィードバック
  if (isCorrect) {
      element.classList.add('correct');
      setTimeout(() => element.classList.add('taken'), 600);
+     
+     if (this.isHost) {
+         // ホストが正解した場合
+         this.engine.handlePlayerTap(id);
+     } else {
+         // ゲストが正解した場合
+         // ローカルで即座に結果を表示
+         if (!this.hasShownResult) {
+             this.hasShownResult = true;
+             const clueData = this.engine.clues[targetId];
+             const explanation = clueData ? clueData.explanation : '解説データなし';
+             this.showRoundResult({
+                 playerWon: true,
+                 target: target,
+                 explanation: explanation
+             });
+         }
+     }
  } else {
      element.classList.add('wrong');
      setTimeout(() => element.classList.remove('wrong'), 600);
  }
  
- // タップをFirebaseに記録（ホストがこれを検知して処理する）
+ // Firebaseにタップを記録
  await OnlineManager.recordTap(id);
 }
 /**
@@ -544,8 +561,8 @@ if (!target) continue;
          card.classList.add('correct');
          setTimeout(() => card.classList.add('taken'), 600);
          
-         // ★ 重要: ホストが正解を検知したら、エンジン経由でラウンドを終了させる
-         // ゲストが正解 -> ホスト(engine上のplayer)は敗北扱い(false)
+         // ★ 重要: ホストがゲストの正解を検知したら、エンジン経由でラウンドを終了させる
+         // ゲストが正解 -> ホスト側は敗北扱い(false)
          this.engine._finishRound(false);
          return; // 1つ正解が見つかったらループを抜ける
      } else {
