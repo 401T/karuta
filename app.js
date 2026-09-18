@@ -1,9 +1,9 @@
 /**
 App - メインアプリケーションクラス（オンライン対戦 最終修正版）
 修正内容：
-・ホストが正解 → _finishRound(true) → Firebase phase:result → ゲストが結果表示
-・ゲストが正解 → ローカルで即座に結果表示 + ホストが _finishRound(false) → Firebase phase:result
-・handleOpponentTap でゲストの正解を検知したら必ず _finishRound を呼ぶ
+・ゲストが正解した時、ローカルで即座にエフェクトと結果画面を表示
+・Firebaseに phase: 'result' をセットしてホストに通知
+・ゲストは「次の問題へ」後、ホストが次のラウンドを開始するまで待機
 */
 class App {
 constructor() {
@@ -18,6 +18,7 @@ this.isHost = false;
 this.referenceCurrentCategory = 'all';
 this.onlineGameState = null;
 this.hasShownResult = false;
+this.isWaitingForNextRound = false;
 this.init();
 }
 async init() {
@@ -325,6 +326,7 @@ if (waitingModal) waitingModal.remove();
  this.isOnlineMode = true;
   this.isPracticeMode = false;
   this.hasShownResult = false;
+  this.isWaitingForNextRound = false;
   const gameScreen = document.getElementById('screen-game');
   if (gameScreen) {
       gameScreen.classList.remove('practice-mode');
@@ -355,6 +357,7 @@ if (waitingModal) waitingModal.remove();
  this.isOnlineMode = true;
   this.isPracticeMode = false;
   this.hasShownResult = false;
+  this.isWaitingForNextRound = false;
   const gameScreen = document.getElementById('screen-game');
   if (gameScreen) {
       gameScreen.classList.remove('practice-mode');
@@ -392,7 +395,7 @@ if (!this.isOnlineMode || !this.isHost) return;
       case 'round_end':
           await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
           await OnlineManager.updateScores(state.scores);
-          await OnlineManager.updateGameState({ phase: 'result', roundWinner: state.playerWon ? 'player' : 'opponent' });
+          await OnlineManager.updateGameState({ phase: 'result' });
           break;
       case 'game_end':
           await OnlineManager.finishGame(state.scores);
@@ -420,7 +423,14 @@ if (!gameState) return;
   if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent || 0;
   if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
   if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
+      // 待機中モーダルを閉じる
+      const waitingModal = document.getElementById('waiting-next-round-modal');
+      if (waitingModal) {
+          waitingModal.remove();
+          this.isWaitingForNextRound = false;
+      }
       if (!this.isHost) {
+          this.hasShownResult = false;
           await this.renderOnlineCards(gameState.cards);
       }
   } else if (gameState.phase === 'reading') {
@@ -496,7 +506,8 @@ const textEl = document.getElementById('clue-text');
  });
 }
 /**
- * オンラインモードでのカードタップ処理
+ * ★ 修正: オンラインモードでのカードタップ処理
+ * ゲストが正解した時、ローカルで即座にエフェクトと結果画面を表示
  */
 async handleOnlineCardTap(id, element) {
 if (!this.isOnlineMode) return;
@@ -511,25 +522,32 @@ if (!this.isOnlineMode) return;
  const isCorrect = (tapId === targetId);
  
  if (isCorrect) {
+     // ローカルUIへの即座のフィードバック
      element.classList.add('correct');
      setTimeout(() => element.classList.add('taken'), 600);
      
+     // Firebaseに勝者とphaseをセット
+     const winner = this.isHost ? 'player' : 'opponent';
+     await OnlineManager.updateGameState({ 
+         roundWinner: winner,
+         phase: 'result'
+     });
+     
+     // ローカルで即座に結果を表示
+     if (!this.hasShownResult) {
+         this.hasShownResult = true;
+         const clueData = this.engine.clues[targetId];
+         const explanation = clueData ? clueData.explanation : '解説データなし';
+         this.showRoundResult({
+             playerWon: this.isHost,
+             target: target,
+             explanation: explanation
+         });
+     }
+     
+     // ホストはエンジンのラウンドを終了
      if (this.isHost) {
-         // ホストが正解した場合
-         this.engine.handlePlayerTap(id);
-     } else {
-         // ゲストが正解した場合
-         // ローカルで即座に結果を表示
-         if (!this.hasShownResult) {
-             this.hasShownResult = true;
-             const clueData = this.engine.clues[targetId];
-             const explanation = clueData ? clueData.explanation : '解説データなし';
-             this.showRoundResult({
-                 playerWon: true,
-                 target: target,
-                 explanation: explanation
-             });
-         }
+         this.engine._finishRound(true);
      }
  } else {
      element.classList.add('wrong');
@@ -562,9 +580,8 @@ if (!target) continue;
          setTimeout(() => card.classList.add('taken'), 600);
          
          // ★ 重要: ホストがゲストの正解を検知したら、エンジン経由でラウンドを終了させる
-         // ゲストが正解 -> ホスト側は敗北扱い(false)
          this.engine._finishRound(false);
-         return; // 1つ正解が見つかったらループを抜ける
+         return;
      } else {
          card.classList.add('wrong');
          setTimeout(() => card.classList.remove('wrong'), 600);
@@ -626,6 +643,7 @@ startGame() {
 this.isPracticeMode = (this.selectedDifficulty === 0);
 this.isOnlineMode = false;
 this.hasShownResult = false;
+this.isWaitingForNextRound = false;
  const settings = {
       mode: this.isPracticeMode ? 'practice' : 'cpu',
       cpuLevel: this.isPracticeMode ? 0 : this.selectedDifficulty,
@@ -781,6 +799,10 @@ card.classList.add(type);
 setTimeout(() => card.classList.remove(type), 600);
 }
 }
+/**
+ * ★ 修正: 結果画面表示
+ * ゲストが正解した場合も即座に表示される
+ */
 showRoundResult(data) {
 if (this.hasShownResult) return;
 this.hasShownResult = true;
@@ -790,6 +812,7 @@ this.hasShownResult = true;
   const modal = document.createElement('div');
   modal.className = 'screen active modal-screen';
   modal.style.zIndex = '1000';
+  modal.id = 'round-result-modal';
   const resultTitle = this.isPracticeMode 
       ? (playerWon ? '正解' : '確認') 
       : (playerWon ? '正解' : '不正解');
@@ -823,12 +846,34 @@ this.hasShownResult = true;
       nextBtn.addEventListener('click', () => {
           modal.remove();
           this.hasShownResult = false;
-          // ホストのみ次のラウンドを開始
+          
           if (this.isHost || !this.isOnlineMode) {
+              // ホストまたはオフライン：次のラウンドを開始
               this.engine.startNewRound();
+          } else {
+              // ゲスト：ホストが次のラウンドを開始するのを待つ
+              this.showWaitingForNextRound();
           }
       });
   }
+}
+/**
+ * ★ 新規追加: ゲストが次のラウンドを待機する画面
+ */
+showWaitingForNextRound() {
+this.isWaitingForNextRound = true;
+ const modal = document.createElement('div');
+  modal.className = 'screen active modal-screen';
+  modal.style.zIndex = '1000';
+  modal.id = 'waiting-next-round-modal';
+  modal.innerHTML = `
+      <div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
+          <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">次の問題を開始しています...</h2>
+          <div class="loading-spinner" style="margin: 20px auto;"></div>
+          <p style="font-size: 0.85rem; color: var(--text-light); margin-top: 20px;">ホストが次の問題を開始するまでお待ちください</p>
+      </div>
+  `;
+  document.body.appendChild(modal);
 }
 showGameEnd(data) {
 if (!this.isPracticeMode && data.winner) {
