@@ -1,19 +1,18 @@
 /* =========================================================================
-   game.js  —  GameEngine v5
+   game.js  —  GameEngine v6
    -------------------------------------------------------------------------
-   【修正1】最後の読み札を読み終えるとボタンが効かなくなる問題
-     原因: nextClue() が `currentStage >= maxStage` で黙って return し、
-           以降どのタイマーも張られない → 進行が完全に停止。
-           watchdog も nextClue() を叩き続けるだけで何も起きない。
-           結果、UI 側は「押せるはずのボタン」が押せなくなったように見える。
-     対策: ・最終札到達を検出して "最終解答フェーズ"(finalPhase) へ移行
-           ・FINAL_ANSWER_WINDOW のカウントダウン後に自動でラウンド終了
-           ・canNextClue() を公開し、UI がボタンを正しく活性/非活性
-           ・_finishRound() を settled フラグで完全冪等化
-           ・どの経路でも必ず onRoundEnd が呼ばれる（＝必ず次へ進める）
-   【修正2】CPU の誤答にも -50（プレイヤーと対称）
-   【修正3】onCorrectAnswer を発火（資料アンロック用フック）
-   【修正4】CPU にコンテキストを渡し「競る」ラバーバンドを有効化
+   【v6 の修正】
+   ★修正3: 取り札が全て描画される前に読み上げが始まる
+     ・cardsReady フラグを導入。startNewRound で false にし、
+       UI 側が「全カード描画完了」を通知して初めて読み上げを許可する。
+     ・startReading() は cardsReady でない場合は _pendingRead に保留。
+     ・watchdog も cardsReady 前は stage0 の強制進行を行わない。
+   【v5 からの継続修正】
+     ・最終札到達 → 最終解答フェーズ（時間切れで自動終了＝ボタンが死なない）
+     ・_finishRound の完全冪等化（settled）
+     ・CPU 誤答にも -50（対称化）
+     ・onCorrectAnswer フック（資料アンロック）
+   ★修正4: cardCount を settings から確実に参照（0/NaN ガード付き）
 ========================================================================= */
 class GameEngine {
     constructor() {
@@ -41,19 +40,24 @@ class GameEngine {
         this.onRoundEnd = null;
         this.onGameEnd = null;
         this.onOnlineStateChange = null;
-        this.onCorrectAnswer = null;          // ★ 資料アンロック用フック
+        this.onCorrectAnswer = null;
 
         this._readTimer = null;
         this._clueTimer = null;
-        this._finalTimer = null;              // ★ 最終解答カウントダウン
+        this._finalTimer = null;
         this._watchdogTimer = null;
         this._roundToken = 0;
         this._lastClueAt = 0;
         this._opponentScoredRound = -1;
         this._playerTimes = [];
 
-        this.finalDeadline = 0;               // ★ UI がカウントダウン表示に使用
-        this.FINAL_ANSWER_WINDOW = 10000;     // 最終札読み上げ後の解答可能時間
+        // ★ 修正3: カード描画完了ゲート
+        this.cardsReady = false;
+        this._pendingRead = false;
+
+        this.finalDeadline = 0;
+        this.FINAL_ANSWER_WINDOW = 10000;
+        this.READ_START_DELAY = 1000;   // 札が揃ってから読み上げ開始までの間
     }
 
     /* ========================= ラウンド雛形 ========================= */
@@ -66,11 +70,11 @@ class GameEngine {
             isActive: false,
             startTime: 0,
             token: 0,
-            winner: null,        // null | 'player' | 'opponent'
-            settled: false,      // ★ 完全冪等フラグ
-            isFinal: false,      // ★ 最終札まで読まれた
-            finalPhase: false,   // ★ カウントダウン開始済み
-            reason: null         // 'player' | 'cpu' | 'opponent' | 'timeout' | 'skip'
+            winner: null,
+            settled: false,
+            isFinal: false,
+            finalPhase: false,
+            reason: null
         };
     }
 
@@ -81,6 +85,16 @@ class GameEngine {
     _clearWatchdog() { if (this._watchdogTimer) { clearInterval(this._watchdogTimer); this._watchdogTimer = null; } }
     _clearTimers() { this._clearReadTimer(); this._clearClueTimer(); this._clearFinalTimer(); this._clearWatchdog(); }
 
+    /** ★ 修正3: UI が「全カード描画完了」を通知する */
+    setCardsReady(ready) {
+        this.cardsReady = !!ready;
+        if (this.cardsReady && this._pendingRead) {
+            this._pendingRead = false;
+            this.startReading(true);
+        }
+        this._notify({ type: 'cards_ready', cardsReady: this.cardsReady });
+    }
+
     /** 進行ウォッチドッグ（読み上げが止まったときの保険） */
     _startWatchdog(token) {
         this._clearWatchdog();
@@ -90,12 +104,13 @@ class GameEngine {
             const r = this.currentRound;
             if (!r || r.token !== token || !r.isActive || r.settled) { this._clearWatchdog(); return; }
             if (this.isOnline && !this.isHost) { this._clearWatchdog(); return; }
-            // ★ 最終解答フェーズは _finalTimer が管理するので手を出さない
             if (r.finalPhase) return;
 
             const idle = Date.now() - (this._lastClueAt || r.startTime || Date.now());
             if (r.currentStage === 0) {
-                if (idle > 4000) {
+                // ★ 修正3: カードが揃うまでは絶対に読み上げない
+                if (!this.cardsReady) { this._lastClueAt = Date.now(); return; }
+                if (idle > 5000) {
                     console.warn('[watchdog] reading never started -> force nextClue (round ' + this.roundNumber + ')');
                     this._clearReadTimer();
                     this._lastClueAt = Date.now();
@@ -112,6 +127,7 @@ class GameEngine {
     ensureReading() {
         if (!this.currentRound || !this.currentRound.isActive || this.currentRound.settled) return;
         if (this.isOnline && !this.isHost) return;
+        if (!this.cardsReady) return;
         if (this.currentRound.currentStage === 0 && !this._readTimer) this.startReading(true);
     }
 
@@ -122,6 +138,14 @@ class GameEngine {
         const clueData = this._clueOf(target ? target.id : '');
         if (clueData && Array.isArray(clueData.stages) && clueData.stages.length > 0) return clueData.stages.length;
         return 4;
+    }
+
+    /** ★ 修正4: カード枚数を安全に取得（NaN / 0 / 範囲外を防止） */
+    getCardCount() {
+        let n = parseInt(this.settings && this.settings.cardCount, 10);
+        if (!isFinite(n) || n <= 0) n = 9;
+        const max = Math.max(4, this.compounds.length || 9);
+        return Math.max(4, Math.min(n, max));
     }
 
     _trimObject(obj) {
@@ -148,15 +172,15 @@ class GameEngine {
                 fetch(basePath + 'data/compounds.json'),
                 fetch(basePath + 'data/clues.json')
             ]);
-            if (!compRes.ok) throw new Error(`compounds.json: ${compRes.status}`);
-            if (!clueRes.ok) throw new Error(`clues.json: ${clueRes.status}`);
+            if (!compRes.ok) throw new Error('compounds.json: ' + compRes.status);
+            if (!clueRes.ok) throw new Error('clues.json: ' + clueRes.status);
 
             const rawCompounds = await compRes.json();
             const rawClues = await clueRes.json();
             this.compounds = (rawCompounds || []).map(c => this._trimObject(c));
             (rawClues || []).map(c => this._trimObject(c)).forEach(c => { if (c.compound_id) this.clues[c.compound_id] = c; });
             this.compounds.forEach(c => { if (c.category) this.categories.add(c.category); });
-            console.log(`✓ Loaded ${this.compounds.length} compounds, ${Object.keys(this.clues).length} clues`);
+            console.log('✓ Loaded ' + this.compounds.length + ' compounds, ' + Object.keys(this.clues).length + ' clues');
             return true;
         } catch (e) {
             console.error('✗ Data load error:', e);
@@ -173,6 +197,11 @@ class GameEngine {
             this.cpu = settings.cpuLevel > 0 ? new CPUPlayer(settings.cpuLevel) : null;
         }
         if (settings && settings.mode) this.mode = settings.mode;
+        // ★ 修正4: cardCount の型を強制
+        if (settings && settings.cardCount !== undefined) {
+            const n = parseInt(settings.cardCount, 10);
+            this.settings.cardCount = isFinite(n) && n > 0 ? n : 9;
+        }
     }
 
     startGame(totalRounds = 10) {
@@ -186,6 +215,8 @@ class GameEngine {
         this._opponentScoredRound = -1;
         this._playerTimes = [];
         this.currentRound = this._emptyRound();
+        this.cardsReady = false;
+        this._pendingRead = false;
         if (this.cpu && this.cpu.reset) this.cpu.reset();
         this._notify();
         this.startNewRound();
@@ -201,7 +232,11 @@ class GameEngine {
         this._roundToken++;
         this._opponentScoredRound = -1;
         this.finalDeadline = 0;
+        this.cardsReady = false;      // ★ 修正3: 毎ラウンド、描画完了を待つ
+        this._pendingRead = false;
         const token = this._roundToken;
+
+        const cardCount = this.getCardCount();
 
         let candidates = this.compounds;
         if (this.settings.categories && this.settings.categories.length > 0) {
@@ -213,7 +248,7 @@ class GameEngine {
         const others = this.compounds
             .filter(c => c.id !== target.id)
             .sort(() => Math.random() - 0.5)
-            .slice(0, Math.max(0, (this.settings.cardCount || 9) - 1));
+            .slice(0, Math.max(0, cardCount - 1));
         const cards = [target].concat(others).sort(() => Math.random() - 0.5);
 
         this.currentRound = {
@@ -222,7 +257,7 @@ class GameEngine {
             currentStage: 0,
             maxStage: this._maxStage(target),
             isActive: true,
-            startTime: Date.now(),
+            startTime: 0,
             token: token,
             winner: null,
             settled: false,
@@ -256,13 +291,17 @@ class GameEngine {
         if (this._readTimer) return;
         if (!force && this.state !== 'DEAL') return;
 
+        // ★ 修正3: カードが揃っていなければ保留（setCardsReady で再開）
+        if (!this.cardsReady) { this._pendingRead = true; return; }
+
         const token = r.token;
+        r.startTime = Date.now();
         this._readTimer = setTimeout(() => {
             this._readTimer = null;
             if (this.currentRound.token !== token) return;
             if (!this.currentRound.isActive || this.currentRound.settled) return;
             this.nextClue();
-        }, 1500);
+        }, this.READ_START_DELAY);
     }
 
     /* ========================= 読み札進行 ========================= */
@@ -276,12 +315,8 @@ class GameEngine {
         const clueData = this._clueOf(target.id);
         const maxStage = this._maxStage(target);
 
-        // ★ 修正の核心: 最終札まで読み終えていたら「黙って return」せず
-        //   最終解答フェーズへ移行する（ボタン連打・watchdog からも安全）
-        if (r.currentStage >= maxStage) {
-            this._enterFinalPhase();
-            return;
-        }
+        // 最終札まで読み終えていたら最終解答フェーズへ
+        if (r.currentStage >= maxStage) { this._enterFinalPhase(); return; }
 
         this._clearClueTimer();
         this._clearFinalTimer();
@@ -291,6 +326,7 @@ class GameEngine {
         r.isFinal = (r.currentStage >= maxStage);
         this.state = 'READING';
         this._lastClueAt = Date.now();
+        if (!r.startTime) r.startTime = Date.now();
         const stageNow = r.currentStage;
 
         let advanced = false;
@@ -301,7 +337,6 @@ class GameEngine {
             if (!this.currentRound.isActive || this.currentRound.settled) return;
             if (this.currentRound.currentStage !== stageNow) return;
 
-            // ★ 最終札の読み上げが終わったら解答カウントダウン開始
             if (r.isFinal) { this._enterFinalPhase(); return; }
 
             const hasNext = clueData && Array.isArray(clueData.stages)
@@ -315,7 +350,7 @@ class GameEngine {
             }, 1000);
         };
 
-        // 読み上げが取得できなかった場合の保険（15秒で次へ）
+        // 読み上げが取得できなかった場合の保険
         this._clueTimer = setTimeout(() => { this._clueTimer = null; advance(); }, 15000);
 
         if (clueData) {
@@ -346,7 +381,6 @@ class GameEngine {
             });
         }
 
-        // CPU 思考
         if (this.cpu && this.mode === 'cpu' && !this.isOnline) {
             this.cpu.startThinking(target.id, r.cards, stageNow, (actionType, cardId) => {
                 if (this.currentRound.token !== token) return;
@@ -357,7 +391,7 @@ class GameEngine {
         }
     }
 
-    /** ★ 最終解答フェーズ（読み札を出し切ったあとの制限時間） */
+    /** 最終解答フェーズ（読み札を出し切ったあとの制限時間） */
     _enterFinalPhase() {
         const r = this.currentRound;
         if (!r || !r.isActive || r.settled) return;
@@ -382,7 +416,6 @@ class GameEngine {
 
         this._notify({ type: 'final_stage' });
 
-        // CPU がまだ動く気配がないなら、最終札として必ずアクションさせる
         if (this.cpu && this.mode === 'cpu' && !this.isOnline && !this.cpu.isThinking) {
             this.cpu.startThinking(r.target ? r.target.id : '', r.cards, r.currentStage, (actionType, cardId) => {
                 if (this.currentRound.token !== token) return;
@@ -393,7 +426,6 @@ class GameEngine {
         }
     }
 
-    /** 最終カウントダウンの延長（読み上げが長かった場合の救済） */
     extendFinalWindow(ms = 4000) {
         const r = this.currentRound;
         if (!r || !r.finalPhase || r.settled) return;
@@ -412,12 +444,12 @@ class GameEngine {
         this._notify({ type: 'final_stage' });
     }
 
-    /** UI 用: 「次の読み札」ボタンを押せるか */
     canNextClue() {
         const r = this.currentRound;
         if (!r || !r.isActive || r.settled) return false;
         if (this.isOnline && !this.isHost) return false;
         if (r.finalPhase) return false;
+        if (!this.cardsReady) return false;
         return r.currentStage < this._maxStage(r.target);
     }
 
@@ -430,7 +462,7 @@ class GameEngine {
         const r = this.currentRound;
         if (!r || !r.isActive || r.settled) return;
         if (this.isOnline && !this.isHost) return;
-        if (r.finalPhase) return;      // ★ 最終フェーズでは次札はない
+        if (r.finalPhase) return;
         const token = r.token;
         this._clearClueTimer();
         this._clueTimer = setTimeout(() => {
@@ -439,17 +471,17 @@ class GameEngine {
         }, delay);
     }
 
-    /** CPU に渡す状況 */
     _cpuContext(isFinal) {
         const r = this.currentRound;
+        const maxStage = this._maxStage(r.target);
         return {
             playerScore: this.scores.player,
             cpuScore: this.scores.opponent,
             round: this.roundNumber,
             totalRounds: this.totalRounds,
             currentStage: r.currentStage,
-            maxStage: this._maxStage(r.target),
-            isFinalStage: !!isFinal || r.currentStage >= this._maxStage(r.target),
+            maxStage: maxStage,
+            isFinalStage: !!isFinal || r.currentStage >= maxStage,
             playerAvgTime: this._playerTimes.length
                 ? this._playerTimes.reduce((a, b) => a + b, 0) / this._playerTimes.length
                 : 5000
@@ -467,7 +499,7 @@ class GameEngine {
         const targetId = String(target ? target.id : '').trim();
         const tapId = String(cardId || '').trim();
         const isCorrect = (tapId === targetId);
-        const reactionTime = Date.now() - r.startTime;
+        const reactionTime = Date.now() - (r.startTime || Date.now());
         const stageNow = r.currentStage;
 
         if (isCorrect) {
@@ -492,7 +524,6 @@ class GameEngine {
                 } catch (e) { console.error('Storage error:', e); }
             }
 
-            // ★ 資料アンロック用フック（CPU戦での正解）
             if (this.onCorrectAnswer) {
                 try {
                     this.onCorrectAnswer(target, {
@@ -540,7 +571,6 @@ class GameEngine {
             AudioManager.playSound('wrong');
             this._finishRound(false, 'cpu');
         } else {
-            // ★ CPU の誤答もプレイヤーと同じ -50（対称化＝競るバランス）
             this.scores.opponent = Math.max(0, this.scores.opponent - 50);
             this._notify({ type: 'cpu_wrong', id: cardId });
             AudioManager.playSound('wrong');
@@ -610,7 +640,7 @@ class GameEngine {
     /* ========================= ラウンド終了（冪等） ========================= */
     _finishRound(playerWon, reason) {
         const r = this.currentRound;
-        if (!r || r.settled) return;                 // ★ 二度と発火しない
+        if (!r || r.settled) return;
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
 
@@ -664,6 +694,7 @@ class GameEngine {
         this._clearTimers();
         this.state = 'IDLE';
         this.finalDeadline = 0;
+        this.cardsReady = false;
         const summary = {
             totalRounds: this.totalRounds,
             playerScore: this.scores.player,
@@ -692,6 +723,7 @@ class GameEngine {
     pause() {
         this._clearTimers();
         this.finalDeadline = 0;
+        this._pendingRead = false;
         if (this.cpu) this.cpu.cancelThinking();
         try { AudioManager.stop(); } catch (e) { }
     }
@@ -710,10 +742,10 @@ class GameEngine {
             combo: this.combo,
             maxCombo: this.maxCombo,
             roundWins: this.roundWins,
-            // ★ UI がボタン活性を判断するための情報
             canNext: this.canNextClue(),
             isFinal: this.isFinalStage(),
-            finalDeadline: this.finalDeadline
+            finalDeadline: this.finalDeadline,
+            cardsReady: this.cardsReady
         }, data));
     }
 

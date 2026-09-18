@@ -1,19 +1,496 @@
 /* =========================================================================
-   app.js  —  メインアプリケーション v5
+   app.js  —  メインアプリケーション v6
    -------------------------------------------------------------------------
-   【本版の変更点】
-   1. 最終札後にボタンが固まる問題
-      - canNextClue() に基づくフッターボタンの活性/非活性制御
-      - 最終解答カウントダウン表示（時間切れで自動終了 → 必ず次へ進める）
-      - 画面切替時に全モーダルを強制破棄（透明なオーバーレイ残り防止）
-      - showRoundResult の冪等ガード修正（DOM に無い残骸でブロックしない）
-   2. CPU レベル再編成（cpu.js v2 と連動）＋難易度説明の表示
-   3. 資料の構造式ロック／CPU戦で正解するとアンロック（ProgressManager）
-   4. 勝利数に応じたポイント付与＋段位（見習い〜永世名人）
-   ※ compounds.json / clues.json は既存の data/ 読み込みをそのまま使用
+   【修正1】「開始」ボタンの文字位置ずれ
+      → style.css 側で text-indent 相殺 + flex 完全センタリング。
+        本ファイルでは .next-btn の中身を <span class="btn-label"> に
+        正規化して二重のズレ要因（アイコン/改行）を排除。
+   【修正2】設定画面の音量が実際に反映されない
+      → SettingsStore（自作の確実な永続化）+ AudioBridge を新設。
+        AudioManager の API 形状が不明でも効くよう
+        setVolume / setVolumes / updateSettings / gain ノード / Audio要素 /
+        speak の volume オプション注入 を総当たりで適用する。
+   【修正3】取り札が揃う前に読み上げが始まる
+      → StructureCache で全札を事前生成 → renderCards は
+        「全カード描画完了」を await してから engine.setCardsReady(true)
+        → engine.startReading(true)。engine 側も cardsReady でゲート。
+   【修正4】カード枚数が反映されない
+      → SettingsStore を正本化。startGame / オンライン部屋設定の両方で
+        ここから読み、#card-grid に cards-6/9/12/16 クラスを付与して
+        レイアウトも枚数に応じて変化させる。
+   【新規】StructureCache（構造式の事前生成＋IndexedDB永続キャッシュ）
+      → プレイ中は RDKit 描画を待たず、キャッシュHTMLを同期注入するだけ。
+        待ち時間をほぼゼロにする。
+   ※ index.html は変更不要（新規ファイル追加なし・既存IDのみ使用）
 ========================================================================= */
 
-/* ========================= 進捗・段位・アンロック管理 ========================= */
+/* =========================================================================
+   1) SettingsStore — 設定の正本（StorageManager が壊れていても動く）
+========================================================================= */
+const SettingsStore = {
+    KEY: 'kkaruta_settings_v2',
+    DEFAULTS: {
+        cardCount: 9,
+        voiceEnabled: true,
+        voiceSpeed: 1.0,
+        readerVolume: 0.8,
+        seVolume: 0.7,
+        bgmVolume: 0.5
+    },
+    data: null,
+
+    init() {
+        this.data = Object.assign({}, this.DEFAULTS);
+        // 既存 StorageManager から引き継ぎ
+        try {
+            if (typeof StorageManager !== 'undefined' && StorageManager.loadSettings) {
+                const s = StorageManager.loadSettings();
+                if (s && typeof s === 'object') {
+                    if (s.cardCount !== undefined) this.data.cardCount = parseInt(s.cardCount, 10) || this.DEFAULTS.cardCount;
+                    if (s.voiceEnabled !== undefined) this.data.voiceEnabled = !!s.voiceEnabled;
+                    if (s.voiceSpeed !== undefined) this.data.voiceSpeed = parseFloat(s.voiceSpeed) || this.DEFAULTS.voiceSpeed;
+                    if (s.readerVolume !== undefined) this.data.readerVolume = this._clamp01(s.readerVolume);
+                    if (s.seVolume !== undefined) this.data.seVolume = this._clamp01(s.seVolume);
+                    if (s.bgmVolume !== undefined) this.data.bgmVolume = this._clamp01(s.bgmVolume);
+                    if (s.volume !== undefined && s.readerVolume === undefined) this.data.readerVolume = this._clamp01(s.volume);
+                }
+            }
+        } catch (e) { console.warn('SettingsStore: StorageManager merge failed', e); }
+        // ローカル保存分
+        try {
+            const raw = localStorage.getItem(this.KEY);
+            if (raw) {
+                const p = JSON.parse(raw);
+                if (p && typeof p === 'object') this.data = Object.assign(this.data, p);
+            }
+        } catch (e) { console.warn('SettingsStore load failed:', e); }
+        this.data.cardCount = this.normalizeCardCount(this.data.cardCount);
+        this.save();
+        return this.data;
+    },
+
+    _clamp01(v) { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.8; },
+
+    normalizeCardCount(v) {
+        let n = parseInt(v, 10);
+        if (!isFinite(n) || n <= 0) n = 9;
+        const allowed = [6, 9, 12, 16];
+        // 允许値にスナップ（近いもの）
+        let best = allowed[0], bd = Infinity;
+        allowed.forEach(a => { const d = Math.abs(a - n); if (d < bd) { bd = d; best = a; } });
+        return best;
+    },
+
+    get(key) {
+        if (!this.data) this.init();
+        return this.data[key];
+    },
+
+    set(key, value) {
+        if (!this.data) this.init();
+        if (key === 'cardCount') value = this.normalizeCardCount(value);
+        if (key === 'readerVolume' || key === 'seVolume' || key === 'bgmVolume') value = this._clamp01(value);
+        if (key === 'voiceSpeed') value = parseFloat(value) || 1.0;
+        if (key === 'voiceEnabled') value = !!value;
+        this.data[key] = value;
+        this.save();
+        // StorageManager にも書き通す（既存の統計・設定機構との互換）
+        try {
+            if (typeof StorageManager !== 'undefined' && StorageManager.updateSetting) {
+                StorageManager.updateSetting(key, value);
+            }
+        } catch (e) { }
+        return value;
+    },
+
+    save() {
+        try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); }
+        catch (e) { console.warn('SettingsStore save failed:', e); }
+    }
+};
+
+/* =========================================================================
+   2) AudioBridge — ★修正2: 音量を実際に効かせるアダプタ
+      AudioManager の実装形状が不明でも効くように多段で適用する
+========================================================================= */
+const AudioBridge = {
+    patchedSpeak: false,
+
+    /** 現在の設定を全て適用（初期化時・変更時に呼ぶ） */
+    applyAll() {
+        const r = SettingsStore.get('readerVolume');
+        const s = SettingsStore.get('seVolume');
+        const b = SettingsStore.get('bgmVolume');
+        this.apply({ reader: r, se: s, bgm: b });
+        this.applyVoiceSettings();
+        this.patchSpeak();
+    },
+
+    applyVoiceSettings() {
+        const A = window.AudioManager;
+        if (!A) return;
+        const enabled = SettingsStore.get('voiceEnabled');
+        const rate = SettingsStore.get('voiceSpeed');
+        try {
+            if (typeof A.updateSettings === 'function') {
+                A.updateSettings({ enabled: enabled, voiceEnabled: enabled, rate: rate, speed: rate, voiceSpeed: rate });
+            }
+        } catch (e) { }
+        try { if ('enabled' in A) A.enabled = enabled; } catch (e) { }
+        try { if ('rate' in A) A.rate = rate; } catch (e) { }
+    },
+
+    /** 音量を実際に反映させる（考えうる全経路を叩く） */
+    apply(vols) {
+        const A = window.AudioManager;
+        if (!A) return;
+        const r = this._n(vols.reader), s = this._n(vols.se), b = this._n(vols.bgm);
+        const master = Math.max(r, s, b);
+
+        const payload = {
+            readerVolume: r, voiceVolume: r, reader: r, volume: r,
+            seVolume: s, sfxVolume: s, se: s, sfx: s,
+            bgmVolume: b, bgm: b, musicVolume: b,
+            masterVolume: master, volumes: { reader: r, se: s, bgm: b }
+        };
+
+        // (a) updateSettings
+        try { if (typeof A.updateSettings === 'function') A.updateSettings(payload); } catch (e) { }
+        // (b) setVolumes(obj)
+        try {
+            if (typeof A.setVolumes === 'function') {
+                A.setVolumes({ reader: r, voice: r, se: s, sfx: s, bgm: b, music: b, master: master });
+            }
+        } catch (e) { }
+        // (c) setVolume(type, value)
+        try {
+            if (typeof A.setVolume === 'function') {
+                [['reader', r], ['voice', r], ['se', s], ['sfx', s], ['bgm', b], ['music', b], ['master', master]]
+                    .forEach(pair => { try { A.setVolume(pair[0], pair[1]); } catch (e2) { } });
+            }
+        } catch (e) { }
+        // (d) setMasterVolume
+        try { if (typeof A.setMasterVolume === 'function') A.setMasterVolume(master); } catch (e) { }
+        // (e) 直接プロパティ／入れ子オブジェクト
+        try {
+            ['volumes', 'settings', 'config', 'volume', 'state'].forEach(k => {
+                const o = A[k];
+                if (o && typeof o === 'object') {
+                    if ('readerVolume' in o || 'volume' in o || 'reader' in o) { o.readerVolume = r; o.voiceVolume = r; o.reader = r; o.volume = r; }
+                    if ('seVolume' in o || 'sfxVolume' in o || 'se' in o) { o.seVolume = s; o.sfxVolume = s; o.se = s; o.sfx = s; }
+                    if ('bgmVolume' in o || 'musicVolume' in o || 'bgm' in o) { o.bgmVolume = b; o.musicVolume = b; o.bgm = b; }
+                    if ('masterVolume' in o) o.masterVolume = master;
+                }
+            });
+            A.readerVolume = r; A.voiceVolume = r; A.seVolume = s; A.sfxVolume = s;
+            A.bgmVolume = b; A.masterVolume = master;
+        } catch (e) { }
+        // (f) WebAudio GainNode を走査して反映
+        try { this._applyGainNodes(A, { reader: r, se: s, bgm: b, master: master }); } catch (e) { }
+        // (g) HTMLAudioElement を走査して反映
+        try { this._applyAudioElements(A, { se: s, bgm: b, reader: r }); } catch (e) { }
+    },
+
+    _n(v) { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(1, n)) : 0; },
+
+    _isGain(node) {
+        try {
+            return node && typeof node === 'object' && node.gain &&
+                typeof node.gain.value === 'number' && typeof node.gain.setValueAtTime === 'function';
+        } catch (e) { return false; }
+    },
+
+    _setGain(gainNode, value) {
+        try {
+            const ctx = gainNode.context;
+            const now = ctx && ctx.currentTime ? ctx.currentTime : 0;
+            gainNode.gain.cancelScheduledValues(now);
+            gainNode.gain.setValueAtTime(this._n(value), now);
+        } catch (e) {
+            try { gainNode.gain.value = this._n(value); } catch (e2) { }
+        }
+    },
+
+    _applyGainNodes(A, vols) {
+        const matchRole = (key) => {
+            const k = String(key).toLowerCase();
+            if (k.indexOf('read') >= 0 || k.indexOf('voice') >= 0 || k.indexOf('speak') >= 0) return vols.reader;
+            if (k.indexOf('bgm') >= 0 || k.indexOf('music') >= 0) return vols.bgm;
+            if (k.indexOf('se') >= 0 || k.indexOf('sfx') >= 0 || k.indexOf('sound') >= 0 || k.indexOf('effect') >= 0) return vols.se;
+            if (k.indexOf('master') >= 0 || k.indexOf('main') >= 0) return vols.master;
+            return null;
+        };
+        const seen = new Set();
+        const walk = (obj, depth) => {
+            if (!obj || depth > 3 || seen.has(obj)) return;
+            try { if (typeof obj === 'object') seen.add(obj); } catch (e) { }
+            let keys = [];
+            try { keys = Object.keys(obj); } catch (e) { return; }
+            keys.forEach(k => {
+                let v;
+                try { v = obj[k]; } catch (e) { return; }
+                if (!v || typeof v !== 'object') return;
+                if (this._isGain(v)) {
+                    const role = matchRole(k);
+                    if (role !== null) this._setGain(v, role);
+                    return;
+                }
+                if (depth < 3) walk(v, depth + 1);
+            });
+        };
+        walk(A, 0);
+    },
+
+    _applyAudioElements(A, vols) {
+        const matchRole = (key) => {
+            const k = String(key).toLowerCase();
+            if (k.indexOf('bgm') >= 0 || k.indexOf('music') >= 0) return vols.bgm;
+            if (k.indexOf('read') >= 0 || k.indexOf('voice') >= 0) return vols.reader;
+            return vols.se;
+        };
+        const seen = new Set();
+        const walk = (obj, depth) => {
+            if (!obj || depth > 3 || seen.has(obj)) return;
+            try { if (typeof obj === 'object') seen.add(obj); } catch (e) { }
+            let keys = [];
+            try { keys = Object.keys(obj); } catch (e) { return; }
+            keys.forEach(k => {
+                let v;
+                try { v = obj[k]; } catch (e) { return; }
+                if (!v) return;
+                const isAudio = (typeof HTMLAudioElement !== 'undefined' && v instanceof HTMLAudioElement) ||
+                    (typeof v === 'object' && typeof v.play === 'function' && 'volume' in v);
+                if (isAudio) { try { v.volume = this._n(matchRole(k)); } catch (e2) { } return; }
+                if (typeof v === 'object' && depth < 3) walk(v, depth + 1);
+            });
+        };
+        walk(A, 0);
+    },
+
+    /** speak(text, opts) に volume オプションを必ず載せる */
+    patchSpeak() {
+        const A = window.AudioManager;
+        if (!A || this.patchedSpeak) return;
+        if (typeof A.speak !== 'function') return;
+        const orig = A.speak.bind(A);
+        const self = this;
+        try {
+            A.speak = function (text, opts) {
+                const o = Object.assign({}, opts || {});
+                if (o.volume === undefined) o.volume = SettingsStore.get('readerVolume');
+                if (o.rate === undefined) o.rate = SettingsStore.get('voiceSpeed');
+                if (!SettingsStore.get('voiceEnabled')) {
+                    if (typeof o.onEnd === 'function') setTimeout(o.onEnd, 200);
+                    return;
+                }
+                return orig(text, o);
+            };
+            this.patchedSpeak = true;
+        } catch (e) { console.warn('speak patch failed:', e); }
+    }
+};
+
+/* =========================================================================
+   3) StructureCache — ★構造式の事前生成＆シームレス読み出し
+      ・RDKit(StructureRenderer) の出力HTMLを id ごとに缓存
+      ・メモリ Map + IndexedDB で永続化（2回目以降は起動直後から即時）
+      ・空き時間にバックグラウンドで全化合物を生成
+      ・描画時は innerHTML を同期注入するだけ（待ち時間ほぼ0）
+========================================================================= */
+const StructureCache = {
+    mem: new Map(),
+    db: null,
+    DB_NAME: 'kkaruta_structure_cache',
+    STORE: 'structures',
+    ready: false,
+    onProgress: null,
+
+    _prefetchList: [],
+    _prefetchIndex: 0,
+    _prefetchRunning: false,
+    _paused: false,
+
+    RENDER_W: 260,
+    RENDER_H: 320,
+
+    key(compound) { return String((compound && compound.id) || '').trim(); },
+
+    /* ---- IndexedDB ---- */
+    async open() {
+        if (this.db !== null) return this.db;
+        this.db = await new Promise((resolve) => {
+            let done = false;
+            const finish = (v) => { if (!done) { done = true; resolve(v); } };
+            try {
+                if (!window.indexedDB) return finish(null);
+                const req = window.indexedDB.open(this.DB_NAME, 1);
+                req.onupgradeneeded = () => {
+                    const db = req.result;
+                    if (!db.objectStoreNames.contains(this.STORE)) db.createObjectStore(this.STORE, { keyPath: 'id' });
+                };
+                req.onsuccess = () => finish(req.result);
+                req.onerror = () => finish(null);
+                req.onblocked = () => finish(null);
+            } catch (e) { finish(null); }
+            setTimeout(() => finish(null), 3000);
+        });
+        return this.db;
+    },
+
+    async loadAll() {
+        const db = await this.open();
+        if (!db) return 0;
+        return new Promise((resolve) => {
+            let done = false;
+            const finish = (n) => { if (!done) { done = true; resolve(n); } };
+            try {
+                const tx = db.transaction(this.STORE, 'readonly');
+                const st = tx.objectStore(this.STORE);
+                const req = st.getAll();
+                req.onsuccess = () => {
+                    const rows = req.result || [];
+                    rows.forEach(r => { if (r && r.id && r.html) this.mem.set(String(r.id), r.html); });
+                    finish(rows.length);
+                };
+                req.onerror = () => finish(0);
+            } catch (e) { finish(0); }
+            setTimeout(() => finish(this.mem.size), 4000);
+        });
+    },
+
+    async save(id, html) {
+        this.mem.set(String(id), html);
+        const db = await this.open();
+        if (!db) return;
+        try {
+            const tx = db.transaction(this.STORE, 'readwrite');
+            tx.objectStore(this.STORE).put({ id: String(id), html: html, t: Date.now() });
+        } catch (e) { }
+    },
+
+    has(compoundOrId) {
+        const id = typeof compoundOrId === 'string' ? compoundOrId : this.key(compoundOrId);
+        return this.mem.has(String(id || '').trim());
+    },
+
+    getHTML(compoundOrId) {
+        const id = typeof compoundOrId === 'string' ? compoundOrId : this.key(compoundOrId);
+        return this.mem.get(String(id || '').trim()) || null;
+    },
+
+    /** 同期的に要素へ注入。成功すれば true（＝待ち時間ゼロ） */
+    applyTo(el, compound) {
+        if (!el) return false;
+        const html = this.getHTML(compound);
+        if (html == null) return false;
+        el.innerHTML = html;
+        return true;
+    },
+
+    /** 1件生成（RDKit → offscreen → HTML 取り出し → 保存） */
+    async render(compound) {
+        const id = this.key(compound);
+        if (!id) return null;
+        if (this.mem.has(id)) return this.mem.get(id);
+        if (!compound || !compound.smiles) return null;
+        if (typeof StructureRenderer === 'undefined' || !StructureRenderer.render) return null;
+
+        const box = document.createElement('div');
+        box.className = 'card-content';
+        box.style.cssText = 'position:fixed;left:-99999px;top:0;opacity:0;pointer-events:none;' +
+            'width:' + this.RENDER_W + 'px;height:' + this.RENDER_H + 'px;';
+        document.body.appendChild(box);
+        let html = null;
+        try {
+            await Promise.race([
+                Promise.resolve(StructureRenderer.render(box, compound.smiles, 'light', {
+                    name: compound.name, name_en: compound.name_en, formula: compound.formula
+                })),
+                new Promise(res => setTimeout(res, 12000))
+            ]);
+            const out = (box.innerHTML || '').trim();
+            if (out && out.length > 10) html = out;
+        } catch (e) {
+            console.warn('[StructureCache] render failed:', id, e);
+        } finally {
+            try { box.remove(); } catch (e) { }
+        }
+        if (html) { await this.save(id, html); return html; }
+        return null;
+    },
+
+    /** 指定リストを必ず揃える（ゲーム開始前の同期点） */
+    async ensureMany(list, onProgress) {
+        const items = (list || []).filter(c => c && this.key(c));
+        const missing = items.filter(c => !this.has(c));
+        if (missing.length === 0) return { total: items.length, generated: 0 };
+        let done = 0;
+        for (let i = 0; i < missing.length; i++) {
+            await this.render(missing[i]);
+            done++;
+            if (onProgress) onProgress(done, missing.length);
+            await new Promise(r => setTimeout(r, 0));
+        }
+        return { total: items.length, generated: done };
+    },
+
+    /* ---- バックグラウンド事前生成 ---- */
+    startPrefetch(list) {
+        this._prefetchList = (list || []).slice();
+        this._prefetchIndex = 0;
+        this._prefetchRunning = true;
+        this._paused = false;
+        this._pump();
+    },
+
+    /** 選択単元を優先させる（並び替え） */
+    prioritize(categories) {
+        if (!Array.isArray(categories) || categories.length === 0) return;
+        const set = new Set(categories);
+        this._prefetchList.sort((a, b) => {
+            const an = set.has(a.category) ? 0 : 1;
+            const bn = set.has(b.category) ? 0 : 1;
+            return an - bn;
+        });
+    },
+
+    pause() { this._paused = true; },
+    resume() { if (this._paused) { this._paused = false; this._pump(); } },
+    stop() { this._prefetchRunning = false; this._paused = false; },
+
+    _schedule(fn) {
+        if (window.requestIdleCallback) {
+            window.requestIdleCallback(fn, { timeout: 500 });
+        } else {
+            setTimeout(fn, 90);
+        }
+    },
+
+    _pump() {
+        if (!this._prefetchRunning || this._paused) return;
+        this._schedule(async () => {
+            if (!this._prefetchRunning || this._paused) return;
+            if (this._prefetchIndex >= this._prefetchList.length) {
+                this._prefetchRunning = false;
+                if (this.onProgress) this.onProgress(this.mem.size, this._prefetchList.length, true);
+                return;
+            }
+            const compound = this._prefetchList[this._prefetchIndex++];
+            try { await this.render(compound); } catch (e) { }
+            if (this.onProgress) this.onProgress(this._prefetchIndex, this._prefetchList.length, false);
+            this._pump();
+        });
+    },
+
+    coverage(total) {
+        if (!total) return 0;
+        return Math.min(1, this.mem.size / total);
+    }
+};
+
+/* =========================================================================
+   4) ProgressManager — ポイント・段位・図鑑アンロック
+========================================================================= */
 const ProgressManager = {
     KEY: 'kagaku_karuta_progress_v2',
     RANKS: [
@@ -56,7 +533,6 @@ const ProgressManager = {
 
     get points() { return Number(this.data && this.data.points) || 0; },
 
-    /* ---- 段位 ---- */
     rankOf(points) {
         const p = Number(points) || 0;
         let cur = this.RANKS[0];
@@ -68,7 +544,6 @@ const ProgressManager = {
         return { name: cur.name, index: idx, current: cur, next: next, progress: prog, need: next ? Math.max(0, next.min - p) : 0 };
     },
 
-    /* ---- 試合結果 → ポイント ---- */
     recordGameEnd(info) {
         const opt = info || {};
         const mode = opt.mode || 'cpu';
@@ -86,18 +561,11 @@ const ProgressManager = {
 
         const before = this.rankOf(this.points).name;
         let gained = 0;
-        if (winner === 'player') {
-            gained = 100 + diffLevel * 15;                 // 勝利数ベース＋難易度補正
-            this.data.wins++;
-        } else if (winner === 'draw') {
-            gained = 40;
-            this.data.draws++;
-        } else {
-            gained = 12;                                   // 参加賞
-            this.data.losses++;
-        }
+        if (winner === 'player') { gained = 100 + diffLevel * 15; this.data.wins++; }
+        else if (winner === 'draw') { gained = 40; this.data.draws++; }
+        else { gained = 12; this.data.losses++; }
         if (mode === 'online' && winner === 'player') gained += 60;
-        gained += correctRounds * 5;                       // 正解した札数ボーナス
+        gained += correctRounds * 5;
 
         this.data.points += gained;
         this.data.gamesPlayed++;
@@ -110,7 +578,6 @@ const ProgressManager = {
         return { gained: gained, rankUp: after.name !== before ? after.name : null, rank: after };
     },
 
-    /* ---- 図鑑アンロック ---- */
     unlock(id) {
         const key = String(id || '').trim();
         if (!key) return false;
@@ -120,7 +587,6 @@ const ProgressManager = {
         return true;
     },
     isUnlocked(id) { return this.data.unlocked.includes(String(id || '').trim()); },
-    unlockAll() { this.data.unlocked = []; this.save(); },
     unlockedCount() { return this.data.unlocked.length; },
 
     winRate() {
@@ -128,100 +594,91 @@ const ProgressManager = {
         return t > 0 ? Math.round((this.data.wins / t) * 100) : 0;
     },
 
-    reset() {
-        this.data = this._default();
-        this.save();
-    }
+    reset() { this.data = this._default(); this.save(); }
 };
 
-/* ========================= 追加スタイル（HTML を編集せずに注入） ========================= */
+/* =========================================================================
+   5) フォールバック用スタイル注入（style.css 未更新環境でも動く）
+========================================================================= */
 function injectExtraStyles() {
     if (document.getElementById('app-extra-styles')) return;
-    const css = `
-/* --- ロック中の資料 --- */
-.reference-item.locked{background:#eceadf;}
-.reference-item.locked .reference-item-name{color:#7b7768;}
-.reference-item-structure.locked{
-  background:repeating-linear-gradient(45deg,#e6e4d8 0 8px,#dcd9cb 8px 16px);
-  position:relative;
-}
-.ref-lock{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;
-  color:#8b8676;font-family:var(--font-display);font-size:.68rem;letter-spacing:.12em;}
-.ref-lock svg{width:26px;height:26px;opacity:.75;}
-.reference-detail-structure.locked{
-  background:repeating-linear-gradient(45deg,#e6e4d8 0 10px,#dcd9cb 10px 20px);
-}
-.lock-badge{display:inline-flex;align-items:center;gap:5px;background:var(--accent-red);color:#fff;
-  font-family:var(--font-display);font-size:.7rem;letter-spacing:.1em;padding:3px 9px;border-radius:10px;margin-top:6px;}
-.unlock-badge{display:inline-flex;align-items:center;gap:5px;background:var(--accent-green);color:#fff;
-  font-family:var(--font-display);font-size:.7rem;letter-spacing:.1em;padding:3px 9px;border-radius:10px;margin-top:6px;}
-
-/* --- 資料ヘッダのアンロック進捗 --- */
-.unlock-panel{background:rgba(0,0,0,.55);border:1px solid var(--card-border);border-radius:2px;
-  padding:8px 12px;margin-bottom:10px;flex-shrink:0;}
-.unlock-panel-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;}
-.unlock-panel-title{font-family:var(--font-display);font-size:.78rem;color:var(--accent-gold);letter-spacing:.15em;}
-.unlock-panel-value{font-family:var(--font-display);font-size:.85rem;color:var(--card-bg);font-weight:700;}
-.unlock-track{height:6px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;}
-.unlock-fill{height:100%;background:linear-gradient(90deg,var(--accent-green),var(--accent-gold));
-  border-radius:3px;transition:width .5s ease-out;width:0%;}
-.unlock-hint{font-size:.68rem;color:rgba(255,255,255,.55);margin-top:5px;font-family:var(--font-main);letter-spacing:.04em;}
-
-/* --- 最終札カウントダウン --- */
-.final-countdown{position:sticky;bottom:0;margin-top:10px;background:rgba(139,32,32,.94);
-  border:1px solid var(--accent-gold);border-radius:2px;padding:7px 11px;color:#fff;
-  font-family:var(--font-display);box-shadow:0 -2px 10px rgba(0,0,0,.35);z-index:6;}
-.final-countdown .fc-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}
-.final-countdown .fc-label{font-size:.7rem;letter-spacing:.15em;opacity:.9;}
-.final-countdown .fc-time{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums;}
-.final-countdown .fc-bar{height:4px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;margin-top:5px;}
-.final-countdown .fc-bar>i{display:block;height:100%;background:var(--accent-gold);width:100%;}
-.final-countdown.urgent{animation:fcBlink .7s infinite;}
-@keyframes fcBlink{0%,100%{background:rgba(139,32,32,.94);}50%{background:rgba(190,40,40,.98);}}
-
-/* --- ボタン無効状態 --- */
-.footer-btn:disabled,.menu-btn:disabled,.clue-btn:disabled,.next-btn:disabled{
-  opacity:.4;cursor:not-allowed;transform:none !important;}
-.footer-btn:disabled:active{background:var(--card-bg);color:var(--text-dark);border-color:var(--card-border);}
-
-/* --- 難易度の説明 --- */
-.diff-desc{display:block;font-family:var(--font-main);font-size:.7rem;color:var(--text-light);
-  letter-spacing:.03em;margin-top:3px;line-height:1.4;}
-.diff-btn.selected .diff-desc{color:var(--accent-green);opacity:.85;}
-.diff-text-wrap{display:flex;flex-direction:column;}
-
-/* --- アンロック通知トースト --- */
-.unlock-toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,24px);opacity:0;
-  display:flex;align-items:center;gap:12px;background:var(--card-bg);border:2px solid var(--accent-gold);
-  border-left:6px solid var(--accent-green);border-radius:2px;padding:12px 18px;z-index:3000;
-  box-shadow:0 8px 26px rgba(0,0,0,.45);transition:all .35s cubic-bezier(.2,.8,.3,1);max-width:88vw;}
-.unlock-toast.show{opacity:1;transform:translate(-50%,0);}
-.unlock-toast-icon{font-size:1.5rem;line-height:1;}
-.unlock-toast-title{font-family:var(--font-display);font-size:.72rem;color:var(--accent-green);
-  letter-spacing:.15em;font-weight:700;}
-.unlock-toast-name{font-family:var(--font-main);font-size:.95rem;color:var(--text-dark);font-weight:700;margin-top:2px;}
-
-/* --- 段位パネル --- */
-.rank-progress{margin-top:14px;text-align:left;}
-.rank-progress-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;}
-.rank-progress-label{font-family:var(--font-display);font-size:.7rem;color:var(--text-light);letter-spacing:.12em;}
-.rank-progress-next{font-family:var(--font-main);font-size:.72rem;color:var(--accent-green);font-weight:700;}
-.rank-track{height:8px;background:rgba(90,122,74,.18);border-radius:4px;overflow:hidden;}
-.rank-fill{height:100%;background:linear-gradient(90deg,var(--accent-green),var(--accent-gold));
-  border-radius:4px;transition:width .6s ease-out;}
-.profile-unlock{margin-top:10px;font-family:var(--font-main);font-size:.82rem;color:var(--text-light);letter-spacing:.05em;}
-.points-gained{font-family:var(--font-display);font-size:1.15rem;font-weight:900;color:var(--accent-gold);
-  letter-spacing:.1em;margin-bottom:8px;}
-.rankup-banner{background:var(--accent-gold);color:#1a1a1a;font-family:var(--font-display);
-  font-weight:900;letter-spacing:.2em;padding:8px;border-radius:2px;margin-bottom:14px;font-size:1rem;}
-`;
+    const css = [
+        '.next-btn{display:flex;align-items:center;justify-content:center;text-align:center;',
+        'letter-spacing:.2em;text-indent:.2em;line-height:1;padding:0 20px;min-height:52px;}',
+        '.menu-text{letter-spacing:.3em;text-indent:.3em;line-height:1;}',
+        '.footer-btn{display:flex;align-items:center;justify-content:center;letter-spacing:.15em;text-indent:.15em;line-height:1;padding:0 12px;}',
+        '.section-title{letter-spacing:.3em;text-indent:.3em;}',
+        '.title-sub{letter-spacing:.5em;text-indent:.5em;}',
+        '.btn{letter-spacing:.15em;text-indent:.15em;line-height:1;}',
+        '#card-grid.cards-6{grid-template-columns:repeat(3,1fr);gap:12px;}',
+        '#card-grid.cards-9{grid-template-columns:repeat(3,1fr);gap:8px;}',
+        '#card-grid.cards-12{grid-template-columns:repeat(4,1fr);gap:8px;}',
+        '#card-grid.cards-16{grid-template-columns:repeat(4,1fr);gap:6px;}',
+        '@media (min-width:900px){#card-grid.cards-12{grid-template-columns:repeat(6,1fr);}#card-grid.cards-16{grid-template-columns:repeat(8,1fr);}}',
+        '.card-content svg,.card-content img,.reference-item-structure svg,.reference-item-structure img,',
+        '.reference-detail-structure svg,.reference-detail-structure img,#modal-structure svg,#modal-structure img{',
+        'max-width:100%;max-height:100%;width:auto;height:auto;object-fit:contain;display:block;}',
+        '.footer-btn:disabled,.clue-btn:disabled,.next-btn:disabled,.menu-btn:disabled{opacity:.4;cursor:not-allowed;transform:none !important;}',
+        '.final-countdown{position:sticky;bottom:0;margin-top:10px;background:rgba(139,32,32,.94);border:1px solid var(--accent-gold);',
+        'border-radius:2px;padding:7px 11px;color:#fff;font-family:var(--font-display);z-index:6;}',
+        '.final-countdown .fc-row{display:flex;justify-content:space-between;align-items:baseline;gap:8px;}',
+        '.final-countdown .fc-label{font-size:.7rem;letter-spacing:.15em;opacity:.9;}',
+        '.final-countdown .fc-time{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums;}',
+        '.final-countdown .fc-bar{height:4px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;margin-top:5px;}',
+        '.final-countdown .fc-bar>i{display:block;height:100%;background:var(--accent-gold);width:100%;}',
+        '.final-countdown.urgent{animation:fcBlink .7s infinite;}',
+        '@keyframes fcBlink{0%,100%{background:rgba(139,32,32,.94);}50%{background:rgba(190,40,40,.98);}}',
+        '.unlock-toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,24px);opacity:0;display:flex;align-items:center;',
+        'gap:12px;background:var(--card-bg);border:2px solid var(--accent-gold);border-left:6px solid var(--accent-green);',
+        'border-radius:2px;padding:12px 18px;z-index:3000;box-shadow:0 8px 26px rgba(0,0,0,.45);',
+        'transition:all .35s cubic-bezier(.2,.8,.3,1);max-width:88vw;pointer-events:none;}',
+        '.unlock-toast.show{opacity:1;transform:translate(-50%,0);}',
+        '.unlock-toast-icon{font-size:1.5rem;line-height:1;}',
+        '.unlock-toast-title{font-family:var(--font-display);font-size:.72rem;color:var(--accent-green);letter-spacing:.15em;font-weight:700;}',
+        '.unlock-toast-name{font-family:var(--font-main);font-size:.95rem;color:var(--text-dark);font-weight:700;margin-top:2px;}',
+        '.reference-item.locked{background:#eceadf;}',
+        '.reference-item-structure.locked{background:repeating-linear-gradient(45deg,#e6e4d8 0 8px,#dcd9cb 8px 16px);}',
+        '.ref-lock{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:4px;color:#8b8676;',
+        'font-family:var(--font-display);font-size:.68rem;letter-spacing:.12em;text-align:center;padding:4px;}',
+        '.ref-lock svg{width:26px;height:26px;opacity:.75;}',
+        '.reference-detail-structure.locked{background:repeating-linear-gradient(45deg,#e6e4d8 0 10px,#dcd9cb 10px 20px);}',
+        '.unlock-panel{background:rgba(0,0,0,.55);border:1px solid var(--card-border);border-radius:2px;padding:8px 12px;margin-bottom:10px;flex-shrink:0;}',
+        '.unlock-panel-row{display:flex;justify-content:space-between;align-items:center;margin-bottom:6px;gap:8px;}',
+        '.unlock-panel-title{font-family:var(--font-display);font-size:.78rem;color:var(--accent-gold);letter-spacing:.15em;}',
+        '.unlock-panel-value{font-family:var(--font-display);font-size:.85rem;color:var(--card-bg);font-weight:700;}',
+        '.unlock-track{height:6px;background:rgba(255,255,255,.12);border-radius:3px;overflow:hidden;}',
+        '.unlock-fill{height:100%;background:linear-gradient(90deg,var(--accent-green),var(--accent-gold));border-radius:3px;transition:width .5s ease-out;width:0%;}',
+        '.unlock-hint{font-size:.68rem;color:rgba(255,255,255,.55);margin-top:5px;font-family:var(--font-main);line-height:1.5;}',
+        '.rank-progress{margin-top:14px;text-align:left;}',
+        '.rank-progress-row{display:flex;justify-content:space-between;align-items:baseline;margin-bottom:5px;gap:8px;}',
+        '.rank-progress-label{font-family:var(--font-display);font-size:.7rem;color:var(--text-light);letter-spacing:.12em;}',
+        '.rank-progress-next{font-family:var(--font-main);font-size:.72rem;color:var(--accent-green);font-weight:700;text-align:right;}',
+        '.rank-track{height:8px;background:rgba(90,122,74,.18);border-radius:4px;overflow:hidden;}',
+        '.rank-fill{height:100%;background:linear-gradient(90deg,var(--accent-green),var(--accent-gold));border-radius:4px;transition:width .6s ease-out;}',
+        '.profile-unlock{margin-top:10px;font-family:var(--font-main);font-size:.82rem;color:var(--text-light);}',
+        '.points-gained{font-family:var(--font-display);font-size:1.15rem;font-weight:900;color:var(--accent-gold);letter-spacing:.1em;margin-bottom:8px;}',
+        '.rankup-banner{background:var(--accent-gold);color:#1a1a1a;font-family:var(--font-display);font-weight:900;',
+        'letter-spacing:.2em;text-indent:.2em;padding:8px;border-radius:2px;margin-bottom:14px;font-size:1rem;}',
+        '.lock-badge,.unlock-badge{display:inline-flex;align-items:center;gap:5px;color:#fff;font-family:var(--font-display);',
+        'font-size:.7rem;letter-spacing:.1em;padding:3px 10px;border-radius:10px;margin-top:2px;}',
+        '.lock-badge{background:var(--accent-red);}.unlock-badge{background:var(--accent-green);}',
+        '.diff-desc{display:block;font-family:var(--font-main);font-size:.72rem;color:var(--text-light);margin-top:4px;line-height:1.45;}',
+        '.diff-btn.selected .diff-desc{color:var(--accent-green);opacity:.85;}',
+        '.diff-text-wrap{display:flex;flex-direction:column;min-width:0;}',
+        '#preparing-overlay{position:fixed;inset:0;background:rgba(10,15,20,.82);backdrop-filter:blur(4px);z-index:1500;',
+        'display:flex;flex-direction:column;align-items:center;justify-content:center;gap:16px;}',
+        '#preparing-overlay .prep-text{font-family:var(--font-display);color:var(--card-bg);letter-spacing:.2em;text-indent:.2em;font-size:1rem;}',
+        '#preparing-overlay .prep-sub{font-family:var(--font-main);color:rgba(255,255,255,.65);font-size:.8rem;}'
+    ].join('\n');
     const styleEl = document.createElement('style');
     styleEl.id = 'app-extra-styles';
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 }
 
-/* ========================= メインアプリケーション ========================= */
+/* =========================================================================
+   6) App 本体
+========================================================================= */
 class App {
     constructor() {
         this.engine = new GameEngine();
@@ -253,6 +710,7 @@ class App {
         this.historyTargetId = null;
         this._finalCountdownTimer = null;
         this._gameEndResult = null;
+        this._dealing = false;
 
         this.init();
     }
@@ -262,15 +720,18 @@ class App {
         console.log('App initializing...');
         try {
             injectExtraStyles();
+            SettingsStore.init();
             ProgressManager.init();
 
             const loaded = await this.engine.loadData();
             if (!loaded) { this.showError('データ読み込み失敗'); return; }
-            console.log('Data loaded successfully');
 
             StructureRenderer.init();
             AudioManager.init();
-            StorageManager.init();
+            try { StorageManager.init(); } catch (e) { }
+
+            // ★修正2: 音量・音声設定を実際に適用
+            AudioBridge.applyAll();
 
             if (typeof OnlineManager !== 'undefined') {
                 const onlineReady = OnlineManager.init();
@@ -278,45 +739,101 @@ class App {
             }
 
             this.loadSettings();
-
-            this.engine.onUpdate = (data) => this.updateGameUI(data);
-            this.engine.onRoundEnd = (data) => this.showRoundResult(data);
-            this.engine.onGameEnd = (data) => this.showGameEnd(data);
-            // ★ CPU戦で正解 → 資料アンロック
-            this.engine.onCorrectAnswer = (compound, meta) => this.handleCorrectAnswer(compound, meta);
-
+            this.syncSettingsUI();
             this.bindEvents();
             this.renderCategoryGrid();
             this.decorateDifficultyButtons();
+            this.normalizeStartButton();
+
+            // ★構造式キャッシュ: 永続分を読み込み → バックグラウンドで全件生成
+            await this.initStructureCache();
 
             setTimeout(() => {
                 const ls = document.getElementById('loading-screen');
                 if (ls) ls.classList.remove('active');
                 this.showScreen('screen-title');
-            }, 1000);
+                StructureCache.resume();
+            }, 900);
         } catch (e) {
             console.error('Initialization error:', e);
             this.showError('初期化エラー: ' + e.message);
         }
     }
 
+    /** 構造式キャッシュの初期化と事前生成 */
+    async initStructureCache() {
+        this.showCacheProgress(0, this.engine.compounds.length);
+        try {
+            const restored = await StructureCache.loadAll();
+            console.log('[StructureCache] restored ' + restored + ' entries');
+        } catch (e) { console.warn('[StructureCache] idb load failed', e); }
+
+        StructureCache.onProgress = (done, total, finished) => {
+            this.showCacheProgress(done, total);
+            this.refreshTitleProgress();
+            if (finished) console.log('[StructureCache] prefetch complete');
+        };
+
+        // まだ無い分だけ事前生成キューに積む
+        const pending = this.engine.compounds.filter(c => c && c.smiles && !StructureCache.has(c));
+        StructureCache.startPrefetch(pending);
+        this.showCacheProgress(StructureCache.mem.size, this.engine.compounds.length);
+    }
+
+    /** ローディング画面内のキャッシュ進捗表示 */
+    showCacheProgress(done, total) {
+        const host = document.querySelector('#loading-screen .loading-content');
+        if (!host) return;
+        let box = document.getElementById('cache-progress');
+        if (!box) {
+            box = document.createElement('div');
+            box.id = 'cache-progress';
+            box.className = 'cache-progress';
+            box.innerHTML =
+                '<div class="cache-progress-label">構造式を準備中… <span class="cpv">0 / 0</span></div>' +
+                '<div class="cache-progress-track"><div class="cache-progress-fill"></div></div>';
+            host.appendChild(box);
+        }
+        const pct = total > 0 ? Math.max(0, Math.min(100, Math.round((done / total) * 100))) : 0;
+        const v = box.querySelector('.cpv');
+        const f = box.querySelector('.cache-progress-fill');
+        if (v) v.textContent = done + ' / ' + total;
+        if (f) f.style.width = pct + '%';
+    }
+
     showError(message) {
         const loadingScreen = document.getElementById('loading-screen');
         if (!loadingScreen) return;
         loadingScreen.innerHTML =
-            `<div class="loading-content">
-                <h1 style="color: var(--accent-red); font-size: 1.5rem; margin-bottom: 20px;">エラー</h1>
-                <p style="color: var(--card-bg); margin-bottom: 20px;">${message}</p>
-                <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
-            </div>`;
+            '<div class="loading-content">' +
+            '<h1 style="color:var(--accent-red);font-size:1.5rem;margin-bottom:20px;">エラー</h1>' +
+            '<p style="color:var(--card-bg);margin-bottom:20px;">' + message + '</p>' +
+            '<p style="color:rgba(255,255,255,0.6);font-size:0.9rem;">コンソール(F12)で詳細を確認</p>' +
+            '</div>';
+    }
+
+    /* ========================= ★修正1: 開始ボタンの正規化 ========================= */
+    normalizeStartButton() {
+        const btn = document.getElementById('btn-start-difficulty');
+        if (!btn) return;
+        // 中のテキストを単一の span にまとめ、余計な空白/改行を除去
+        const svg = btn.querySelector('svg');
+        const text = (btn.textContent || '').replace(/\s+/g, '').trim() || '開始';
+        btn.innerHTML = '';
+        if (svg) btn.appendChild(svg);
+        const label = document.createElement('span');
+        label.className = 'btn-label';
+        label.textContent = text;
+        btn.appendChild(label);
+        btn.style.textAlign = 'center';
     }
 
     /* ========================= アンロック処理 ========================= */
     handleCorrectAnswer(compound, meta) {
         if (!compound) return;
-        if (this.isOnlineMode) return;                       // オンライン対戦は対象外
+        if (this.isOnlineMode) return;
         const mode = (meta && meta.mode) || this.engine.mode;
-        if (mode !== 'cpu') return;                          // ★ CPU戦の正解でのみアンロック
+        if (mode !== 'cpu') return;
         const id = String(compound.id || '').trim();
         if (!id) return;
         if (ProgressManager.unlock(id)) {
@@ -329,11 +846,9 @@ class App {
         const toast = document.createElement('div');
         toast.className = 'unlock-toast';
         toast.innerHTML =
-            `<div class="unlock-toast-icon">🔓</div>
-             <div>
-               <div class="unlock-toast-title">資料をアンロック</div>
-               <div class="unlock-toast-name">${compound.name || ''}</div>
-             </div>`;
+            '<div class="unlock-toast-icon">🔓</div>' +
+            '<div><div class="unlock-toast-title">資料をアンロック</div>' +
+            '<div class="unlock-toast-name">' + (compound.name || '') + '</div></div>';
         document.body.appendChild(toast);
         requestAnimationFrame(() => toast.classList.add('show'));
         setTimeout(() => {
@@ -349,9 +864,13 @@ class App {
                 const nextScreen = e.currentTarget.dataset.next;
                 const mode = e.currentTarget.dataset.mode;
                 if (mode) this.currentMode = mode;
-                if (nextScreen === 'screen-difficulty') this.updateDifficultySelection();
+                if (nextScreen === 'screen-difficulty') {
+                    this.updateDifficultySelection();
+                    StructureCache.prioritize(this.selectedCategories);
+                }
                 else if (nextScreen === 'screen-stats') this.updateStats();
                 else if (nextScreen === 'screen-reference') this.renderReference();
+                else if (nextScreen === 'screen-settings') this.syncSettingsUI();
                 this.showScreen(nextScreen);
             });
         });
@@ -364,7 +883,7 @@ class App {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
                 e.currentTarget.classList.add('selected');
-                this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
+                this.selectedDifficulty = parseInt(e.currentTarget.dataset.level, 10);
             });
         });
 
@@ -381,6 +900,7 @@ class App {
                 if (!card) return;
                 if (card.classList.contains('correct')) return;
                 if (this.hasShownResult) return;
+                if (this._dealing) return;                 // 描画中のタップは無視
                 this.handleCardTap(card.dataset.id, card);
             });
         }
@@ -401,8 +921,10 @@ class App {
                 }
                 this.engine.pause();
                 this.stopFinalCountdown();
+                this.hidePreparing();
                 this.resetOnlineState();
                 this.showScreen('screen-title');
+                StructureCache.resume();
             });
         }
 
@@ -414,7 +936,6 @@ class App {
             nextClueBtn.addEventListener('click', () => {
                 if (this.hasShownResult) return;
                 if (!this.isOnlineMode || this.isHost) {
-                    // 最終札なら nextClue 内部で最終フェーズに移行するだけ（安全）
                     this.engine.nextClue();
                     this.updateFooterState();
                 }
@@ -438,26 +959,9 @@ class App {
         const onlineBtn = document.getElementById('btn-online');
         if (onlineBtn) onlineBtn.addEventListener('click', () => this.showOnlineMenu());
 
-        const voiceToggle = document.getElementById('setting-voice');
-        if (voiceToggle) {
-            voiceToggle.addEventListener('change', (e) => {
-                StorageManager.updateSetting('voiceEnabled', e.target.checked);
-                AudioManager.updateSettings({ enabled: e.target.checked });
-            });
-        }
-        const voiceSpeed = document.getElementById('setting-voice-speed');
-        if (voiceSpeed) {
-            voiceSpeed.addEventListener('change', (e) => {
-                StorageManager.updateSetting('voiceSpeed', parseFloat(e.target.value));
-                AudioManager.updateSettings({ rate: parseFloat(e.target.value) });
-            });
-        }
-        const cardCount = document.getElementById('setting-card-count');
-        if (cardCount) {
-            cardCount.addEventListener('change', (e) => {
-                StorageManager.updateSetting('cardCount', parseInt(e.target.value));
-            });
-        }
+        /* ---------- ★修正2: 設定画面（音量・音声・枚数） ---------- */
+        this.bindSettingsControls();
+
         const resetBtn = document.getElementById('btn-reset-stats');
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
@@ -471,6 +975,137 @@ class App {
         }
     }
 
+    /** 設定画面の全コントロールを束縛（ID が未知でも動くよう総当たり） */
+    bindSettingsControls() {
+        const screen = document.getElementById('screen-settings') || document;
+
+        // --- 音声読み上げ ON/OFF ---
+        const voiceToggle = document.getElementById('setting-voice');
+        if (voiceToggle) {
+            voiceToggle.addEventListener('change', (e) => {
+                SettingsStore.set('voiceEnabled', e.target.checked);
+                AudioBridge.applyVoiceSettings();
+                AudioBridge.applyAll();
+            });
+        }
+
+        // --- 音声速度 ---
+        const voiceSpeed = document.getElementById('setting-voice-speed');
+        if (voiceSpeed) {
+            voiceSpeed.addEventListener('change', (e) => {
+                SettingsStore.set('voiceSpeed', parseFloat(e.target.value));
+                AudioBridge.applyVoiceSettings();
+            });
+        }
+
+        // --- ★修正4: カード表示数 ---
+        const cardCount = document.getElementById('setting-card-count');
+        if (cardCount) {
+            const handler = (e) => {
+                const n = SettingsStore.set('cardCount', parseInt(e.target.value, 10));
+                this.engine.settings.cardCount = n;
+                this.applyCardGridLayout(n);
+                e.target.value = String(n);
+            };
+            cardCount.addEventListener('change', handler);
+            cardCount.addEventListener('input', handler);
+        }
+
+        // --- ★修正2: 音量スライダー（ID 不明でも拾う） ---
+        this.volumeInputs = [];
+        const ranges = Array.from(screen.querySelectorAll('input[type="range"]'));
+        ranges.forEach((input, index) => {
+            const role = this._detectVolumeRole(input, index, ranges.length);
+            this.volumeInputs.push({ input: input, role: role });
+
+            const onInput = () => {
+                const max = parseFloat(input.max) || (input.tagName === 'SELECT' ? 5 : 100);
+                const min = parseFloat(input.min) || 0;
+                const raw = parseFloat(input.value);
+                const norm = max > min ? (raw - min) / (max - min) : raw;
+                SettingsStore.set(role + 'Volume', Math.max(0, Math.min(1, norm)));
+                AudioBridge.apply({
+                    reader: SettingsStore.get('readerVolume'),
+                    se: SettingsStore.get('seVolume'),
+                    bgm: SettingsStore.get('bgmVolume')
+                });
+                this._updateVolumeIndicator(input, raw, max);
+            };
+            input.addEventListener('input', onInput);
+            input.addEventListener('change', onInput);
+        });
+
+        // 音量が select で実装されている場合のフォロー
+        Array.from(screen.querySelectorAll('select')).forEach(sel => {
+            if (sel.id === 'setting-voice-speed' || sel.id === 'setting-card-count') return;
+            const role = this._detectVolumeRole(sel, -1, 0);
+            if (!role) return;
+            sel.addEventListener('change', () => {
+                const v = parseFloat(sel.value);
+                if (!isFinite(v)) return;
+                const norm = v > 1 ? v / (parseFloat(sel.options[sel.options.length - 1].value) || 5) : v;
+                SettingsStore.set(role + 'Volume', Math.max(0, Math.min(1, norm)));
+                AudioBridge.apply({
+                    reader: SettingsStore.get('readerVolume'),
+                    se: SettingsStore.get('seVolume'),
+                    bgm: SettingsStore.get('bgmVolume')
+                });
+            });
+        });
+    }
+
+    /** ラベル文字列や id から音量の役割を推定 */
+    _detectVolumeRole(el, index, total) {
+        const id = String(el.id || '').toLowerCase();
+        const name = String(el.name || '').toLowerCase();
+        const item = el.closest ? el.closest('.setting-item') : null;
+        const labelText = item ? (item.textContent || '') : '';
+        const hay = (id + ' ' + name + ' ' + labelText).toLowerCase();
+
+        if (hay.indexOf('読手') >= 0 || hay.indexOf('reader') >= 0 || hay.indexOf('voice') >= 0 || hay.indexOf('speak') >= 0) return 'reader';
+        if (hay.indexOf('bgm') >= 0 || hay.indexOf('music') >= 0) return 'bgm';
+        if (hay.indexOf('se') >= 0 || hay.indexOf('sfx') >= 0 || hay.indexOf('効果音') >= 0) return 'se';
+
+        // 見つからなければ並び順で割り当てる（読手 → SE → BGM）
+        const order = ['reader', 'se', 'bgm'];
+        if (index >= 0 && index < order.length && total >= 2) return order[index];
+        return 'reader';
+    }
+
+    _updateVolumeIndicator(input, rawValue, max) {
+        const item = input.closest ? input.closest('.setting-item') : null;
+        if (!item) return;
+        const valueEl = item.querySelector('.volume-value');
+        if (valueEl) valueEl.textContent = String(rawValue);
+        const barEl = item.querySelector('.volume-bar');
+        if (barEl) barEl.style.width = Math.round((rawValue / (max || 1)) * 100) + '%';
+    }
+
+    /** 保存済み設定を UI に反映 */
+    syncSettingsUI() {
+        const voiceToggle = document.getElementById('setting-voice');
+        if (voiceToggle) voiceToggle.checked = !!SettingsStore.get('voiceEnabled');
+
+        const voiceSpeed = document.getElementById('setting-voice-speed');
+        if (voiceSpeed) voiceSpeed.value = String(SettingsStore.get('voiceSpeed'));
+
+        const cardCount = document.getElementById('setting-card-count');
+        if (cardCount) cardCount.value = String(SettingsStore.get('cardCount'));
+
+        (this.volumeInputs || []).forEach(entry => {
+            const input = entry.input;
+            const role = entry.role;
+            const norm = SettingsStore.get(role + 'Volume');
+            const max = parseFloat(input.max) || 100;
+            const min = parseFloat(input.min) || 0;
+            const raw = Math.round(min + norm * (max - min));
+            input.value = String(raw);
+            this._updateVolumeIndicator(input, raw, max);
+        });
+
+        this.applyCardGridLayout(SettingsStore.get('cardCount'));
+    }
+
     /** 難易度ボタンに CPU の挙動説明を付与 */
     decorateDifficultyButtons() {
         const desc = {
@@ -481,7 +1116,7 @@ class App {
         };
         document.querySelectorAll('.diff-btn').forEach(btn => {
             if (btn.querySelector('.diff-desc')) return;
-            const lv = parseInt(btn.dataset.level);
+            const lv = parseInt(btn.dataset.level, 10);
             const textEl = btn.querySelector('.diff-text');
             if (!textEl) return;
             const wrap = document.createElement('div');
@@ -509,18 +1144,16 @@ class App {
         modal.style.zIndex = '1000';
         modal.id = 'online-menu-modal';
         modal.innerHTML =
-            `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.5rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">オンライン対戦</h2>
-                <div style="margin-bottom: 20px;">
-                    <button class="btn btn-primary" id="btn-create-room" style="width: 100%; margin-bottom: 10px; min-height: 48px;">ルーム作成</button>
-                    <p style="font-size: 0.8rem; color: var(--text-light);">対戦相手とルームを共有</p>
-                </div>
-                <div style="margin-bottom: 20px;">
-                    <input type="text" id="room-id-input" placeholder="ルームID（6桁）" maxlength="6" style="width: 100%; padding: 10px; border: 2px solid var(--card-border); border-radius: 2px; text-align: center; font-size: 1.2rem; letter-spacing: 0.3em; text-transform: uppercase; min-height: 44px; box-sizing: border-box;">
-                    <button class="btn btn-secondary" id="btn-join-room" style="width: 100%; margin-top: 10px; min-height: 48px;">ルーム参加</button>
-                </div>
-                <button class="btn btn-danger" id="btn-cancel-online" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
-            </div>`;
+            '<div class="modal-content" style="background:var(--card-bg);border:3px solid var(--accent-gold);border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;">' +
+            '<h2 style="font-size:1.5rem;margin-bottom:20px;color:var(--accent-gold);font-family:var(--font-display);letter-spacing:.15em;text-indent:.15em;">オンライン対戦</h2>' +
+            '<div style="margin-bottom:20px;">' +
+            '<button class="btn btn-primary" id="btn-create-room" style="width:100%;margin-bottom:10px;min-height:48px;">ルーム作成</button>' +
+            '<p style="font-size:0.8rem;color:var(--text-light);">対戦相手とルームを共有</p></div>' +
+            '<div style="margin-bottom:20px;">' +
+            '<input type="text" id="room-id-input" placeholder="ルームID（6桁）" maxlength="6" style="width:100%;padding:10px;border:2px solid var(--card-border);border-radius:2px;text-align:center;font-size:1.2rem;letter-spacing:.3em;text-transform:uppercase;min-height:44px;box-sizing:border-box;">' +
+            '<button class="btn btn-secondary" id="btn-join-room" style="width:100%;margin-top:10px;min-height:48px;">ルーム参加</button></div>' +
+            '<button class="btn btn-danger" id="btn-cancel-online" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>' +
+            '</div>';
         document.body.appendChild(modal);
 
         document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
@@ -533,7 +1166,7 @@ class App {
             this.resetOnlineState();
             const settings = {
                 mode: 'online',
-                cardCount: StorageManager.loadSettings().cardCount || 9,
+                cardCount: SettingsStore.get('cardCount'),          // ★修正4
                 categories: this.selectedCategories.length > 0 ? this.selectedCategories : [],
                 difficulty: this.selectedDifficulty
             };
@@ -599,7 +1232,7 @@ class App {
         }
     }
 
-    showWaitingRoom(roomId) {
+    _waitingRoomShell(inner) {
         const existing = document.getElementById('waiting-room-modal');
         if (existing) existing.remove();
         const modal = document.createElement('div');
@@ -607,18 +1240,22 @@ class App {
         modal.style.zIndex = '1000';
         modal.id = 'waiting-room-modal';
         modal.innerHTML =
-            `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 id="waiting-opponent-status" style="font-size: 1.3rem; margin-bottom: 20px; color: var(--text-light); font-family: var(--font-display);">対戦相手を待っています...</h2>
-                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
-                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
-                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
-                </div>
-                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">上記のルームIDを対戦相手に共有してください</p>
-                <button class="btn btn-primary" id="btn-start-game" disabled style="width: 100%; margin-bottom: 15px; min-height: 48px; opacity: 0.5;">ゲーム開始</button>
-                <div class="loading-spinner" style="margin: 20px auto;"></div>
-                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
-            </div>`;
+            '<div class="modal-content" style="background:var(--card-bg);border:3px solid var(--accent-gold);border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;">' +
+            inner + '</div>';
         document.body.appendChild(modal);
+        return modal;
+    }
+
+    showWaitingRoom(roomId) {
+        this._waitingRoomShell(
+            '<h2 id="waiting-opponent-status" style="font-size:1.3rem;margin-bottom:20px;color:var(--text-light);font-family:var(--font-display);">対戦相手を待っています...</h2>' +
+            '<div style="background:var(--tatami-light);padding:20px;border-radius:2px;border:2px solid var(--card-border);margin-bottom:20px;">' +
+            '<div style="font-size:0.9rem;color:var(--text-light);margin-bottom:10px;">ルームID</div>' +
+            '<div style="font-size:2rem;font-weight:900;color:var(--accent-green);letter-spacing:.3em;text-indent:.3em;font-family:var(--font-display);">' + roomId + '</div></div>' +
+            '<p style="font-size:0.85rem;color:var(--text-light);margin-bottom:20px;">上記のルームIDを対戦相手に共有してください</p>' +
+            '<button class="btn btn-primary" id="btn-start-game" disabled style="width:100%;margin-bottom:15px;min-height:48px;opacity:0.5;">ゲーム開始</button>' +
+            '<div class="loading-spinner" style="margin:20px auto;"></div>' +
+            '<button class="btn btn-danger" id="btn-cancel-waiting" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>');
 
         document.getElementById('btn-start-game').addEventListener('click', () => {
             OnlineManager.updateGameState({ phase: 'starting' });
@@ -630,24 +1267,15 @@ class App {
     }
 
     showWaitingRoomForGuest(roomId) {
-        const existing = document.getElementById('waiting-room-modal');
-        if (existing) existing.remove();
-        const modal = document.createElement('div');
-        modal.className = 'screen active modal-screen';
-        modal.style.zIndex = '1000';
-        modal.id = 'waiting-room-modal';
-        modal.innerHTML =
-            `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center;">
-                <h2 style="font-size: 1.3rem; margin-bottom: 20px; color: var(--accent-gold); font-family: var(--font-display);">ホストの開始を待っています...</h2>
-                <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 20px;">
-                    <div style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 10px;">ルームID</div>
-                    <div style="font-size: 2rem; font-weight: 900; color: var(--accent-green); letter-spacing: 0.3em; font-family: var(--font-display);">${roomId}</div>
-                </div>
-                <p style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 20px;">ホストがゲームを開始するまでお待ちください</p>
-                <div class="loading-spinner" style="margin: 20px auto;"></div>
-                <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
-            </div>`;
-        document.body.appendChild(modal);
+        this._waitingRoomShell(
+            '<h2 style="font-size:1.3rem;margin-bottom:20px;color:var(--accent-gold);font-family:var(--font-display);">ホストの開始を待っています...</h2>' +
+            '<div style="background:var(--tatami-light);padding:20px;border-radius:2px;border:2px solid var(--card-border);margin-bottom:20px;">' +
+            '<div style="font-size:0.9rem;color:var(--text-light);margin-bottom:10px;">ルームID</div>' +
+            '<div style="font-size:2rem;font-weight:900;color:var(--accent-green);letter-spacing:.3em;text-indent:.3em;font-family:var(--font-display);">' + roomId + '</div></div>' +
+            '<p style="font-size:0.85rem;color:var(--text-light);margin-bottom:20px;">ホストがゲームを開始するまでお待ちください</p>' +
+            '<div class="loading-spinner" style="margin:20px auto;"></div>' +
+            '<button class="btn btn-danger" id="btn-cancel-waiting" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>');
+
         document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
             if (typeof OnlineManager !== 'undefined') { try { await OnlineManager.leaveRoom(); } catch (e) { } }
             this.resetOnlineState();
@@ -672,14 +1300,17 @@ class App {
         this.setText('cpu-score-label', '相手');
 
         const settings = (roomData && roomData.settings) || {};
+        const cardCount = SettingsStore.normalizeCardCount(settings.cardCount || SettingsStore.get('cardCount'));
         this.engine.configure({
             mode: 'online', isOnline: true, isHost: true, cpuLevel: 0,
-            cardCount: settings.cardCount || 9,
+            cardCount: cardCount,
             categories: settings.categories || []
         });
+        this.applyCardGridLayout(cardCount);
         this.engine.onOnlineStateChange = (state) => this.handleOnlineStateChange(state);
         this.setupOnlineSync();
         this.showScreen('screen-game');
+        StructureCache.pause();
         this.engine.startGame(10);
         this.startOnlineWatchdog();
     }
@@ -701,14 +1332,17 @@ class App {
         this.setText('cpu-score-label', '相手');
 
         const settings = (roomData && roomData.settings) || {};
+        const cardCount = SettingsStore.normalizeCardCount(settings.cardCount || SettingsStore.get('cardCount'));
         this.engine.configure({
             mode: 'online', isOnline: true, isHost: false, cpuLevel: 0,
-            cardCount: settings.cardCount || 9,
+            cardCount: cardCount,
             categories: settings.categories || []
         });
+        this.applyCardGridLayout(cardCount);
         this.setupOnlineSync();
         if (roomData && roomData.gameState) this.syncOnlineGameState(roomData.gameState, roomData);
         this.showScreen('screen-game');
+        StructureCache.pause();
         this.startOnlineWatchdog();
     }
 
@@ -724,7 +1358,9 @@ class App {
         this.leftHandled = false;
         this.historyTargetId = null;
         this.scoredRemoteRound = -1;
+        this._dealing = false;
         this.stopFinalCountdown();
+        this.hidePreparing();
         this.closeRoundResultModal();
     }
 
@@ -732,6 +1368,7 @@ class App {
         this.engine.pause();
         this.stopOnlineWatchdog();
         this.stopFinalCountdown();
+        this.hidePreparing();
         this.isOnlineMode = false;
         this.isHost = false;
         this.onlineGameStarted = false;
@@ -761,8 +1398,7 @@ class App {
                     await OnlineManager.finishRound(
                         state.playerWon ? 'player' : 'opponent',
                         state.round || this.engine.roundNumber,
-                        this.engine.getAuthoritativeScores()
-                    );
+                        this.engine.getAuthoritativeScores());
                     break;
                 case 'game_end':
                     await OnlineManager.finishGame(this.engine.getAuthoritativeScores());
@@ -803,6 +1439,7 @@ class App {
         if (typeof OnlineManager !== 'undefined') { try { OnlineManager.leaveRoom(); } catch (e) { } }
         this.resetOnlineState();
         this.showScreen('screen-title');
+        StructureCache.resume();
         alert(message || '対戦相手が退出しました');
     }
 
@@ -837,7 +1474,6 @@ class App {
                     return;
                 }
                 if (myStage > 0 && gs.phase !== 'reading' && gs.phase !== 'finished') {
-                    console.warn('[watchdog] phase stuck at', gs.phase, '-> repair');
                     await OnlineManager.updateStage(myStage, myRound);
                     return;
                 }
@@ -888,13 +1524,13 @@ class App {
         this.setText('score-cpu', oppScore);
 
         const total = this.num(gameState.totalRounds) || this.engine.totalRounds || 10;
-        this.setText('round-display', `${round} / ${total}`);
+        this.setText('round-display', round + ' / ' + total);
 
         const cards = gameState.cards;
         if (!this.isHost && Array.isArray(cards) && cards.length > 0 && this.renderedRound !== round) {
             this.renderedRound = round;
             this.resetClueDisplay();
-            this.renderOnlineCards(cards).catch(() => { });
+            this.renderCards(cards, false).catch(() => { });
         }
 
         if (phase === 'reading') this.updateOnlineClue(gameState);
@@ -907,7 +1543,6 @@ class App {
                 const winner = gameState.roundWinner;
                 if (this.isHost) {
                     if (resultRound !== this.engine.roundNumber && this.engine.currentRound.isActive) {
-                        console.warn('[sync] stale result for round', resultRound, '-> repair db');
                         const r = this.engine.currentRound;
                         OnlineManager.setRoundData(r.cards, r.target, this.engine.roundNumber,
                             this.engine.totalRounds, Number(r.currentStage) || 0);
@@ -932,8 +1567,7 @@ class App {
                     const explanation = (clueData && clueData.explanation) ? clueData.explanation : '解説データなし';
                     this.showRoundResult({
                         playerWon: this.isHost ? (winner === 'player') : (winner === 'opponent'),
-                        target: target,
-                        explanation: explanation
+                        target: target, explanation: explanation
                     });
                 }
             }
@@ -965,10 +1599,7 @@ class App {
             (this.engine.currentRound && this.engine.currentRound.currentStage) || 1;
         const scored = this.engine.scoreOpponentCorrect(stage);
         this.scoredRemoteRound = resultRound;
-        if (scored) {
-            console.log('[score] credited opponent from room state (round ' + resultRound + ')');
-            this.syncScoresToRoom();
-        }
+        if (scored) this.syncScoresToRoom();
     }
 
     num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
@@ -979,59 +1610,11 @@ class App {
         const stageEl = document.getElementById('clue-stage');
         if (stageEl) stageEl.textContent = 'STAGE 1';
         const textEl = document.getElementById('clue-text');
-        if (textEl) textEl.textContent = '読み札が始まります';
+        if (textEl) textEl.textContent = '読み札がここに表示されます';
         this.historyTargetId = null;
         this.removeFinalCountdown();
         const cluePanel = document.querySelector('.clue-display');
         if (cluePanel) cluePanel.scrollTop = 0;
-    }
-
-    async renderOnlineCards(cards) {
-        const grid = document.getElementById('card-grid');
-        if (!grid) return;
-        const renderRound = this.renderedRound;
-        grid.innerHTML = '';
-        const cardElements = [];
-        (cards || []).forEach(c => {
-            if (!c) return;
-            const div = document.createElement('div');
-            div.className = 'card';
-            div.dataset.id = String(c.id || '').trim();
-            const contentDiv = document.createElement('div');
-            contentDiv.className = 'card-content';
-            div.appendChild(contentDiv);
-            grid.appendChild(div);
-            cardElements.push({ element: contentDiv, compound: c });
-        });
-        const promises = cardElements.map(({ element, compound }, index) => {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    try {
-                        StructureRenderer.render(element, compound.smiles, 'light', {
-                            name: compound.name, name_en: compound.name_en, formula: compound.formula
-                        }).then(resolve).catch(resolve);
-                    } catch (e) { resolve(); }
-                }, index * 50);
-            });
-        });
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
-        await Promise.race([Promise.all(promises), timeoutPromise]);
-        return renderRound;
-    }
-
-    updateOnlineClue(gameState) {
-        const stage = Number(gameState.currentStage) || 0;
-        const stageEl = document.getElementById('clue-stage');
-        const textEl = document.getElementById('clue-text');
-        if (stageEl) stageEl.textContent = `STAGE ${Math.max(1, stage)}`;
-        if (gameState.target) {
-            const clueData = this.engine.clues[String(gameState.target.id || '').trim()];
-            if (clueData) {
-                const stageData = clueData.stages.find(s => s.stage === stage);
-                if (textEl && stageData) textEl.textContent = stageData.text;
-            }
-        }
-        this.updateClueWithHistory({ target: gameState.target, currentStage: stage });
     }
 
     /* ========================= タップ処理 ========================= */
@@ -1097,7 +1680,7 @@ class App {
             Object.keys(taps).forEach(pid => {
                 const tap = taps[pid];
                 if (!tap || !tap.cardId) return;
-                const key = `${tap.round || 0}_${tap.seq || tap.timestamp || 0}_${tap.cardId}`;
+                const key = (tap.round || 0) + '_' + (tap.seq || tap.timestamp || 0) + '_' + tap.cardId;
                 if (this.processedTaps[pid] === key) return;
                 this.processedTaps[pid] = key;
                 const gs = this.onlineGameState;
@@ -1122,7 +1705,7 @@ class App {
             if (!tap || !tap.cardId) return;
             const tapRound = Number(tap.round) || 0;
             if (tapRound && tapRound !== currentRoundNo) return;
-            const key = `${tapRound}_${tap.seq || tap.timestamp || 0}_${tap.cardId}`;
+            const key = tapRound + '_' + (tap.seq || tap.timestamp || 0) + '_' + tap.cardId;
             if (this.processedTaps[pid] === key) return;
             this.processedTaps[pid] = key;
 
@@ -1135,7 +1718,7 @@ class App {
                 const stage = Number(tap.stage) || round.currentStage || 1;
                 const scored = this.engine.scoreOpponentCorrect(stage);
                 this.scoredRemoteRound = currentRoundNo;
-                if (!scored) { console.log('[score] opponent credit skipped round', currentRoundNo); return; }
+                if (!scored) return;
                 if (round.isActive && !round.settled) this.engine._finishRound(false, 'opponent');
                 else {
                     this.syncScoresToRoom();
@@ -1160,7 +1743,7 @@ class App {
         const grid = document.getElementById('card-grid');
         if (!grid) return null;
         const safeId = (window.CSS && CSS.escape) ? CSS.escape(String(id)) : String(id);
-        try { return grid.querySelector(`.card[data-id="${safeId}"]`); }
+        try { return grid.querySelector('.card[data-id="' + safeId + '"]'); }
         catch (e) {
             return Array.from(grid.querySelectorAll('.card')).find(c => c.dataset.id === String(id)) || null;
         }
@@ -1178,7 +1761,7 @@ class App {
         const scores = data.scores || { player: 0, opponent: 0 };
         this.setText('score-player', scores.player || 0);
         this.setText('score-cpu', scores.opponent || 0);
-        this.setText('round-display', `${data.roundNumber} / ${data.totalRounds}`);
+        this.setText('round-display', data.roundNumber + ' / ' + data.totalRounds);
 
         switch (data.state) {
             case 'DEAL':
@@ -1193,12 +1776,13 @@ class App {
                     this.processedTaps = {};
                     if (this.isHost) {
                         this.resetClueDisplay();
-                        this.engine.startReading(true);
-                        this.renderOnlineCards(data.round.cards).catch(() => { });
+                        // ★修正3: 描画完了 → cardsReady → 読み上げ
+                        await this.renderCards(data.round.cards, true);
                     }
                 } else {
                     this.resetClueDisplay();
-                    await this.renderCards(data.round.cards);
+                    // ★修正3: 全カード描画を await（旧版は 6 秒で打ち切って先に読み上げていた）
+                    await this.renderCards(data.round.cards, true);
                 }
                 break;
             case 'READING':
@@ -1214,25 +1798,22 @@ class App {
         this.updateFooterState(data);
     }
 
-    /** ★ フッターボタンの状態を常に正しく保つ（押せなくなる事故の防止） */
-    updateFooterState(data) {
+    updateFooterState() {
         const canNext = this.engine.canNextClue ? this.engine.canNextClue() : false;
         const isFinal = this.engine.isFinalStage ? this.engine.isFinalStage() : false;
         const guestTurn = this.isOnlineMode && !this.isHost;
 
         const nextBtn = document.getElementById('btn-next-clue');
         if (nextBtn) {
-            const disabled = !canNext || guestTurn || this.hasShownResult;
-            nextBtn.disabled = disabled;
-            nextBtn.textContent = isFinal ? '最終札' : '次';
+            nextBtn.disabled = !canNext || guestTurn || this.hasShownResult || this._dealing;
+            nextBtn.textContent = isFinal ? '最終札' : '次の札';
             nextBtn.title = isFinal ? '読み札はすべて読み終えました' : '次の読み札へ';
         }
         const skipBtn = document.getElementById('btn-skip');
-        if (skipBtn) skipBtn.disabled = guestTurn || this.hasShownResult;
+        if (skipBtn) skipBtn.disabled = guestTurn || this.hasShownResult || this._dealing;
         const hintBtn = document.getElementById('btn-hint');
         if (hintBtn) hintBtn.disabled = this.hasShownResult;
 
-        // 最終フェーズなのにカウントダウンが出ていなければ貼り直す
         if (isFinal && !document.getElementById('final-countdown') && !this.hasShownResult &&
             this.engine.finalDeadline > Date.now()) {
             this.startFinalCountdown();
@@ -1253,8 +1834,8 @@ class App {
             host.appendChild(el);
         }
         el.innerHTML =
-            `<div class="fc-row"><span class="fc-label">読み札終了 ・ 時間切れで終了</span><span class="fc-time">--</span></div>
-             <div class="fc-bar"><i></i></div>`;
+            '<div class="fc-row"><span class="fc-label">読み札終了 ・ 時間切れで終了</span><span class="fc-time">--</span></div>' +
+            '<div class="fc-bar"><i></i></div>';
 
         const tick = () => {
             const dl = this.engine.finalDeadline || 0;
@@ -1283,36 +1864,119 @@ class App {
         if (el) el.remove();
     }
 
-    async renderCards(cards) {
+    /* ========================= ★カード描画（キャッシュ優先） ========================= */
+    applyCardGridLayout(count) {
         const grid = document.getElementById('card-grid');
         if (!grid) return;
+        grid.classList.remove('cards-6', 'cards-9', 'cards-12', 'cards-16');
+        grid.classList.add('cards-' + SettingsStore.normalizeCardCount(count));
+    }
+
+    showPreparing(text, sub) {
+        let el = document.getElementById('preparing-overlay');
+        if (!el) {
+            el = document.createElement('div');
+            el.id = 'preparing-overlay';
+            document.body.appendChild(el);
+        }
+        el.innerHTML =
+            '<div class="loading-spinner" style="width:40px;height:40px;border:4px solid var(--card-border);border-top-color:var(--accent-gold);"></div>' +
+            '<div class="prep-text">' + (text || '準備中') + '</div>' +
+            (sub ? '<div class="prep-sub" id="prep-sub">' + sub + '</div>' : '');
+        return el;
+    }
+
+    updatePreparingSub(text) {
+        const el = document.getElementById('prep-sub');
+        if (el) el.textContent = text;
+    }
+
+    hidePreparing() {
+        const el = document.getElementById('preparing-overlay');
+        if (el) el.remove();
+    }
+
+    /**
+     * カードを描画する。
+     * @param {Array} cards
+     * @param {boolean} startReading 完了後に読み上げを開始するか
+     * ★修正3: 全カードの描画（キャッシュ注入 or 生成）が完了するまで
+     *          engine.setCardsReady(true) を呼ばない＝読み上げは絶対に先行しない
+     */
+    async renderCards(cards, startReading) {
+        const grid = document.getElementById('card-grid');
+        if (!grid) return;
+
+        const list = (cards || []).filter(c => c);
+        this._dealing = true;
+        this.engine.cardsReady = false;
+        this.applyCardGridLayout(list.length);
+        this.updateFooterState();
+
+        // 1) 未取得分があれば事前にまとめて生成（キャッシュヒットなら即時）
+        const missing = list.filter(c => !StructureCache.has(c));
+        if (missing.length > 0) {
+            StructureCache.pause();
+            const overlay = this.showPreparing('札を準備中', '構造式を生成しています… 0 / ' + missing.length);
+            try {
+                await Promise.race([
+                    StructureCache.ensureMany(missing, (done, total) => {
+                        this.updatePreparingSub('構造式を生成しています… ' + done + ' / ' + total);
+                    }),
+                    new Promise(res => setTimeout(res, 20000))   // 万一のハング防止
+                ]);
+            } catch (e) { console.warn('ensureMany failed', e); }
+            overlay.remove();
+        }
+
+        // 2) DOM 構築＋キャッシュHTMLの同期注入（待ち時間ほぼ0）
         grid.innerHTML = '';
-        const cardElements = [];
-        (cards || []).forEach(c => {
-            if (!c) return;
+        const pending = [];
+        list.forEach(compound => {
             const div = document.createElement('div');
             div.className = 'card';
-            div.dataset.id = String(c.id || '').trim();
+            div.dataset.id = String(compound.id || '').trim();
             const contentDiv = document.createElement('div');
             contentDiv.className = 'card-content';
             div.appendChild(contentDiv);
             grid.appendChild(div);
-            cardElements.push({ element: contentDiv, compound: c });
+
+            if (StructureCache.applyTo(contentDiv, compound)) return;   // ★即時
+
+            // キャッシュ miss時のフォールバック（直接レンダリング）
+            div.classList.add('loading-card');
+            contentDiv.innerHTML = '<div class="card-loading"><div class="loading-spinner"></div></div>';
+            pending.push((async () => {
+                try {
+                    const html = await StructureCache.render(compound);
+                    if (html) contentDiv.innerHTML = html;
+                    else await StructureRenderer.render(contentDiv, compound.smiles, 'light', {
+                        name: compound.name, name_en: compound.name_en, formula: compound.formula
+                    });
+                } catch (e) {
+                    contentDiv.innerHTML =
+                        '<div class="card-fallback"><div class="compound-name">' + (compound.name || '') + '</div>' +
+                        '<div class="compound-formula">' + (compound.formula || '') + '</div></div>';
+                } finally {
+                    div.classList.remove('loading-card');
+                }
+            })());
         });
-        const promises = cardElements.map(({ element, compound }, index) => {
-            return new Promise((resolve) => {
-                setTimeout(() => {
-                    try {
-                        StructureRenderer.render(element, compound.smiles, 'light', {
-                            name: compound.name, name_en: compound.name_en, formula: compound.formula
-                        }).then(resolve).catch(resolve);
-                    } catch (e) { resolve(); }
-                }, index * 50);
-            });
-        });
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
-        await Promise.race([Promise.all(promises), timeoutPromise]);
-        this.engine.startReading(true);
+
+        if (pending.length > 0) {
+            await Promise.race([
+                Promise.all(pending),
+                new Promise(res => setTimeout(res, 20000))
+            ]);
+        }
+
+        // 3) 全カード描画完了 → エンジンに通知 → 読み上げ開始
+        await new Promise(r => requestAnimationFrame(() => r()));
+        this._dealing = false;
+        this.engine.setCardsReady(true);
+        if (startReading) this.engine.startReading(true);
+        this.updateFooterState();
+        if (!this.isOnlineMode) StructureCache.resume();
     }
 
     updateClueWithHistory(round) {
@@ -1328,7 +1992,7 @@ class App {
 
         const stageEl = document.getElementById('clue-stage');
         const textEl = document.getElementById('clue-text');
-        if (stageEl) stageEl.textContent = `STAGE ${currentStage}`;
+        if (stageEl) stageEl.textContent = 'STAGE ' + currentStage;
         if (textEl) textEl.textContent = currentStageData.text;
 
         const historyDiv = document.getElementById('clue-history');
@@ -1348,7 +2012,7 @@ class App {
             historyItem.dataset.stage = String(s);
             const label = document.createElement('span');
             label.className = 'stage-label';
-            label.textContent = `STAGE ${s}`;
+            label.textContent = 'STAGE ' + s;
             const body = document.createElement('div');
             body.textContent = prevData.text;
             historyItem.appendChild(label);
@@ -1379,7 +2043,6 @@ class App {
         if (legacy) legacy.remove();
     }
 
-    /** ★ 画面切替時に全モーダルを破棄（透明オーバーレイで操作不能になる事故の防止） */
     closeAllModals() {
         this.stopFinalCountdown();
         this.closeRoundResultModal();
@@ -1392,7 +2055,6 @@ class App {
 
     showRoundResult(data) {
         if (!data) return;
-        // 残骸チェック（DOM に存在しないなら null に戻して作り直す）
         if (this.roundResultModal && !document.body.contains(this.roundResultModal)) this.roundResultModal = null;
         if (this.roundResultModal) return;
         this.closeRoundResultModal();
@@ -1416,60 +2078,50 @@ class App {
             resultTitle = playerWon ? '正解' : '確認';
             resultColor = playerWon ? '#22c55e' : 'var(--accent-gold)';
         } else if (reason === 'timeout') {
-            resultTitle = '時間切れ';
-            resultColor = 'var(--accent-gold)';
+            resultTitle = '時間切れ'; resultColor = 'var(--accent-gold)';
         } else if (reason === 'skip') {
-            resultTitle = 'スキップ';
-            resultColor = 'var(--accent-gold)';
+            resultTitle = 'スキップ'; resultColor = 'var(--accent-gold)';
         } else {
             resultTitle = playerWon ? '正解' : (this.isOnlineMode ? '相手の取りです' : '不正解');
             resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
         }
 
-        const sc = this.isHost
+        const sc = (this.isHost || !this.isOnlineMode)
             ? this.engine.getAuthoritativeScores()
-            : (this.isOnlineMode
-                ? (() => { const s = (this.onlineGameState && this.onlineGameState.scores) || {}; return { player: this.num(s.player), opponent: this.num(s.opponent) }; })()
-                : this.engine.getAuthoritativeScores());
-        const myNow = this.isHost || !this.isOnlineMode ? sc.player : sc.opponent;
-        const oppNow = this.isHost || !this.isOnlineMode ? sc.opponent : sc.player;
+            : (() => { const s = (this.onlineGameState && this.onlineGameState.scores) || {}; return { player: this.num(s.player), opponent: this.num(s.opponent) }; })();
+        const myNow = (this.isHost || !this.isOnlineMode) ? sc.player : sc.opponent;
+        const oppNow = (this.isHost || !this.isOnlineMode) ? sc.opponent : sc.player;
 
-        // ★ CPU戦で正解した化合物は資料がアンロックされる
         const targetId = String(compound.id || '').trim();
         const unlockedNow = targetId && ProgressManager.isUnlocked(targetId);
         const lockBadge = !this.isOnlineMode
             ? (unlockedNow
-                ? `<div class="unlock-badge">資料アンロック済み</div>`
+                ? '<div class="unlock-badge">🔓 資料アンロック済み</div>'
                 : (this.isPracticeMode
-                    ? `<div class="lock-badge">練習モードはアンロック対象外</div>`
-                    : `<div class="lock-badge">正解すると資料が解放</div>`))
+                    ? '<div class="lock-badge">練習モードはアンロック対象外</div>'
+                    : '<div class="lock-badge">🔒 正解すると資料が解放</div>'))
             : '';
 
         modal.innerHTML =
-            `<div class="modal-content" style="background: var(--card-bg); border: 3px solid ${resultColor}; border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
-                <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: ${resultColor}; font-family: var(--font-display); letter-spacing: 0.15em;">${resultTitle}</h2>
-                <div style="background: var(--tatami-light); border-radius: 2px; padding: 15px; margin-bottom: 15px; min-height: 130px; border: 2px solid var(--card-border);">
-                    <div id="modal-structure" style="width: 100%; height: 100%;"></div>
-                </div>
-                <div class="modal-name" style="font-size: 1.2rem; margin-bottom: 6px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;"></div>
-                <div class="modal-formula" style="font-size: 0.9rem; color: var(--text-light); margin-bottom: 8px;"></div>
-                ${lockBadge}
-                <div style="display: flex; justify-content: space-around; gap: 10px; margin: 15px 0;">
-                    <div style="flex:1; background: var(--tatami-light); border: 2px solid var(--card-border); border-radius: 2px; padding: 8px 4px;">
-                        <div style="font-size: 0.7rem; color: var(--text-light); letter-spacing: 0.1em; font-family: var(--font-display);">あなた</div>
-                        <div class="modal-my-score" style="font-size: 1.4rem; font-weight: 900; color: var(--accent-green); font-family: var(--font-display);">${myNow}</div>
-                    </div>
-                    <div style="flex:1; background: var(--tatami-light); border: 2px solid var(--card-border); border-radius: 2px; padding: 8px 4px;">
-                        <div style="font-size: 0.7rem; color: var(--text-light); letter-spacing: 0.1em; font-family: var(--font-display);">${this.isOnlineMode ? '相手' : 'CPU'}</div>
-                        <div class="modal-opp-score" style="font-size: 1.4rem; font-weight: 900; color: var(--accent-red); font-family: var(--font-display);">${oppNow}</div>
-                    </div>
-                </div>
-                <div style="font-size: 0.85rem; color: var(--text-dark); line-height: 1.7; margin-bottom: 20px; text-align: left; background: var(--tatami-light); padding: 12px 14px; border-radius: 2px; border-left: 4px solid var(--accent-gold); font-family: var(--font-main);">
-                    <div style="font-size: 0.75rem; font-weight: 700; color: var(--accent-green); letter-spacing: 0.1em; margin-bottom: 4px; font-family: var(--font-display);">解説</div>
-                    <div class="modal-explanation"></div>
-                </div>
-                <button class="btn btn-primary" id="modal-next-btn" style="width: 100%; font-family: var(--font-display);">次の問題へ</button>
-            </div>`;
+            '<div class="modal-content" style="background:var(--card-bg);border:3px solid ' + resultColor + ';border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.5);">' +
+            '<h2 style="font-size:1.8rem;margin-bottom:15px;color:' + resultColor + ';font-family:var(--font-display);letter-spacing:.15em;text-indent:.15em;">' + resultTitle + '</h2>' +
+            '<div style="background:var(--tatami-light);border-radius:2px;padding:15px;margin-bottom:15px;min-height:130px;border:2px solid var(--card-border);">' +
+            '<div id="modal-structure" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;"></div></div>' +
+            '<div class="modal-name"></div>' +
+            '<div class="modal-formula" style="font-size:0.9rem;color:var(--text-light);margin-bottom:8px;"></div>' +
+            lockBadge +
+            '<div style="display:flex;justify-content:space-around;gap:10px;margin:15px 0;">' +
+            '<div style="flex:1;background:var(--tatami-light);border:2px solid var(--card-border);border-radius:2px;padding:8px 4px;">' +
+            '<div style="font-size:0.7rem;color:var(--text-light);letter-spacing:.1em;font-family:var(--font-display);">あなた</div>' +
+            '<div class="modal-my-score" style="font-size:1.4rem;font-weight:900;color:var(--accent-green);font-family:var(--font-display);">' + myNow + '</div></div>' +
+            '<div style="flex:1;background:var(--tatami-light);border:2px solid var(--card-border);border-radius:2px;padding:8px 4px;">' +
+            '<div style="font-size:0.7rem;color:var(--text-light);letter-spacing:.1em;font-family:var(--font-display);">' + (this.isOnlineMode ? '相手' : 'CPU') + '</div>' +
+            '<div class="modal-opp-score" style="font-size:1.4rem;font-weight:900;color:var(--accent-red);font-family:var(--font-display);">' + oppNow + '</div></div></div>' +
+            '<div style="font-size:0.85rem;color:var(--text-dark);line-height:1.7;margin-bottom:20px;text-align:left;background:var(--tatami-light);padding:12px 14px;border-radius:2px;border-left:4px solid var(--accent-gold);font-family:var(--font-main);">' +
+            '<div style="font-size:0.75rem;font-weight:700;color:var(--accent-green);letter-spacing:.1em;margin-bottom:4px;font-family:var(--font-display);">解説</div>' +
+            '<div class="modal-explanation"></div></div>' +
+            '<button class="btn btn-primary" id="modal-next-btn" style="width:100%;">次の問題へ</button>' +
+            '</div>';
         document.body.appendChild(modal);
         this.roundResultModal = modal;
 
@@ -1480,11 +2132,21 @@ class App {
         const expEl = modal.querySelector('.modal-explanation');
         if (expEl) expEl.textContent = explanation;
 
+        // ★構造式はキャッシュから即時注入（モーダル表示のもたつき防止）
         const structureDiv = document.getElementById('modal-structure');
-        if (structureDiv && compound.smiles) {
-            StructureRenderer.render(structureDiv, compound.smiles, 'light', {
-                name: compound.name, name_en: compound.name_en, formula: compound.formula
-            }).catch(() => { });
+        if (structureDiv) {
+            if (!StructureCache.applyTo(structureDiv, compound)) {
+                if (compound.smiles) {
+                    StructureCache.render(compound).then(html => {
+                        if (html && document.body.contains(structureDiv)) structureDiv.innerHTML = html;
+                        else if (document.body.contains(structureDiv)) {
+                            StructureRenderer.render(structureDiv, compound.smiles, 'light', {
+                                name: compound.name, name_en: compound.name_en, formula: compound.formula
+                            }).catch(() => { });
+                        }
+                    }).catch(() => { });
+                }
+            }
         }
 
         const nextBtn = document.getElementById('modal-next-btn');
@@ -1508,10 +2170,8 @@ class App {
             this._refreshModalScores = () => {
                 if (!this.roundResultModal) return;
                 let m, o;
-                if (this.isHost) {
-                    const a = this.engine.getAuthoritativeScores();
-                    m = a.player; o = a.opponent;
-                } else {
+                if (this.isHost) { const a = this.engine.getAuthoritativeScores(); m = a.player; o = a.opponent; }
+                else {
                     const s = (this.onlineGameState && this.onlineGameState.scores) || {};
                     m = this.num(s.opponent); o = this.num(s.player);
                 }
@@ -1531,10 +2191,9 @@ class App {
         this.gameEndShown = true;
         this.stopOnlineWatchdog();
         this.stopFinalCountdown();
-
+        this.hidePreparing();
         try { StorageManager.recordCpuResult(data.winner); } catch (e) { }
 
-        // ★ ポイント付与（勝利数・難易度・正解ラウンド数）
         const mode = this.isPracticeMode ? 'practice' : (this.isOnlineMode ? 'online' : 'cpu');
         const progress = ProgressManager.recordGameEnd({
             mode: mode,
@@ -1549,49 +2208,39 @@ class App {
         modal.style.zIndex = '1000';
         modal.id = 'game-end-modal';
 
-        const rankUpHtml = progress.rankUp
-            ? `<div class="rankup-banner">昇段 ／ ${progress.rankUp}</div>` : '';
-        const pointsHtml = progress.gained > 0
-            ? `<div class="points-gained">+${progress.gained} pt 獲得</div>` : '';
+        const rankUpHtml = progress.rankUp ? '<div class="rankup-banner">昇段 ／ ' + progress.rankUp + '</div>' : '';
+        const pointsHtml = progress.gained > 0 ? '<div class="points-gained">+' + progress.gained + ' pt 獲得</div>' : '';
 
         if (this.isPracticeMode) {
             modal.innerHTML =
-                `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
-                    <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">練習終了</h2>
-                    <div style="background: var(--tatami-light); padding: 20px; border-radius: 2px; border: 2px solid var(--card-border); margin-bottom: 18px;">
-                        <div style="font-size: 0.85rem; color: var(--text-light); margin-bottom: 8px; letter-spacing: 0.1em; font-family: var(--font-display);">TOTAL SCORE</div>
-                        <div style="font-size: 2.5rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore || 0}</div>
-                    </div>
-                    <p style="font-size:0.8rem;color:var(--text-light);margin-bottom:18px;line-height:1.6;">練習モードはポイント・アンロックの対象外です。<br>CPU戦で正解すると資料が解放されます。</p>
-                    <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
-                </div>`;
+                '<div class="modal-content" style="background:var(--card-bg);border:3px solid var(--accent-gold);border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.5);">' +
+                '<h2 style="font-size:1.8rem;margin-bottom:15px;color:var(--accent-gold);font-family:var(--font-display);letter-spacing:.2em;text-indent:.2em;">練習終了</h2>' +
+                '<div style="background:var(--tatami-light);padding:20px;border-radius:2px;border:2px solid var(--card-border);margin-bottom:18px;">' +
+                '<div style="font-size:0.85rem;color:var(--text-light);margin-bottom:8px;letter-spacing:.1em;font-family:var(--font-display);">TOTAL SCORE</div>' +
+                '<div style="font-size:2.5rem;color:var(--accent-green);font-family:var(--font-display);font-weight:900;">' + (data.playerScore || 0) + '</div></div>' +
+                '<p style="font-size:0.8rem;color:var(--text-light);margin-bottom:18px;line-height:1.6;">練習モードはポイント・アンロックの対象外です。<br>CPU戦で正解すると資料が解放されます。</p>' +
+                '<button class="btn btn-primary" id="modal-finish-btn" style="width:100%;">タイトルへ戻る</button></div>';
         } else {
             const playerLabel = this.isOnlineMode ? 'あなた' : 'PLAYER';
             const opponentLabel = this.isOnlineMode ? '相手' : 'CPU';
             const message = data.winner === 'player' ? '勝利' : (data.winner === 'cpu' ? '敗北' : '引き分け');
             modal.innerHTML =
-                `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
-                    <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: var(--accent-gold); font-family: var(--font-display); letter-spacing: 0.2em;">ゲーム終了</h2>
-                    <div style="font-size: 1.4rem; margin-bottom: 14px; color: var(--text-dark); font-family: var(--font-display); font-weight: 700; letter-spacing: 0.1em;">${message}</div>
-                    ${rankUpHtml}
-                    ${pointsHtml}
-                    <div style="display: flex; justify-content: space-around; margin-bottom: 18px; gap: 15px;">
-                        <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">${playerLabel}</div>
-                            <div style="font-size: 1.8rem; color: var(--accent-green); font-family: var(--font-display); font-weight: 900;">${data.playerScore || 0}</div>
-                        </div>
-                        <div style="text-align: center; flex: 1; background: var(--tatami-light); padding: 12px 8px; border-radius: 2px; border: 2px solid var(--card-border);">
-                            <div style="font-size: 0.8rem; color: var(--text-light); margin-bottom: 5px; letter-spacing: 0.1em; font-family: var(--font-display);">${opponentLabel}</div>
-                            <div style="font-size: 1.8rem; color: var(--accent-red); font-family: var(--font-display); font-weight: 900;">${data.cpuScore || 0}</div>
-                        </div>
-                    </div>
-                    <div style="background: var(--tatami-light); border: 2px solid var(--card-border); border-radius:2px; padding:10px; margin-bottom:18px; font-family:var(--font-display);">
-                        <div style="font-size:0.72rem;color:var(--text-light);letter-spacing:0.12em;margin-bottom:4px;">現在の段位</div>
-                        <div style="font-size:1.15rem;font-weight:900;color:var(--accent-green);letter-spacing:0.1em;">${progress.rank.name}</div>
-                        <div style="font-size:0.85rem;color:var(--text-dark);margin-top:4px;">${ProgressManager.points} pt ／ 通算 ${ProgressManager.data.wins} 勝</div>
-                    </div>
-                    <button class="btn btn-primary" id="modal-finish-btn" style="width: 100%; font-family: var(--font-display);">タイトルへ戻る</button>
-                </div>`;
+                '<div class="modal-content" style="background:var(--card-bg);border:3px solid var(--accent-gold);border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.5);">' +
+                '<h2 style="font-size:1.8rem;margin-bottom:15px;color:var(--accent-gold);font-family:var(--font-display);letter-spacing:.2em;text-indent:.2em;">ゲーム終了</h2>' +
+                '<div style="font-size:1.4rem;margin-bottom:14px;color:var(--text-dark);font-family:var(--font-display);font-weight:700;letter-spacing:.1em;">' + message + '</div>' +
+                rankUpHtml + pointsHtml +
+                '<div style="display:flex;justify-content:space-around;margin-bottom:18px;gap:15px;">' +
+                '<div style="text-align:center;flex:1;background:var(--tatami-light);padding:12px 8px;border-radius:2px;border:2px solid var(--card-border);">' +
+                '<div style="font-size:0.8rem;color:var(--text-light);margin-bottom:5px;letter-spacing:.1em;font-family:var(--font-display);">' + playerLabel + '</div>' +
+                '<div style="font-size:1.8rem;color:var(--accent-green);font-family:var(--font-display);font-weight:900;">' + (data.playerScore || 0) + '</div></div>' +
+                '<div style="text-align:center;flex:1;background:var(--tatami-light);padding:12px 8px;border-radius:2px;border:2px solid var(--card-border);">' +
+                '<div style="font-size:0.8rem;color:var(--text-light);margin-bottom:5px;letter-spacing:.1em;font-family:var(--font-display);">' + opponentLabel + '</div>' +
+                '<div style="font-size:1.8rem;color:var(--accent-red);font-family:var(--font-display);font-weight:900;">' + (data.cpuScore || 0) + '</div></div></div>' +
+                '<div style="background:var(--tatami-light);border:2px solid var(--card-border);border-radius:2px;padding:10px;margin-bottom:18px;font-family:var(--font-display);">' +
+                '<div style="font-size:0.72rem;color:var(--text-light);letter-spacing:.12em;margin-bottom:4px;">現在の段位</div>' +
+                '<div style="font-size:1.15rem;font-weight:900;color:var(--accent-green);letter-spacing:.1em;">' + progress.rank.name + '</div>' +
+                '<div style="font-size:0.85rem;color:var(--text-dark);margin-top:4px;">' + ProgressManager.points + ' pt ／ 通算 ' + ProgressManager.data.wins + ' 勝</div></div>' +
+                '<button class="btn btn-primary" id="modal-finish-btn" style="width:100%;">タイトルへ戻る</button></div>';
         }
         document.body.appendChild(modal);
 
@@ -1604,6 +2253,7 @@ class App {
                 }
                 this.resetOnlineState();
                 this.showScreen('screen-title');
+                StructureCache.resume();
             });
         }
     }
@@ -1631,6 +2281,7 @@ class App {
                 }
                 this.allCategoriesSelected = (this.selectedCategories.length === categories.length);
                 this.updateSelectAllButtonText();
+                StructureCache.prioritize(this.selectedCategories);
             });
             grid.appendChild(tag);
         });
@@ -1649,12 +2300,13 @@ class App {
         this.selectedCategories = shouldSelect ? this.engine.getCategories() : [];
         this.allCategoriesSelected = shouldSelect;
         this.updateSelectAllButtonText();
+        StructureCache.prioritize(this.selectedCategories);
     }
 
     updateDifficultySelection() {
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.classList.remove('selected');
-            if (parseInt(btn.dataset.level) === this.selectedDifficulty) btn.classList.add('selected');
+            if (parseInt(btn.dataset.level, 10) === this.selectedDifficulty) btn.classList.add('selected');
         });
     }
 
@@ -1669,20 +2321,26 @@ class App {
         this.renderedRound = -1;
         this.onlineRound = -1;
         this.scoredRemoteRound = -1;
+        this._dealing = false;
         this.stopOnlineWatchdog();
         this.stopFinalCountdown();
+        this.hidePreparing();
         this.closeRoundResultModal();
+
+        // ★修正4: カード枚数は SettingsStore が正本
+        const cardCount = SettingsStore.get('cardCount');
 
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',
             isOnline: false,
             isHost: false,
             cpuLevel: this.isPracticeMode ? 0 : this.selectedDifficulty,
-            cardCount: StorageManager.loadSettings().cardCount || 9,
+            cardCount: cardCount,
             categories: this.selectedCategories.length > 0 ? this.selectedCategories : []
         };
         this.engine.configure(settings);
         this.engine.onOnlineStateChange = null;
+        this.applyCardGridLayout(cardCount);
 
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
@@ -1691,6 +2349,10 @@ class App {
         }
         this.setText('player-score-label', '得点');
         this.setText('cpu-score-label', this.isPracticeMode ? '' : 'CPU');
+
+        // 対戦中にバックグラウンド生成を止め、CPU を描画に集中させる
+        StructureCache.pause();
+        StructureCache.prioritize(this.selectedCategories);
 
         this.showScreen('screen-game');
         this.engine.startGame(10);
@@ -1702,7 +2364,7 @@ class App {
         if (!target && this.onlineGameState) target = this.onlineGameState.target;
         if (!target) return;
         const categoryName = this.getCategoryDisplayName(target.category);
-        alert(`ヒント: ${categoryName} / 分子式: ${target.formula}`);
+        alert('ヒント: ' + categoryName + ' / 分子式: ' + target.formula);
     }
 
     /* ========================= 統計・段位 ========================= */
@@ -1714,30 +2376,27 @@ class App {
         this.setText('stat-games', p.gamesPlayed || (summary ? summary.totalGames : 0));
         this.setText('stat-accuracy', summary ? summary.accuracy + '%' : '0%');
         this.setText('stat-max-combo', summary ? summary.maxCombo : 0);
-
         this.setText('stat-cpu-wins', p.wins);
         this.setText('stat-cpu-losses', p.losses);
         this.setText('stat-cpu-draws', p.draws);
         this.setText('stat-cpu-winrate', ProgressManager.winRate() + '%');
-
         this.setText('profile-total-score', ProgressManager.points + ' pt');
         this.renderRankPanel();
 
         if (summary) {
             this.renderBarGraph('category-bars', summary.byCategory, (cat) => this.getCategoryDisplayName(cat));
             const diffNames = { 0: '練習', 1: '易しい', 3: '普通', 7: '難しい' };
-            this.renderBarGraph('difficulty-bars', summary.byDifficulty, (d) => diffNames[d] || `Lv.${d}`);
-            this.renderBarGraph('stage-bars', summary.byStage, (s) => `STAGE ${s}`);
+            this.renderBarGraph('difficulty-bars', summary.byDifficulty, (d) => diffNames[d] || ('Lv.' + d));
+            this.renderBarGraph('stage-bars', summary.byStage, (s) => 'STAGE ' + s);
             this.renderHistory(summary.history);
         }
     }
 
-    /** 段位＋アンロック数のパネルを profile-card に構築/更新 */
     renderRankPanel() {
         const card = document.querySelector('.profile-card');
         if (!card) return;
         const rank = ProgressManager.rankOf(ProgressManager.points);
-        this.setText('profile-rank', `段位: ${rank.name}`);
+        this.setText('profile-rank', '段位: ' + rank.name);
 
         let panel = document.getElementById('rank-progress');
         if (!panel) {
@@ -1749,12 +2408,12 @@ class App {
         const totalCompounds = this.engine.compounds.length || 0;
         const unlocked = ProgressManager.unlockedCount();
         panel.innerHTML =
-            `<div class="rank-progress-row">
-                <span class="rank-progress-label">${rank.next ? '次の段位まで' : '最高段位'}</span>
-                <span class="rank-progress-next">${rank.next ? `あと ${rank.need} pt で「${rank.next.name}」` : '―'}</span>
-             </div>
-             <div class="rank-track"><div class="rank-fill" style="width:${Math.round(rank.progress * 100)}%"></div></div>
-             <div class="profile-unlock">図鑑アンロック: <strong style="color:var(--accent-green);">${unlocked}</strong> / ${totalCompounds} 化合物</div>`;
+            '<div class="rank-progress-row">' +
+            '<span class="rank-progress-label">' + (rank.next ? '次の段位まで' : '最高段位') + '</span>' +
+            '<span class="rank-progress-next">' + (rank.next ? ('あと ' + rank.need + ' pt で「' + rank.next.name + '」') : '―') + '</span>' +
+            '</div>' +
+            '<div class="rank-track"><div class="rank-fill" style="width:' + Math.round(rank.progress * 100) + '%"></div></div>' +
+            '<div class="profile-unlock">図鑑アンロック: <strong style="color:var(--accent-green);">' + unlocked + '</strong> / ' + totalCompounds + ' 化合物</div>';
     }
 
     renderBarGraph(containerId, data, labelFunc) {
@@ -1768,7 +2427,7 @@ class App {
         const entries = Object.entries(data).map(([key, val]) => {
             const total = val.correct + val.wrong;
             const rate = total > 0 ? Math.round((val.correct / total) * 100) : 0;
-            return { key, rate, total };
+            return { key: key, rate: rate, total: total };
         }).sort((a, b) => a.rate - b.rate);
 
         entries.forEach(item => {
@@ -1777,9 +2436,9 @@ class App {
             const isLow = item.rate < 50;
             const label = labelFunc(item.key);
             row.innerHTML =
-                `<div class="bar-label" title="${label}">${label}</div>
-                 <div class="bar-track"><div class="bar-fill ${isLow ? 'low' : ''}" style="width: ${item.rate}%"></div></div>
-                 <div class="bar-value">${item.rate}%</div>`;
+                '<div class="bar-label" title="' + label + '">' + label + '</div>' +
+                '<div class="bar-track"><div class="bar-fill ' + (isLow ? 'low' : '') + '" style="width:' + item.rate + '%"></div></div>' +
+                '<div class="bar-value">' + item.rate + '%</div>';
             container.appendChild(row);
         });
     }
@@ -1794,16 +2453,16 @@ class App {
         }
         history.forEach(h => {
             const date = new Date(h.date);
-            const dateStr = `${date.getMonth() + 1}/${date.getDate()} ${date.getHours()}:${String(date.getMinutes()).padStart(2, '0')}`;
+            const dateStr = (date.getMonth() + 1) + '/' + date.getDate() + ' ' + date.getHours() + ':' + String(date.getMinutes()).padStart(2, '0');
             let compoundName = h.compoundId;
             const compound = this.engine.compounds.find(c => String(c.id || '').trim() === h.compoundId);
             if (compound) compoundName = compound.name;
             const item = document.createElement('div');
-            item.className = `history-item ${h.result}`;
+            item.className = 'history-item ' + h.result;
             item.innerHTML =
-                `<div class="history-date">${dateStr}</div>
-                 <div class="history-name">${compoundName}</div>
-                 <div class="history-result">${h.result === 'correct' ? '正解' : '不正解'}</div>`;
+                '<div class="history-date">' + dateStr + '</div>' +
+                '<div class="history-name">' + compoundName + '</div>' +
+                '<div class="history-result">' + (h.result === 'correct' ? '正解' : '不正解') + '</div>';
             container.appendChild(item);
         });
     }
@@ -1814,15 +2473,12 @@ class App {
     }
 
     /* ========================= 資料（ロック機構付き） ========================= */
-
     _lockSvg() {
-        return `<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
-            <rect x="4" y="10" width="16" height="11" rx="2"></rect>
-            <path d="M8 10V7a4 4 0 0 1 8 0v3"></path>
-        </svg>`;
+        return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
+            '<rect x="4" y="10" width="16" height="11" rx="2"></rect>' +
+            '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>';
     }
 
-    /** 資料画面上部のアンロック進捗バー */
     renderUnlockBar() {
         const container = document.querySelector('.reference-container');
         if (!container) return;
@@ -1839,12 +2495,11 @@ class App {
         const unlocked = ProgressManager.unlockedCount();
         const pct = total > 0 ? Math.round((unlocked / total) * 100) : 0;
         panel.innerHTML =
-            `<div class="unlock-panel-row">
-                <span class="unlock-panel-title">図鑑アンロック</span>
-                <span class="unlock-panel-value">${unlocked} / ${total}（${pct}%）</span>
-             </div>
-             <div class="unlock-track"><div class="unlock-fill" style="width:${pct}%"></div></div>
-             <div class="unlock-hint">CPU戦で正解した化合物の構造式が「資料」で開示されます（練習・オンラインは対象外）</div>`;
+            '<div class="unlock-panel-row">' +
+            '<span class="unlock-panel-title">図鑑アンロック</span>' +
+            '<span class="unlock-panel-value">' + unlocked + ' / ' + total + '（' + pct + '%）</span></div>' +
+            '<div class="unlock-track"><div class="unlock-fill" style="width:' + pct + '%"></div></div>' +
+            '<div class="unlock-hint">CPU戦で正解した化合物の構造式が「資料」で開示されます（練習・オンラインは対象外）</div>';
     }
 
     renderReference() {
@@ -1889,13 +2544,14 @@ class App {
             grouped[cat].push(c);
         });
 
+        const renderQueue = [];
         Object.keys(grouped).sort().forEach(cat => {
             const section = document.createElement('div');
             section.className = 'reference-category-section';
             const header = document.createElement('div');
             header.className = 'reference-category-header';
             const unlockedInCat = grouped[cat].filter(c => ProgressManager.isUnlocked(c.id)).length;
-            header.textContent = `${this.getCategoryDisplayName(cat)}（${unlockedInCat} / ${grouped[cat].length}）`;
+            header.textContent = this.getCategoryDisplayName(cat) + '（' + unlockedInCat + ' / ' + grouped[cat].length + '）';
             section.appendChild(header);
 
             const grid = document.createElement('div');
@@ -1905,29 +2561,27 @@ class App {
                 const item = document.createElement('div');
                 item.className = 'reference-item' + (unlocked ? '' : ' locked');
                 item.dataset.id = String(compound.id || '').trim();
-                const structInner = unlocked
-                    ? ''
-                    : `<div class="ref-lock">${this._lockSvg()}<span>未解放</span></div>`;
+                const structInner = unlocked ? '' : ('<div class="ref-lock">' + this._lockSvg() + '<span>未解放</span></div>');
                 item.innerHTML =
-                    `<div class="reference-item-structure ${unlocked ? '' : 'locked'}" data-smiles="${unlocked ? (compound.smiles || '') : ''}">${structInner}</div>
-                     <div class="reference-item-name">${compound.name || ''}</div>
-                     <div class="reference-item-formula">${unlocked ? (compound.formula || '') : '???'}</div>`;
+                    '<div class="reference-item-structure ' + (unlocked ? '' : 'locked') + '">' + structInner + '</div>' +
+                    '<div class="reference-item-name">' + (compound.name || '') + '</div>' +
+                    '<div class="reference-item-formula">' + (unlocked ? (compound.formula || '') : '???') + '</div>';
                 item.addEventListener('click', () => this.showReferenceDetail(compound));
                 grid.appendChild(item);
+                if (unlocked) renderQueue.push({ el: item.querySelector('.reference-item-structure'), compound: compound });
             });
             section.appendChild(grid);
             listContainer.appendChild(section);
         });
 
+        // ★キャッシュから同期注入 → 未取得分だけ非同期生成
         requestAnimationFrame(() => {
-            const structures = listContainer.querySelectorAll('.reference-item-structure');
-            structures.forEach((el, index) => {
-                const smiles = el.dataset.smiles;
-                if (smiles) {
-                    setTimeout(() => {
-                        StructureRenderer.render(el, smiles, 'light', {}).catch(() => { });
-                    }, index * 30);
-                }
+            renderQueue.forEach(entry => {
+                if (!entry.el) return;
+                if (StructureCache.applyTo(entry.el, entry.compound)) return;
+                StructureCache.render(entry.compound).then(html => {
+                    if (html && document.body.contains(entry.el)) entry.el.innerHTML = html;
+                }).catch(() => { });
             });
         });
     }
@@ -1945,19 +2599,24 @@ class App {
         const structureDiv = document.getElementById('detail-structure');
         if (structureDiv) {
             structureDiv.innerHTML = '';
-            if (unlocked && compound.smiles) {
+            if (unlocked) {
                 structureDiv.classList.remove('locked');
-                StructureRenderer.render(structureDiv, compound.smiles, 'light', {
-                    name: compound.name, name_en: compound.name_en, formula: compound.formula
-                }).catch(() => { });
+                if (!StructureCache.applyTo(structureDiv, compound)) {
+                    StructureCache.render(compound).then(html => {
+                        if (html && document.body.contains(structureDiv)) structureDiv.innerHTML = html;
+                        else if (compound.smiles && document.body.contains(structureDiv)) {
+                            StructureRenderer.render(structureDiv, compound.smiles, 'light', {
+                                name: compound.name, name_en: compound.name_en, formula: compound.formula
+                            }).catch(() => { });
+                        }
+                    }).catch(() => { });
+                }
             } else {
                 structureDiv.classList.add('locked');
                 structureDiv.innerHTML =
-                    `<div class="ref-lock" style="color:#8b8676;">
-                        ${this._lockSvg()}
-                        <span>構造式はロック中</span>
-                        <span style="font-size:.65rem;opacity:.8;">CPU戦でこの化合物に正解すると解放</span>
-                     </div>`;
+                    '<div class="ref-lock" style="color:#8b8676;">' + this._lockSvg() +
+                    '<span>構造式はロック中</span>' +
+                    '<span style="font-size:.65rem;opacity:.8;">CPU戦でこの化合物に正解すると解放</span></div>';
             }
         }
 
@@ -1974,19 +2633,19 @@ class App {
                     item.className = 'reference-stage-item';
                     const num = document.createElement('span');
                     num.className = 'stage-num';
-                    num.textContent = `STEP ${stage.stage}`;
+                    num.textContent = 'STEP ' + stage.stage;
                     item.appendChild(num);
                     item.appendChild(document.createTextNode(stage.text));
                     stagesDiv.appendChild(item);
                 });
                 const playBtn = document.createElement('button');
                 playBtn.className = 'btn btn-primary';
-                playBtn.style.cssText = 'width: 100%; margin-top: 12px; font-size: 0.9rem; padding: 10px;';
+                playBtn.style.cssText = 'width:100%;margin-top:12px;font-size:0.9rem;padding:10px;';
                 playBtn.textContent = '読み上げる';
                 playBtn.addEventListener('click', () => this.playAllStages(clueData.stages));
                 stagesDiv.appendChild(playBtn);
             } else {
-                stagesDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem; padding: 10px;">読み札データがありません</div>';
+                stagesDiv.innerHTML = '<div style="color:var(--text-light);font-size:0.85rem;padding:10px;">読み札データがありません</div>';
             }
         }
 
@@ -2002,7 +2661,7 @@ class App {
                 content.textContent = unlocked ? clueData.explanation : '（構造式をアンロックすると全文を表示）';
                 explanationDiv.appendChild(content);
             } else {
-                explanationDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem;">解説データがありません</div>';
+                explanationDiv.innerHTML = '<div style="color:var(--text-light);font-size:0.85rem;">解説データがありません</div>';
             }
         }
 
@@ -2024,7 +2683,6 @@ class App {
 
     /* ========================= 画面切替・設定 ========================= */
     showScreen(screenId) {
-        // ★ 遷移時は必ずモーダルを全破棄（オーバーレイ残り＝ボタン不能の原因）
         if (screenId !== 'screen-game') this.closeAllModals();
         else { this.closeRoundResultModal(); this.removeFinalCountdown(); }
 
@@ -2037,30 +2695,32 @@ class App {
             const scrollables = target.querySelectorAll('.clue-display, .card-field, .settings-container, .stats-container, .difficulty-container, .title-container, .reference-list');
             scrollables.forEach(el => { el.scrollTop = 0; });
         }
-        if (screenId === 'screen-title') this.refreshTitleProgress();
+        if (screenId === 'screen-title') {
+            this.refreshTitleProgress();
+            StructureCache.resume();
+        }
+        if (screenId === 'screen-settings') this.syncSettingsUI();
         this.updateFooterState();
     }
 
-    /** タイトル画面に段位・アンロック数を出す（要素があれば） */
     refreshTitleProgress() {
-        const rank = ProgressManager.rankOf(ProgressManager.points);
-        let bar = document.getElementById('title-progress-bar');
         const container = document.querySelector('.title-logo');
         if (!container) return;
+        const rank = ProgressManager.rankOf(ProgressManager.points);
+        let bar = document.getElementById('title-progress-bar');
         if (!bar) {
             bar = document.createElement('div');
             bar.id = 'title-progress-bar';
-            bar.style.cssText = 'margin-top:14px;padding-top:10px;border-top:1px solid rgba(255,255,255,.25);text-align:center;';
             container.appendChild(bar);
         }
         const total = this.engine.compounds.length || 0;
+        const cached = Math.min(StructureCache.mem.size, total);
+        const cacheText = total > 0 && cached >= total
+            ? '構造式キャッシュ 準備完了'
+            : '構造式キャッシュ ' + cached + ' / ' + total;
         bar.innerHTML =
-            `<div style="font-family:var(--font-display);font-size:.8rem;color:var(--accent-gold);letter-spacing:.15em;">
-                段位 ${rank.name} ／ ${ProgressManager.points} pt ／ 通算 ${ProgressManager.data.wins} 勝
-             </div>
-             <div style="font-family:var(--font-main);font-size:.72rem;color:rgba(255,255,255,.6);margin-top:4px;letter-spacing:.08em;">
-                図鑑アンロック ${ProgressManager.unlockedCount()} / ${total}
-             </div>`;
+            '<div class="title-rank-line">段位 ' + rank.name + ' ／ ' + ProgressManager.points + ' pt ／ 通算 ' + ProgressManager.data.wins + ' 勝</div>' +
+            '<div class="title-sub-line">図鑑アンロック ' + ProgressManager.unlockedCount() + ' / ' + total + '　・　' + cacheText + '</div>';
     }
 
     getCategoryDisplayName(category) {
@@ -2079,16 +2739,16 @@ class App {
     }
 
     loadSettings() {
-        let settings = null;
-        try { settings = StorageManager.loadSettings(); } catch (e) { settings = null; }
-        if (!settings) return;
-        const voiceToggle = document.getElementById('setting-voice');
-        const voiceSpeed = document.getElementById('setting-voice-speed');
-        const cardCount = document.getElementById('setting-card-count');
-        if (voiceToggle) voiceToggle.checked = settings.voiceEnabled;
-        if (voiceSpeed) voiceSpeed.value = settings.voiceSpeed;
-        if (cardCount) cardCount.value = settings.cardCount;
-        AudioManager.updateSettings({ enabled: settings.voiceEnabled, rate: settings.voiceSpeed });
+        // SettingsStore が正本。既存 StorageManager からも読み込む（init でマージ済み）
+        try {
+            const legacy = StorageManager.loadSettings();
+            if (legacy) {
+                if (legacy.voiceEnabled !== undefined) SettingsStore.set('voiceEnabled', legacy.voiceEnabled);
+                if (legacy.voiceSpeed !== undefined) SettingsStore.set('voiceSpeed', legacy.voiceSpeed);
+                if (legacy.cardCount !== undefined) SettingsStore.set('cardCount', legacy.cardCount);
+            }
+        } catch (e) { }
+        AudioBridge.applyAll();
     }
 }
 
