@@ -399,14 +399,4 @@ class GameEngine {
 
     getCategories() { return Array.from(this.categories).sort(); }
     getCompoundCount() { return this.compounds.length; }
-    /**
-     * 相手が正解した場合の処理（ホストのみ使用）
-     */
-    handleOpponentWin() {
-        if (!this.currentRound.isActive) return;
-        this.currentRound.isActive = false;
-        this.combo = 0;
-        this._calculateScore(false, 0, 'player', 0);
-        this._finishRound(false);
-    }
 }

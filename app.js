@@ -510,8 +510,9 @@ class App {
         const cpuScoreEl = document.getElementById('score-cpu');
         const roundDisplayEl = document.getElementById('round-display');
 
-        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player;
-        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
+        // 得点をFirebaseから取得
+        if (playerScoreEl) playerScoreEl.textContent = gameState.scores.player || 0;
+        if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent || 0;
         if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
 
         if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
@@ -522,18 +523,6 @@ class App {
             this.updateOnlineClue(gameState);
         } else if (gameState.phase === 'result' && !this.hasShownResult) {
             this.hasShownResult = true;
-            
-            // ★ 修正: 正解カードにエフェクトを追加（ゲスト側）
-            if (!this.isHost && gameState.target) {
-                const targetId = (gameState.target.id || '').trim();
-                const correctCard = document.querySelector(`.card[data-id="${targetId}"]`);
-                if (correctCard && !correctCard.classList.contains('taken')) {
-                    correctCard.classList.add('correct');
-                    setTimeout(() => correctCard.classList.add('taken'), 600);
-                }
-            }
-            
-            // 解説モーダルを表示
             if (gameState.target) {
                 const targetId = (gameState.target.id || '').trim();
                 const clueData = this.engine.clues[targetId];
@@ -547,10 +536,10 @@ class App {
             }
         } else if (gameState.phase === 'finished') {
             this.showGameEnd({
-                playerScore: gameState.scores.player,
-                cpuScore: gameState.scores.opponent,
-                winner: gameState.scores.player > gameState.scores.opponent ? 'player' : 
-                       gameState.scores.player < gameState.scores.opponent ? 'cpu' : 'draw'
+                playerScore: gameState.scores.player || 0,
+                cpuScore: gameState.scores.opponent || 0,
+                winner: (gameState.scores.player || 0) > (gameState.scores.opponent || 0) ? 'player' : 
+                    (gameState.scores.player || 0) < (gameState.scores.opponent || 0) ? 'cpu' : 'draw'
             });
         }
     }
@@ -613,39 +602,46 @@ class App {
 
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
+        
+        // 既に正解した人がいたら何もしない
+        if (this.onlineGameState && this.onlineGameState.roundWinner) return;
 
-        if (this.isHost) {
-            this.engine.handlePlayerTap(id);
+        const target = this.onlineGameState ? this.onlineGameState.target : null;
+        if (!target) return;
+        
+        const targetId = (target.id || '').trim();
+        const tapId = (id || '').trim();
+        const isCorrect = (tapId === targetId);
+        
+        if (isCorrect) {
+            element.classList.add('correct');
+            setTimeout(() => element.classList.add('taken'), 600);
             
-            const targetId = (this.engine.currentRound.target.id || '').trim();
-            const tapId = (id || '').trim();
-            const isCorrect = (tapId === targetId);
+            // 自分の得点を増やす
+            const currentScore = this.isHost ? 
+                (this.onlineGameState.scores.player || 0) : 
+                (this.onlineGameState.scores.opponent || 0);
+            const newScore = currentScore + 1000;
             
-            if (isCorrect) {
-                element.classList.add('correct');
-                setTimeout(() => element.classList.add('taken'), 600);
-            } else {
-                element.classList.add('wrong');
-                setTimeout(() => element.classList.remove('wrong'), 600);
+            // Firebaseに得点を更新
+            const newScores = this.isHost ? 
+                { player: newScore, opponent: this.onlineGameState.scores.opponent || 0 } :
+                { player: this.onlineGameState.scores.player || 0, opponent: newScore };
+            
+            await OnlineManager.updateScores(newScores);
+            await OnlineManager.updateGameState({ roundWinner: this.isHost ? 'player' : 'opponent' });
+            
+            // ラウンド終了（ホストのみ）
+            if (this.isHost) {
+                this.engine._finishRound(true);
             }
         } else {
-            await OnlineManager.recordTap(id);
-            
-            const target = this.onlineGameState ? this.onlineGameState.target : null;
-            if (target) {
-                const targetId = (target.id || '').trim();
-                const tapId = (id || '').trim();
-                const isCorrect = (tapId === targetId);
-                
-                if (isCorrect) {
-                    element.classList.add('correct');
-                    setTimeout(() => element.classList.add('taken'), 600);
-                } else {
-                    element.classList.add('wrong');
-                    setTimeout(() => element.classList.remove('wrong'), 600);
-                }
-            }
+            element.classList.add('wrong');
+            setTimeout(() => element.classList.remove('wrong'), 600);
         }
+        
+        // Firebaseにタップを記録
+        await OnlineManager.recordTap(id);
     }
 
     /**
@@ -653,7 +649,7 @@ class App {
      * ゲストが正解した場合、ラウンドを終了する
      */
     handleOpponentTap(taps) {
-        if (!this.onlineGameState || !this.isHost) return;
+        if (!this.onlineGameState) return;
 
         for (const playerId in taps) {
             const tap = taps[playerId];
@@ -669,9 +665,6 @@ class App {
                 if (isCorrect) {
                     card.classList.add('correct');
                     setTimeout(() => card.classList.add('taken'), 600);
-                    
-                    // ★ 修正: ゲストが正解した場合、ホスト側でラウンドを終了
-                    this.engine.handleOpponentWin();
                 } else {
                     card.classList.add('wrong');
                     setTimeout(() => card.classList.remove('wrong'), 600);
