@@ -1,13 +1,13 @@
 /* =========================================================================
-   game.js  —  GameEngine（修正版 v2）
-   -------------------------------------------------------------------------
-   修正点:
-   ・ラウンドトークン方式で「前ラウンドのタイマー／読み上げ終了コールバック」
-     が次のラウンドの読み札を勝手に進める問題を防止
-   ・nextClue の多重呼び出し（読み札重複・ステージ飛び）を防止
-   ・最大ステージ到達後は進めない
-   ・scoreOpponentCorrect() / forceRoundEndLocal() を追加（オンライン用）
-   ========================================================================= */
+game.js  —  GameEngine（修正版 v3）
+【2枚目以降のオンライン対戦で読み札が始まらない問題への対策】
+・startReading(force) … state 判定で永久に止まらないよう強制起動を許可
+・進行ウォッチドッグ … 「読み上げが一度も始まらない／途中で止まる」を
+  検出して自動的に nextClue を再点火する（ラウンドトークン付き）
+・読み上げ onEnd 保険 … TTS の onEnd が返ってこなくても次ステージへ進む
+・forceRoundEndLocal(forRound) … 前ラウンドの結果で現在のラウンドを
+  殺されないようにラウンド番号照合を追加
+========================================================================= */
 class GameEngine {
     constructor() {
         this.state = 'IDLE';
@@ -31,9 +31,10 @@ class GameEngine {
         this.onOnlineStateChange = null;
         this._readTimer = null;
         this._clueTimer = null;
+        this._watchdogTimer = null;   // ★ v3
         this._roundToken = 0;
+        this._lastClueAt = 0;          // ★ v3
     }
-
     _emptyRound() {
         return {
             target: null,
@@ -45,22 +46,62 @@ class GameEngine {
             token: 0
         };
     }
-
     _clearReadTimer() {
         if (this._readTimer) { clearTimeout(this._readTimer); this._readTimer = null; }
     }
     _clearClueTimer() {
         if (this._clueTimer) { clearTimeout(this._clueTimer); this._clueTimer = null; }
     }
+    /* ★ v3: ウォッチドッグ */
+    _clearWatchdog() {
+        if (this._watchdogTimer) { clearInterval(this._watchdogTimer); this._watchdogTimer = null; }
+    }
     _clearTimers() {
         this._clearReadTimer();
         this._clearClueTimer();
+        this._clearWatchdog();
     }
-
+    /**
+     * ★ v3: 進行ウォッチドッグ
+     *  ・currentStage が 0 のまま 4 秒経過 → 読み上げを強制点火
+     *  ・最後の読み札から 16 秒経過 → 次ステージへ強制進行
+     *  （TTS の onEnd 消失・state 不一致・Firebase 書き込み失敗などで
+     *    ラウンドが固まった場合の最終防衛線）
+     */
+    _startWatchdog(token) {
+        this._clearWatchdog();
+        if (this.isOnline && !this.isHost) return;
+        this._lastClueAt = Date.now();
+        this._watchdogTimer = setInterval(() => {
+            const r = this.currentRound;
+            if (!r || r.token !== token || !r.isActive) { this._clearWatchdog(); return; }
+            if (this.isOnline && !this.isHost) { this._clearWatchdog(); return; }
+            const idle = Date.now() - (this._lastClueAt || r.startTime || Date.now());
+            if (r.currentStage === 0) {
+                if (idle > 4000) {
+                    console.warn('[watchdog] reading never started -> force nextClue (round ' + this.roundNumber + ')');
+                    this._clearReadTimer();
+                    this._lastClueAt = Date.now();
+                    this.nextClue();
+                }
+            } else if (idle > 16000) {
+                console.warn('[watchdog] reading stalled at stage ' + r.currentStage + ' -> force nextClue');
+                this._lastClueAt = Date.now();
+                this.nextClue();
+            }
+        }, 1000);
+    }
+    /** ★ v3: 外部（App）から「読み上げが始まっているか」を保証する */
+    ensureReading() {
+        if (!this.currentRound || !this.currentRound.isActive) return;
+        if (this.isOnline && !this.isHost) return;
+        if (this.currentRound.currentStage === 0 && !this._readTimer) {
+            this.startReading(true);
+        }
+    }
     _clueOf(targetId) {
         return this.clues[String(targetId || '').trim()] || null;
     }
-
     _maxStage(target) {
         const clueData = this._clueOf(target ? target.id : '');
         if (clueData && Array.isArray(clueData.stages) && clueData.stages.length > 0) {
@@ -68,7 +109,6 @@ class GameEngine {
         }
         return 4;
     }
-
     _trimObject(obj) {
         if (obj === null || typeof obj !== 'object') return obj;
         if (Array.isArray(obj)) return obj.map(item => this._trimObject(item));
@@ -85,7 +125,6 @@ class GameEngine {
         }
         return trimmed;
     }
-
     async loadData() {
         try {
             const basePath = window.location.pathname.endsWith('/') ? window.location.pathname : window.location.pathname + '/';
@@ -95,7 +134,6 @@ class GameEngine {
             ]);
             if (!compRes.ok) throw new Error(`compounds.json: ${compRes.status}`);
             if (!clueRes.ok) throw new Error(`clues.json: ${clueRes.status}`);
-
             const rawCompounds = await compRes.json();
             const rawClues = await clueRes.json();
             this.compounds = rawCompounds.map(c => this._trimObject(c));
@@ -109,7 +147,6 @@ class GameEngine {
             return false;
         }
     }
-
     configure(settings) {
         this.settings = Object.assign({}, this.settings, settings || {});
         if (settings && settings.isOnline !== undefined) this.isOnline = settings.isOnline;
@@ -119,7 +156,6 @@ class GameEngine {
         }
         if (settings && settings.mode) this.mode = settings.mode;
     }
-
     startGame(totalRounds = 10) {
         this._clearTimers();
         this.totalRounds = totalRounds;
@@ -131,11 +167,9 @@ class GameEngine {
         this._notify();
         this.startNewRound();
     }
-
     startNewRound() {
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
-
         if (this.roundNumber >= this.totalRounds) {
             this.endGame();
             return;
@@ -143,7 +177,6 @@ class GameEngine {
         this.roundNumber++;
         this._roundToken++;
         const token = this._roundToken;
-
         let candidates = this.compounds;
         if (this.settings.categories && this.settings.categories.length > 0) {
             candidates = candidates.filter(c => this.settings.categories.includes(c.category));
@@ -152,14 +185,12 @@ class GameEngine {
             console.error('No candidates available');
             return;
         }
-
         const target = candidates[Math.floor(Math.random() * candidates.length)];
         const others = this.compounds
             .filter(c => c.id !== target.id)
             .sort(() => Math.random() - 0.5)
             .slice(0, Math.max(0, this.settings.cardCount - 1));
         const cards = [target].concat(others).sort(() => Math.random() - 0.5);
-
         this.currentRound = {
             target: target,
             cards: cards,
@@ -170,8 +201,9 @@ class GameEngine {
             token: token
         };
         this.state = 'DEAL';
+        this._lastClueAt = Date.now();
+        this._startWatchdog(token);   // ★ v3: 描画やFirebaseの成否に依存しない進行保証
         this._notify();
-
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_start',
@@ -184,63 +216,78 @@ class GameEngine {
             });
         }
     }
-
-    startReading() {
+    /**
+     * ★ v3: force=true で state 判定を bypass できる
+     *   （前ラウンドの result スナップショット等で state が汚染されても
+     *     読み上げが二度と始まらなくなる事故を防止）
+     */
+    startReading(force = false) {
         if (!this.currentRound.isActive) return;
-        if (this.state !== 'DEAL') return;
-        if (this._readTimer) return; // ★ 二重起動防止
+        if (this.isOnline && !this.isHost) return;
+        if (this.currentRound.currentStage > 0) return; // 既に読み始め済み
+        if (this._readTimer) return;                    // 二重起動防止
+        if (!force && this.state !== 'DEAL') return;
         const token = this.currentRound.token;
         this._readTimer = setTimeout(() => {
             this._readTimer = null;
-            if (this.currentRound.token !== token) return; // ★ 古いラウンドのタイマーは無視
+            if (this.currentRound.token !== token) return; // 古いラウンドのタイマーは無視
+            if (!this.currentRound.isActive) return;
             this.nextClue();
         }, 1500);
     }
-
     nextClue() {
         if (!this.currentRound.isActive) return;
         if (this.isOnline && !this.isHost) return;
         const target = this.currentRound.target;
         if (!target) return;
-
         const clueData = this._clueOf(target.id);
         const maxStage = this._maxStage(target);
-
-        // ★ 読み切ったらそれ以上進めない（重複読み上げ防止）
-        if (this.currentRound.currentStage >= maxStage) return;
-
+        if (this.currentRound.currentStage >= maxStage) return; // 読み切り
         this._clearClueTimer();
         const token = this.currentRound.token;
-
         this.currentRound.currentStage++;
         this.state = 'READING';
+        this._lastClueAt = Date.now();   // ★ v3
         const stageNow = this.currentRound.currentStage;
+
+        /* ★ v3: 次ステージ進行を 1 本化（onEnd 消失時の保険タイマー付き） */
+        let advanced = false;
+        const advance = () => {
+            if (advanced) return;
+            advanced = true;
+            if (this.currentRound.token !== token) return;
+            if (!this.currentRound.isActive) return;
+            if (this.currentRound.currentStage !== stageNow) return;
+            const hasNext = clueData && Array.isArray(clueData.stages)
+                ? clueData.stages.some(s => s.stage === stageNow + 1) : false;
+            if (!hasNext) return;
+            this._clearClueTimer();
+            this._clueTimer = setTimeout(() => {
+                this._clueTimer = null;
+                if (this.currentRound.token === token) this.nextClue();
+            }, 1000);
+        };
+        // 保険: 読み上げの onEnd が返ってこなくても 15 秒で次へ
+        this._clueTimer = setTimeout(() => { this._clueTimer = null; advance(); }, 15000);
 
         if (clueData) {
             const currentClue = clueData.stages.find(s => s.stage === stageNow);
             if (currentClue) {
-                AudioManager.playSound('stage');
-                AudioManager.speak(currentClue.text, {
-                    onEnd: () => {
-                        // ★ 同一ラウンド・同一ステージのときだけ次へ
-                        if (this.currentRound.token !== token) return;
-                        if (!this.currentRound.isActive) return;
-                        if (this.currentRound.currentStage !== stageNow) return;
-                        const hasNext = clueData.stages.some(s => s.stage === stageNow + 1);
-                        if (hasNext) {
-                            this._clearClueTimer();
-                            this._clueTimer = setTimeout(() => {
-                                this._clueTimer = null;
-                                if (this.currentRound.token === token) this.nextClue();
-                            }, 1000);
-                        }
-                    }
-                });
+                try {
+                    AudioManager.playSound('stage');
+                    AudioManager.speak(currentClue.text, { onEnd: () => advance() });
+                } catch (e) {
+                    console.error('speak error:', e);
+                    advance();
+                }
+            } else {
+                advance();
             }
+        } else {
+            advance();
         }
 
         this._notify();
-
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'stage_update',
@@ -249,7 +296,6 @@ class GameEngine {
                 phase: 'reading'
             });
         }
-
         if (this.cpu && this.mode === 'cpu' && !this.isOnline) {
             this.cpu.startThinking(
                 target.id,
@@ -263,8 +309,6 @@ class GameEngine {
             );
         }
     }
-
-    /** 不正解時の「次の読み札へ」を安全にスケジュール */
     _scheduleNextClue(delay = 1500) {
         if (!this.currentRound.isActive) return;
         if (this.isOnline && !this.isHost) return;
@@ -275,17 +319,14 @@ class GameEngine {
             if (this.currentRound.token === token) this.nextClue();
         }, delay);
     }
-
     handlePlayerTap(cardId) {
         if (!this.currentRound.isActive) return;
         if (this.isOnline && !this.isHost) return;
-
         const targetId = String(this.currentRound.target ? this.currentRound.target.id : '').trim();
         const tapId = String(cardId || '').trim();
         const isCorrect = (tapId === targetId);
         const reactionTime = Date.now() - this.currentRound.startTime;
         const stageNow = this.currentRound.currentStage;
-
         if (isCorrect) {
             if (this.cpu) this.cpu.cancelThinking();
             this.combo++;
@@ -326,16 +367,10 @@ class GameEngine {
             this._notify({ type: 'wrong', id: tapId });
             this._scheduleNextClue(1500);
         }
-
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
-            this.onOnlineStateChange({
-                type: 'player_tap',
-                cardId: tapId,
-                isCorrect: isCorrect
-            });
+            this.onOnlineStateChange({ type: 'player_tap', cardId: tapId, isCorrect: isCorrect });
         }
     }
-
     handleCpuAnswer(cardId, isCorrect) {
         if (!this.currentRound.isActive) return;
         if (isCorrect) {
@@ -350,21 +385,25 @@ class GameEngine {
             this._scheduleNextClue(1500);
         }
     }
-
-    /** ★ オンライン: 相手（ゲスト）が正解したときの得点加算 */
     scoreOpponentCorrect(stage) {
         this.combo = 0;
         this._calculateScore(true, Number(stage) || this.currentRound.currentStage || 1, 'opponent', 0);
     }
-
-    /** ★ オンライン: ローカル状態だけを終了にする（Firebaseへは書かない） */
-    forceRoundEndLocal() {
+    /**
+     * ★ v3: forRound を渡すと「そのラウンドの結果ではない」場合に無視する
+     *   （前ラウンドの result スナップショットで現在のラウンドを殺す事故の防止）
+     */
+    forceRoundEndLocal(forRound) {
+        if (typeof forRound === 'number' && forRound > 0 && forRound !== this.roundNumber) {
+            console.warn('forceRoundEndLocal ignored: stale round', forRound, 'current', this.roundNumber);
+            return false;
+        }
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
         this.currentRound.isActive = false;
         this.state = 'RESULT';
+        return true;
     }
-
     _calculateScore(isCorrect, stage, who = 'player', reactionTime = 0) {
         if (!isCorrect) {
             if (who === 'player') this.scores.player = Math.max(0, this.scores.player - 50);
@@ -383,17 +422,15 @@ class GameEngine {
         else this.scores.opponent += gained;
         this._notify({ type: 'score_update', gained: gained });
     }
-
     _finishRound(playerWon) {
+        if (!this.currentRound.isActive) return; // ★ v3: 二重終了防止
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
         this.currentRound.isActive = false;
         this.state = 'RESULT';
-
         const target = this.currentRound.target || {};
         const clueData = this._clueOf(target.id);
         const explanation = (clueData && clueData.explanation) ? clueData.explanation : '解説データなし';
-
         this._notify({
             type: 'round_end',
             playerWon: playerWon,
@@ -402,15 +439,9 @@ class GameEngine {
             stage: this.currentRound.currentStage,
             combo: this.combo
         });
-
         if (this.onRoundEnd) {
-            this.onRoundEnd({
-                playerWon: playerWon,
-                target: target,
-                explanation: explanation
-            });
+            this.onRoundEnd({ playerWon: playerWon, target: target, explanation: explanation });
         }
-
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({
                 type: 'round_end',
@@ -422,7 +453,6 @@ class GameEngine {
             });
         }
     }
-
     endGame() {
         this._clearTimers();
         this.state = 'IDLE';
@@ -436,25 +466,21 @@ class GameEngine {
         };
         this._notify({ type: 'game_end', summary: summary });
         if (this.onGameEnd) this.onGameEnd(summary);
-
         if (this.isOnline && this.isHost && this.onOnlineStateChange) {
             this.onOnlineStateChange({ type: 'game_end', scores: this.scores, phase: 'finished' });
         }
     }
-
     skipRound() {
         if (!this.currentRound.isActive) return;
         if (this.cpu) this.cpu.cancelThinking();
         this.combo = 0;
         this._finishRound(false);
     }
-
     pause() {
         this._clearTimers();
         if (this.cpu) this.cpu.cancelThinking();
         try { AudioManager.stop(); } catch (e) { }
     }
-
     _notify(data = {}) {
         if (this.onUpdate) {
             this.onUpdate(Object.assign({
@@ -469,7 +495,6 @@ class GameEngine {
             }, data));
         }
     }
-
     getCategories() { return Array.from(this.categories).sort(); }
     getCompoundCount() { return this.compounds.length; }
 }

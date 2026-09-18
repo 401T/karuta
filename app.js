@@ -1,25 +1,18 @@
 /* =========================================================================
-   app.js  —  メインアプリケーション（オンライン対戦 修正版 v2）
-   -------------------------------------------------------------------------
-   修正点:
-   【症状1: 一度正解すると以降正解できなくなる】
-     ・前ラウンドの roundWinner が gameState に残り続けて
-       handleOnlineCardTap が早期 return していた
-       → ラウンド番号の変化を検出して hasShownResult / roundWinner をリセット
-       → resultRound を「現在のラウンド」と照合してから結果表示
-     ・リスナー多重登録により startOnlineGameAsGuest が毎更新ごとに再実行
-       → onlineGameStarted フラグで1回だけ実行
-   【症状2: 読み札が何十個も追加される】
-     ・履歴の重複判定が「現在のstage」を見ていた（追加するのは prevStage）
-       → stage 1〜(current-1) を存在チェックしながら冪等に再構築
-     ・リスナー差し替え式化＋多重起動ガードで呼び出し回数を1本化
-     ・カード再描画もラウンド単位で1回だけ
-   【その他】
-     ・scores.cpu（存在しないキー）→ scores.opponent に修正
-     ・ゲスト側の得点／勝敗の表示取り違えを修正
-     ・ゲストが正解したときの得点をホスト側で加算
-     ・相手退出の検知と後始末
-   ========================================================================= */
+app.js  —  メインアプリケーション（オンライン対戦 修正版 v3）
+【症状: 2問目以降、読み札が読まれはじめない／ゲームが進まない】への対策
+ 1) ホストの読み上げ開始をカード描画の完了から切り離した
+    （描画が 15 秒タイムアウトすると startReading 自体が呼ばれなかった）
+ 2) startReading(true) で state 汚染による永久停止を防止
+ 3) 前ラウンドの result スナップショットで現在のラウンドを殺さない
+    （forceRoundEndLocal にラウンド番号照合を追加／不一致なら DB を修復）
+ 4) syncOnlineGameState に同期シーケンスを導入し、
+    古い dealing スナップショットが読み札表示を消す事故を防止
+ 5) resetClueDisplay は「ラウンドが変わったとき」だけ実行
+ 6) オンライン常時ウォッチドッグ（3秒間隔）
+    ホスト: DB の round/phase がズレていたら書き戻し＋読み上げ再点火
+    ゲスト: 表示だけ取り残されていたら最新状態を再適用
+========================================================================= */
 class App {
     constructor() {
         this.engine = new GameEngine();
@@ -31,7 +24,6 @@ class App {
         this.isOnlineMode = false;
         this.isHost = false;
         this.referenceCurrentCategory = 'all';
-
         // オンライン同期状態
         this.onlineGameState = null;
         this.onlineGameStarted = false;
@@ -41,15 +33,14 @@ class App {
         this.tapSeq = 0;
         this.gameEndShown = false;
         this.leftHandled = false;
-
+        this.syncSeq = 0;                 // ★ v3
+        this._onlineWatchdog = null;      // ★ v3
         // UI状態
         this.hasShownResult = false;
         this.roundResultModal = null;
         this.historyTargetId = null;
-
         this.init();
     }
-
     /* ========================= 初期化 ========================= */
     async init() {
         console.log('App initializing...');
@@ -57,24 +48,19 @@ class App {
             const loaded = await this.engine.loadData();
             if (!loaded) { this.showError('データ読み込み失敗'); return; }
             console.log('Data loaded successfully');
-
             StructureRenderer.init();
             AudioManager.init();
             StorageManager.init();
-
             if (typeof OnlineManager !== 'undefined') {
                 const onlineReady = OnlineManager.init();
                 if (!onlineReady) console.warn('Online mode is disabled due to configuration.');
             }
-
             this.loadSettings();
             this.engine.onUpdate = (data) => this.updateGameUI(data);
             this.engine.onRoundEnd = (data) => this.showRoundResult(data);
             this.engine.onGameEnd = (data) => this.showGameEnd(data);
-
             this.bindEvents();
             this.renderCategoryGrid();
-
             setTimeout(() => {
                 const ls = document.getElementById('loading-screen');
                 if (ls) ls.classList.remove('active');
@@ -85,7 +71,6 @@ class App {
             this.showError('初期化エラー: ' + e.message);
         }
     }
-
     showError(message) {
         const loadingScreen = document.getElementById('loading-screen');
         if (!loadingScreen) return;
@@ -96,7 +81,6 @@ class App {
                 <p style="color: rgba(255,255,255,0.6); font-size: 0.9rem;">コンソール(F12)で詳細を確認</p>
             </div>`;
     }
-
     /* ========================= イベント ========================= */
     bindEvents() {
         document.querySelectorAll('[data-next]').forEach(btn => {
@@ -110,11 +94,9 @@ class App {
                 this.showScreen(nextScreen);
             });
         });
-
         document.querySelectorAll('[data-back]').forEach(btn => {
             btn.addEventListener('click', (e) => this.showScreen(e.currentTarget.dataset.back));
         });
-
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
@@ -122,13 +104,10 @@ class App {
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level);
             });
         });
-
         const startBtn = document.getElementById('btn-start-difficulty');
         if (startBtn) startBtn.addEventListener('click', () => this.startGame());
-
         const selectAllBtn = document.getElementById('btn-select-all');
         if (selectAllBtn) selectAllBtn.addEventListener('click', () => this.toggleSelectAllCategories());
-
         const cardGrid = document.getElementById('card-grid');
         if (cardGrid) {
             cardGrid.addEventListener('click', (e) => {
@@ -138,14 +117,12 @@ class App {
                 }
             });
         }
-
         const skipBtn = document.getElementById('btn-skip');
         if (skipBtn) {
             skipBtn.addEventListener('click', () => {
                 if (!this.isOnlineMode || this.isHost) this.engine.skipRound();
             });
         }
-
         const pauseBtn = document.getElementById('btn-pause');
         if (pauseBtn) {
             pauseBtn.addEventListener('click', async () => {
@@ -157,17 +134,14 @@ class App {
                 this.showScreen('screen-title');
             });
         }
-
         const hintBtn = document.getElementById('btn-hint');
         if (hintBtn) hintBtn.addEventListener('click', () => this.showHint());
-
         const nextClueBtn = document.getElementById('btn-next-clue');
         if (nextClueBtn) {
             nextClueBtn.addEventListener('click', () => {
                 if (!this.isOnlineMode || this.isHost) this.engine.nextClue();
             });
         }
-
         const modalCloseBtn = document.getElementById('modal-close-btn');
         if (modalCloseBtn) {
             modalCloseBtn.addEventListener('click', () => {
@@ -181,10 +155,8 @@ class App {
                 if (e.target === modalOverlay) modalOverlay.classList.remove('active');
             });
         }
-
         const onlineBtn = document.getElementById('btn-online');
         if (onlineBtn) onlineBtn.addEventListener('click', () => this.showOnlineMenu());
-
         const voiceToggle = document.getElementById('setting-voice');
         if (voiceToggle) {
             voiceToggle.addEventListener('change', (e) => {
@@ -215,7 +187,6 @@ class App {
             });
         }
     }
-
     /* ========================= オンライン: メニュー ========================= */
     showOnlineMenu() {
         if (typeof OnlineManager === 'undefined' || !OnlineManager.init()) {
@@ -224,7 +195,6 @@ class App {
         }
         this.resetOnlineState();
         document.querySelectorAll('.modal-screen').forEach(m => m.remove());
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
@@ -244,12 +214,10 @@ class App {
                 <button class="btn btn-danger" id="btn-cancel-online" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
             </div>`;
         document.body.appendChild(modal);
-
         document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
         document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
         document.getElementById('btn-cancel-online').addEventListener('click', () => modal.remove());
     }
-
     async createOnlineRoom() {
         try {
             this.resetOnlineState();
@@ -262,13 +230,9 @@ class App {
             const roomId = await OnlineManager.createRoom(settings);
             this.isHost = true;
             this.isOnlineMode = true;
-
             const onlineMenu = document.getElementById('online-menu-modal');
             if (onlineMenu) onlineMenu.remove();
-
             this.showWaitingRoom(roomId);
-
-            // 待機ルーム用リスナー（★ startOnlineGameAsHost は onlineGameStarted で1回だけ）
             OnlineManager.onRoomUpdate((roomData) => {
                 if (!roomData) return;
                 if (this.onlineGameStarted) return;
@@ -289,7 +253,6 @@ class App {
             alert('ルーム作成に失敗しました: ' + e.message);
         }
     }
-
     async joinOnlineRoom() {
         try {
             const roomIdInput = document.getElementById('room-id-input');
@@ -302,13 +265,9 @@ class App {
             await OnlineManager.joinRoom(roomId);
             this.isHost = false;
             this.isOnlineMode = true;
-
             const onlineMenu = document.getElementById('online-menu-modal');
             if (onlineMenu) onlineMenu.remove();
-
             this.showWaitingRoomForGuest(roomId);
-
-            // ★ ゲーム開始は1回だけ（旧版は更新のたびに再実行されリスナーが増殖していた）
             OnlineManager.onRoomUpdate((roomData) => {
                 if (!roomData) {
                     if (this.onlineGameStarted && !this.leftHandled) {
@@ -326,7 +285,6 @@ class App {
             alert('ルーム参加に失敗しました: ' + e.message);
         }
     }
-
     showWaitingRoom(roomId) {
         const existing = document.getElementById('waiting-room-modal');
         if (existing) existing.remove();
@@ -347,17 +305,14 @@ class App {
                 <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
             </div>`;
         document.body.appendChild(modal);
-
         document.getElementById('btn-start-game').addEventListener('click', () => {
             OnlineManager.updateGameState({ phase: 'starting' });
-            // 開始処理はリスナー経由（onlineGameStartedガード付き）で行う
         });
         document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
             if (typeof OnlineManager !== 'undefined') { try { await OnlineManager.leaveRoom(); } catch (e) { } }
             this.resetOnlineState();
         });
     }
-
     showWaitingRoomForGuest(roomId) {
         const existing = document.getElementById('waiting-room-modal');
         if (existing) existing.remove();
@@ -377,31 +332,25 @@ class App {
                 <button class="btn btn-danger" id="btn-cancel-waiting" style="width: 100%; min-height: 44px; margin-top: 0;">キャンセル</button>
             </div>`;
         document.body.appendChild(modal);
-
         document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
             if (typeof OnlineManager !== 'undefined') { try { await OnlineManager.leaveRoom(); } catch (e) { } }
             this.resetOnlineState();
         });
     }
-
     /* ========================= オンライン: 開始 ========================= */
     startOnlineGameAsHost(roomData) {
-        if (this.onlineGameStarted) return; // ★ 多重起動防止
+        if (this.onlineGameStarted) return;
         this.onlineGameStarted = true;
-
         const waitingModal = document.getElementById('waiting-room-modal');
         if (waitingModal) waitingModal.remove();
-
         this.isOnlineMode = true;
         this.isHost = true;
         this.isPracticeMode = false;
         this.resetRoundUIState();
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) gameScreen.classList.remove('practice-mode');
         this.setText('player-score-label', 'あなた');
         this.setText('cpu-score-label', '相手');
-
         const settings = (roomData && roomData.settings) || {};
         this.engine.configure({
             mode: 'online',
@@ -412,29 +361,24 @@ class App {
             categories: settings.categories || []
         });
         this.engine.onOnlineStateChange = (state) => this.handleOnlineStateChange(state);
-
         this.setupOnlineSync();
         this.showScreen('screen-game');
         this.engine.startGame(10);
+        this.startOnlineWatchdog();   // ★ v3
     }
-
     startOnlineGameAsGuest(roomData) {
-        if (this.onlineGameStarted) return; // ★ 多重起動防止
+        if (this.onlineGameStarted) return;
         this.onlineGameStarted = true;
-
         const waitingModal = document.getElementById('waiting-room-modal');
         if (waitingModal) waitingModal.remove();
-
         this.isOnlineMode = true;
         this.isHost = false;
         this.isPracticeMode = false;
         this.resetRoundUIState();
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) gameScreen.classList.remove('practice-mode');
         this.setText('player-score-label', 'あなた');
         this.setText('cpu-score-label', '相手');
-
         const settings = (roomData && roomData.settings) || {};
         this.engine.configure({
             mode: 'online',
@@ -444,13 +388,13 @@ class App {
             cardCount: settings.cardCount || 9,
             categories: settings.categories || []
         });
-
         this.setupOnlineSync();
         if (roomData && roomData.gameState) this.syncOnlineGameState(roomData.gameState, roomData);
         this.showScreen('screen-game');
+        this.startOnlineWatchdog();   // ★ v3
     }
-
     resetRoundUIState() {
+        this.syncSeq++;                 // ★ v3: 実行中の同期を無効化
         this.hasShownResult = false;
         this.onlineGameState = null;
         this.onlineRound = -1;
@@ -462,9 +406,9 @@ class App {
         this.historyTargetId = null;
         this.closeRoundResultModal();
     }
-
     resetOnlineState() {
         this.engine.pause();
+        this.stopOnlineWatchdog();      // ★ v3
         this.isOnlineMode = false;
         this.isHost = false;
         this.onlineGameStarted = false;
@@ -474,14 +418,13 @@ class App {
         const om = document.getElementById('online-menu-modal');
         if (om) om.remove();
     }
-
     /* ========================= オンライン: 同期 ========================= */
     async handleOnlineStateChange(state) {
         if (!this.isOnlineMode || !this.isHost || !state) return;
         try {
             switch (state.type) {
                 case 'round_start':
-                    await OnlineManager.setRoundData(state.cards, state.target, state.round, state.totalRounds);
+                    await OnlineManager.setRoundData(state.cards, state.target, state.round, state.totalRounds, 0);
                     await OnlineManager.updateScores(state.scores || { player: 0, opponent: 0 });
                     break;
                 case 'stage_update':
@@ -502,9 +445,7 @@ class App {
             console.error('handleOnlineStateChange error:', e);
         }
     }
-
     setupOnlineSync() {
-        // ★ onRoomUpdate / onTaps は差し替え式なので多重登録されない
         OnlineManager.onRoomUpdate((roomData) => {
             if (!roomData) {
                 if (this.onlineGameStarted && !this.leftHandled) {
@@ -523,7 +464,6 @@ class App {
         });
         OnlineManager.onTaps((taps) => this.handleRemoteTaps(taps));
     }
-
     handleOpponentLeft(message) {
         this.engine.pause();
         if (typeof OnlineManager !== 'undefined') { try { OnlineManager.leaveRoom(); } catch (e) { } }
@@ -531,17 +471,61 @@ class App {
         this.showScreen('screen-title');
         alert(message || '対戦相手が退出しました');
     }
-
+    /* ========================= ★ v3: オンライン常時ウォッチドッグ ========================= */
+    startOnlineWatchdog() {
+        this.stopOnlineWatchdog();
+        this._onlineWatchdog = setInterval(() => this.onlineWatchdogTick(), 3000);
+    }
+    stopOnlineWatchdog() {
+        if (this._onlineWatchdog) { clearInterval(this._onlineWatchdog); this._onlineWatchdog = null; }
+    }
+    async onlineWatchdogTick() {
+        if (!this.isOnlineMode || !this.onlineGameStarted) { this.stopOnlineWatchdog(); return; }
+        if (typeof OnlineManager === 'undefined' || !OnlineManager.roomRef) return;
+        try {
+            const room = await OnlineManager.getRoom();
+            if (!room || !room.gameState) return;
+            const gs = room.gameState;
+            const dbRound = Number(gs.round) || 0;
+            if (this.isHost) {
+                const r = this.engine.currentRound;
+                if (!r || !r.isActive) return;
+                const myRound = this.engine.roundNumber;
+                const myStage = Number(r.currentStage) || 0;
+                // DB が前ラウンドのまま → ラウンドデータを書き戻す（ステージは維持）
+                if (dbRound !== myRound) {
+                    console.warn('[watchdog] db round', dbRound, '!= engine round', myRound, '-> resend round data');
+                    await OnlineManager.setRoundData(r.cards, r.target, myRound, this.engine.totalRounds, myStage);
+                    return;
+                }
+                // 読み上げたのに phase が result/dealing のまま → 復旧
+                if (myStage > 0 && gs.phase !== 'reading' && gs.phase !== 'finished') {
+                    console.warn('[watchdog] phase stuck at', gs.phase, '-> repair to reading stage', myStage);
+                    await OnlineManager.updateStage(myStage, myRound);
+                    return;
+                }
+                // ローカルの読み上げ自体が止まっていたら点火
+                this.engine.ensureReading();
+            } else {
+                // ゲスト: 表示だけ取り残されている場合の再適用（冪等）
+                this.onlineGameState = gs;
+                if (gs.phase === 'reading') this.updateOnlineClue(gs);
+            }
+        } catch (e) {
+            console.error('onlineWatchdogTick error:', e);
+        }
+    }
+    /* ===================================================================== */
     async syncOnlineGameState(gameState, roomData) {
         if (!gameState) return;
+        const mySeq = ++this.syncSeq;   // ★ v3: 同期シーケンス
         this.onlineGameState = gameState;
-
         const round = Number(gameState.round) || 0;
         const phase = gameState.phase || 'waiting';
+        const roundChanged = (round !== this.onlineRound);
 
-        /* ★ 新ラウンド検出：ここで結果表示フラグを確実にリセットする
-           （旧版は roundWinner が残り続け、2問目以降タップ不能になっていた） */
-        if (round !== this.onlineRound) {
+        /* 新ラウンド検出：結果表示フラグを確実にリセット */
+        if (roundChanged) {
             this.onlineRound = round;
             this.hasShownResult = false;
             this.renderedRound = -1;
@@ -549,7 +533,6 @@ class App {
             this.historyTargetId = null;
             this.closeRoundResultModal();
         }
-
         // スコア表示（ホスト＝player / ゲスト＝opponent）
         const scores = gameState.scores || {};
         const myScore = this.isHost ? this.num(scores.player) : this.num(scores.opponent);
@@ -559,17 +542,19 @@ class App {
         const total = this.num(gameState.totalRounds) || this.engine.totalRounds || 10;
         this.setText('round-display', `${round} / ${total}`);
 
-        // カード描画（ゲスト側・ラウンドごとに1回だけ）
+        // カード描画（ゲスト側・ラウンドごとに1回だけ／表示をブロックしない）
         const cards = gameState.cards;
         if (!this.isHost && Array.isArray(cards) && cards.length > 0 && this.renderedRound !== round) {
             this.renderedRound = round;
             this.resetClueDisplay();
-            await this.renderOnlineCards(cards);
+            this.renderOnlineCards(cards).catch(() => { });   // ★ v3: await しない
         }
 
+        // ★ v3: dealing での表示クリアは「ラウンドが変わったとき」だけ
+        //   （古い dealing スナップショットが読み札を消す事故の防止）
         if (phase === 'reading') {
             this.updateOnlineClue(gameState);
-        } else if (phase === 'dealing') {
+        } else if (phase === 'dealing' && roundChanged && !this.isHost) {
             this.resetClueDisplay();
         }
 
@@ -578,10 +563,26 @@ class App {
             const resultRound = (gameState.resultRound === undefined || gameState.resultRound === null)
                 ? round : Number(gameState.resultRound);
             if (resultRound === round) {
-                this.hasShownResult = true;
-                if (this.isHost && this.engine.currentRound.isActive) {
-                    this.engine.forceRoundEndLocal();
+                if (this.isHost) {
+                    /* ★ v3: 自分のエンジンが別のラウンドを進めているのに
+                       前ラウンドの result が届いた場合は「終了処理をしない」
+                       ＝旧版はここで currentRound を殺し、以後 startReading が
+                       永久に no-op になって 2 問目以降が進行不能だった */
+                    if (resultRound !== this.engine.roundNumber && this.engine.currentRound.isActive) {
+                        console.warn('[sync] stale result for round', resultRound, '-> repair db');
+                        const r = this.engine.currentRound;
+                        OnlineManager.setRoundData(r.cards, r.target, this.engine.roundNumber,
+                            this.engine.totalRounds, Number(r.currentStage) || 0);
+                        return;
+                    }
+                    this.hasShownResult = true;
+                    if (this.engine.currentRound.isActive) {
+                        this.engine.forceRoundEndLocal(resultRound);
+                    }
+                } else {
+                    this.hasShownResult = true;
                 }
+                if (mySeq !== this.syncSeq) return; // さらに新しい同期が入った
                 const target = gameState.target;
                 if (target) {
                     const clueData = this.engine.clues[String(target.id || '').trim()];
@@ -595,7 +596,6 @@ class App {
                 }
             }
         }
-
         if (phase === 'finished' && !this.gameEndShown) {
             this.gameEndShown = true;
             const s = gameState.scores || {};
@@ -611,9 +611,7 @@ class App {
             });
         }
     }
-
     num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
-
     resetClueDisplay() {
         const historyEl = document.getElementById('clue-history');
         if (historyEl) historyEl.innerHTML = '';
@@ -625,12 +623,11 @@ class App {
         const cluePanel = document.querySelector('.clue-display');
         if (cluePanel) cluePanel.scrollTop = 0;
     }
-
     async renderOnlineCards(cards) {
         const grid = document.getElementById('card-grid');
         if (!grid) return;
+        const renderRound = this.renderedRound;
         grid.innerHTML = '';
-
         const cardElements = [];
         (cards || []).forEach(c => {
             if (!c) return;
@@ -643,22 +640,24 @@ class App {
             grid.appendChild(div);
             cardElements.push({ element: contentDiv, compound: c });
         });
-
         const promises = cardElements.map(({ element, compound }, index) => {
             return new Promise((resolve) => {
                 setTimeout(() => {
-                    StructureRenderer.render(element, compound.smiles, 'light', {
-                        name: compound.name,
-                        name_en: compound.name_en,
-                        formula: compound.formula
-                    }).then(resolve).catch(resolve);
+                    try {
+                        StructureRenderer.render(element, compound.smiles, 'light', {
+                            name: compound.name,
+                            name_en: compound.name_en,
+                            formula: compound.formula
+                        }).then(resolve).catch(resolve);
+                    } catch (e) { resolve(); }
                 }, index * 50);
             });
         });
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
+        // ★ v3: タイムアウトを 15s → 6s に短縮（描画ハング時の影響を最小化）
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
         await Promise.race([Promise.all(promises), timeoutPromise]);
+        return renderRound;
     }
-
     updateOnlineClue(gameState) {
         const stage = Number(gameState.currentStage) || 0;
         const stageEl = document.getElementById('clue-stage');
@@ -673,7 +672,6 @@ class App {
         }
         this.updateClueWithHistory({ target: gameState.target, currentStage: stage });
     }
-
     /* ========================= タップ処理 ========================= */
     handleCardTap(id, element) {
         if (this.isOnlineMode) {
@@ -686,31 +684,25 @@ class App {
         const targetId = String(target ? target.id : '').trim();
         if (String(id || '').trim() === targetId && element) element.classList.add('correct');
     }
-
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
         const gs = this.onlineGameState;
         if (!gs || !gs.target) return;
         if (this.hasShownResult) return;
         if (gs.phase !== 'dealing' && gs.phase !== 'reading') return;
-
         const tapId = String(id || '').trim();
         const targetId = String(gs.target.id || '').trim();
         const isCorrect = (tapId === targetId);
         const round = Number(gs.round) || 0;
         const stage = Number(gs.currentStage) || 0;
-
         this.tapSeq++;
         const meta = { round: round, stage: stage, seq: this.tapSeq };
-
         if (this.isHost) {
-            // ホストはエンジン経由（得点・コンボ・終了処理・Firebase通知）
             this.engine.handlePlayerTap(tapId);
             if (isCorrect && element) element.classList.add('correct');
             try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
             return;
         }
-
         // ゲスト
         if (isCorrect) {
             if (element) element.classList.add('correct');
@@ -735,16 +727,8 @@ class App {
         }
         try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
     }
-
-    /**
-     * 相手のタップ処理
-     *  ・ホスト: ゲストの正解を判定して得点加算＋ラウンド終了
-     *  ・ゲスト: ホストのタップ演出のみ
-     *  ・round / seq で「古いタップ」「同じタップ」の再処理を防止
-     */
     handleRemoteTaps(taps) {
         if (!this.isOnlineMode || !taps) return;
-
         if (!this.isHost) {
             Object.keys(taps).forEach(pid => {
                 const tap = taps[pid];
@@ -767,33 +751,27 @@ class App {
             });
             return;
         }
-
         const round = this.engine.currentRound;
         if (!round || !round.isActive || !round.target) return;
         const targetId = String(round.target.id || '').trim();
         const currentRoundNo = this.engine.roundNumber;
-
         Object.keys(taps).forEach(pid => {
             const tap = taps[pid];
             if (!tap || !tap.cardId) return;
-
             const tapRound = Number(tap.round) || 0;
-            if (tapRound && tapRound !== currentRoundNo) return; // 前ラウンドのタップは無視
-
+            if (tapRound && tapRound !== currentRoundNo) return;
             const key = `${tapRound}_${tap.seq || tap.timestamp || 0}_${tap.cardId}`;
-            if (this.processedTaps[pid] === key) return; // 同一タップの再処理防止
+            if (this.processedTaps[pid] === key) return;
             this.processedTaps[pid] = key;
-
             const tapId = String(tap.cardId).trim();
             const cardEl = this.findCardElement(tapId);
             const isCorrect = (tapId === targetId);
-
             if (isCorrect) {
                 if (cardEl) cardEl.classList.add('correct');
                 if (!this.engine.currentRound.isActive) return;
                 const stage = Number(tap.stage) || this.engine.currentRound.currentStage || 1;
-                this.engine.scoreOpponentCorrect(stage); // ★ 相手の得点を加算
-                this.engine._finishRound(false);         // ホスト側は敗北として終了
+                this.engine.scoreOpponentCorrect(stage);
+                this.engine._finishRound(false);
             } else {
                 if (cardEl) {
                     cardEl.classList.add('wrong');
@@ -802,7 +780,6 @@ class App {
             }
         });
     }
-
     findCardElement(id) {
         const grid = document.getElementById('card-grid');
         if (!grid) return null;
@@ -812,7 +789,6 @@ class App {
             return Array.from(grid.querySelectorAll('.card')).find(c => c.dataset.id === String(id)) || null;
         }
     }
-
     flashCard(id, type) {
         const card = this.findCardElement(id);
         if (card) {
@@ -820,15 +796,13 @@ class App {
             setTimeout(() => card.classList.remove(type), 600);
         }
     }
-
     /* ========================= ゲームUI ========================= */
     async updateGameUI(data) {
         if (!data) return;
         const scores = data.scores || { player: 0, opponent: 0 };
         this.setText('score-player', scores.player || 0);
-        this.setText('score-cpu', scores.opponent || 0); // ★ 修正: scores.cpu は存在しない
+        this.setText('score-cpu', scores.opponent || 0);
         this.setText('round-display', `${data.roundNumber} / ${data.totalRounds}`);
-
         switch (data.state) {
             case 'DEAL':
                 this.hasShownResult = false;
@@ -840,8 +814,15 @@ class App {
                     this.processedTaps = {};
                     if (this.isHost) {
                         this.resetClueDisplay();
-                        await this.renderOnlineCards(data.round.cards);
-                        this.engine.startReading();
+                        /* ★ v3 最重要修正:
+                           旧版は「await renderOnlineCards() の完了後」に
+                           startReading() を呼んでいた。描画が 1 枚でもハングすると
+                           15 秒待たされ、その間に届いた前ラウンドの result で
+                           state が RESULT に変わると startReading が永久に no-op →
+                           2 問目以降、読み札が一切始まらなくなっていた。
+                           → 読み上げタイマーを先に起動し、描画は並行実行にする。 */
+                        this.engine.startReading(true);
+                        this.renderOnlineCards(data.round.cards).catch(() => { });
                     }
                 } else {
                     this.resetClueDisplay();
@@ -854,15 +835,12 @@ class App {
             case 'RESULT':
                 break;
         }
-
         if (data.type === 'wrong' || data.type === 'cpu_wrong') this.flashCard(data.id, 'wrong');
     }
-
     async renderCards(cards) {
         const grid = document.getElementById('card-grid');
         if (!grid) return;
         grid.innerHTML = '';
-
         const cardElements = [];
         (cards || []).forEach(c => {
             if (!c) return;
@@ -875,64 +853,50 @@ class App {
             grid.appendChild(div);
             cardElements.push({ element: contentDiv, compound: c });
         });
-
         const promises = cardElements.map(({ element, compound }, index) => {
             return new Promise((resolve) => {
                 setTimeout(() => {
-                    StructureRenderer.render(element, compound.smiles, 'light', {
-                        name: compound.name,
-                        name_en: compound.name_en,
-                        formula: compound.formula
-                    }).then(resolve).catch(resolve);
+                    try {
+                        StructureRenderer.render(element, compound.smiles, 'light', {
+                            name: compound.name,
+                            name_en: compound.name_en,
+                            formula: compound.formula
+                        }).then(resolve).catch(resolve);
+                    } catch (e) { resolve(); }
                 }, index * 50);
             });
         });
-        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 15000));
+        const timeoutPromise = new Promise((resolve) => setTimeout(resolve, 6000));
         await Promise.race([Promise.all(promises), timeoutPromise]);
-        this.engine.startReading();
+        this.engine.startReading(true);
     }
-
-    /**
-     * ★ 読み札履歴（重複追加の根本修正）
-     *   旧版は「currentStage が履歴にあるか」を見ていたが、
-     *   実際に追加するのは prevStage なので常に「無い」判定になり、
-     *   同期のたびに同じ読み札が追加され続けていた。
-     *   → STAGE 1〜(currentStage-1) を「存在チェックしながら」冪等に構築する。
-     */
+    /** 読み札履歴（STAGE 1〜current-1 を冪等に再構築） */
     updateClueWithHistory(round) {
         if (!round || !round.target) return;
         const targetId = String(round.target.id || '').trim();
         const clueData = this.engine.clues[targetId];
         if (!clueData || !Array.isArray(clueData.stages)) return;
-
         const currentStage = Number(round.currentStage) || 0;
         if (currentStage < 1) return;
-
         const currentStageData = clueData.stages.find(s => s.stage === currentStage);
         if (!currentStageData) return;
-
         const stageEl = document.getElementById('clue-stage');
         const textEl = document.getElementById('clue-text');
         if (stageEl) stageEl.textContent = `STAGE ${currentStage}`;
         if (textEl) textEl.textContent = currentStageData.text;
-
         const historyDiv = document.getElementById('clue-history');
         if (!historyDiv) return;
-
-        // 別の問題に変わったら履歴をリセット
         if (this.historyTargetId !== targetId) {
             historyDiv.innerHTML = '';
             this.historyTargetId = targetId;
         }
-
         const existing = new Set();
         historyDiv.querySelectorAll('.clue-history-item').forEach(item => {
             existing.add(String(item.dataset.stage));
         });
-
         let added = false;
         for (let s = 1; s < currentStage; s++) {
-            if (existing.has(String(s))) continue; // ★ 追加済みなら絶対に足さない
+            if (existing.has(String(s))) continue;
             const prevData = clueData.stages.find(x => x.stage === s);
             if (!prevData) continue;
             const historyItem = document.createElement('div');
@@ -949,7 +913,6 @@ class App {
             existing.add(String(s));
             added = true;
         }
-
         if (added) {
             requestAnimationFrame(() => {
                 const cluePanel = document.querySelector('.clue-display');
@@ -961,7 +924,6 @@ class App {
             if (cluePanel) cluePanel.scrollTop = 0;
         }
     }
-
     closeRoundResultModal() {
         if (this.roundResultModal) {
             try { this.roundResultModal.remove(); } catch (e) { }
@@ -970,26 +932,21 @@ class App {
         const legacy = document.getElementById('round-result-modal');
         if (legacy) legacy.remove();
     }
-
     showRoundResult(data) {
         if (!data) return;
-        if (this.roundResultModal) return; // ★ 二重表示防止
+        if (this.roundResultModal) return;
         this.hasShownResult = true;
-
         const playerWon = !!data.playerWon;
         const compound = data.target || {};
         const explanation = data.explanation || '解説はありません。';
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'round-result-modal';
-
         const resultTitle = this.isPracticeMode
             ? (playerWon ? '正解' : '確認')
             : (playerWon ? '正解' : '不正解');
         const resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
-
         modal.innerHTML =
             `<div class="modal-content" style="background: var(--card-bg); border: 3px solid ${resultColor}; border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
                 <h2 style="font-size: 1.8rem; margin-bottom: 15px; color: ${resultColor}; font-family: var(--font-display); letter-spacing: 0.15em;">${resultTitle}</h2>
@@ -1006,14 +963,12 @@ class App {
             </div>`;
         document.body.appendChild(modal);
         this.roundResultModal = modal;
-
         const nameEl = modal.querySelector('.modal-content > div:nth-child(3)');
         if (nameEl) nameEl.textContent = compound.name || '';
         const formulaEl = modal.querySelector('.modal-formula');
         if (formulaEl) formulaEl.textContent = compound.formula || '';
         const expEl = modal.querySelector('.modal-explanation');
         if (expEl) expEl.textContent = explanation;
-
         const structureDiv = document.getElementById('modal-structure');
         if (structureDiv && compound.smiles) {
             StructureRenderer.render(structureDiv, compound.smiles, 'light', {
@@ -1022,11 +977,9 @@ class App {
                 formula: compound.formula
             }).catch(() => { });
         }
-
         const nextBtn = document.getElementById('modal-next-btn');
         if (nextBtn) {
             if (this.isOnlineMode && !this.isHost) {
-                // ゲストはホストの進行待ち（新ラウンド到着時に自動で閉じる）
                 nextBtn.textContent = '相手の進行を待っています…';
                 nextBtn.disabled = true;
                 nextBtn.style.opacity = '0.6';
@@ -1039,21 +992,18 @@ class App {
             }
         }
     }
-
     showGameEnd(data) {
         if (!data) return;
         if (this.gameEndShown && this.isOnlineMode) return;
         this.gameEndShown = true;
-
+        this.stopOnlineWatchdog();   // ★ v3
         if (!this.isPracticeMode && data.winner) {
             try { StorageManager.recordCpuResult(data.winner); } catch (e) { }
         }
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'game-end-modal';
-
         if (this.isPracticeMode) {
             modal.innerHTML =
                 `<div class="modal-content" style="background: var(--card-bg); border: 3px solid var(--accent-gold); border-radius: 2px; padding: 25px 20px; max-width: 420px; width: 92%; text-align: center; box-shadow: 0 8px 24px rgba(0,0,0,0.5);">
@@ -1086,7 +1036,6 @@ class App {
                 </div>`;
         }
         document.body.appendChild(modal);
-
         const finishBtn = document.getElementById('modal-finish-btn');
         if (finishBtn) {
             finishBtn.addEventListener('click', async () => {
@@ -1099,7 +1048,6 @@ class App {
             });
         }
     }
-
     /* ========================= 難易度・単元 ========================= */
     renderCategoryGrid() {
         const grid = document.getElementById('category-grid');
@@ -1108,7 +1056,6 @@ class App {
         const categories = this.engine.getCategories();
         this.selectedCategories = categories.slice();
         this.allCategoriesSelected = true;
-
         categories.forEach(cat => {
             const tag = document.createElement('button');
             tag.className = 'category-tag selected';
@@ -1128,12 +1075,10 @@ class App {
         });
         this.updateSelectAllButtonText();
     }
-
     updateSelectAllButtonText() {
         const btn = document.getElementById('btn-select-all');
         if (btn) btn.textContent = this.allCategoriesSelected ? 'すべて解除' : 'すべて選択';
     }
-
     toggleSelectAllCategories() {
         const tags = document.querySelectorAll('.category-tag');
         const shouldSelect = !this.allCategoriesSelected;
@@ -1142,14 +1087,12 @@ class App {
         this.allCategoriesSelected = shouldSelect;
         this.updateSelectAllButtonText();
     }
-
     updateDifficultySelection() {
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.classList.remove('selected');
             if (parseInt(btn.dataset.level) === this.selectedDifficulty) btn.classList.add('selected');
         });
     }
-
     startGame() {
         this.isPracticeMode = (this.selectedDifficulty === 0);
         this.isOnlineMode = false;
@@ -1160,8 +1103,8 @@ class App {
         this.historyTargetId = null;
         this.renderedRound = -1;
         this.onlineRound = -1;
+        this.stopOnlineWatchdog();   // ★ v3
         this.closeRoundResultModal();
-
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',
             isOnline: false,
@@ -1172,7 +1115,6 @@ class App {
         };
         this.engine.configure(settings);
         this.engine.onOnlineStateChange = null;
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             if (this.isPracticeMode) gameScreen.classList.add('practice-mode');
@@ -1180,11 +1122,9 @@ class App {
         }
         this.setText('player-score-label', '得点');
         this.setText('cpu-score-label', this.isPracticeMode ? '' : 'CPU');
-
         this.showScreen('screen-game');
         this.engine.startGame(10);
     }
-
     showHint() {
         let target = this.engine.currentRound ? this.engine.currentRound.target : null;
         if (!target && this.onlineGameState) target = this.onlineGameState.target;
@@ -1192,7 +1132,6 @@ class App {
         const categoryName = this.getCategoryDisplayName(target.category);
         alert(`ヒント: ${categoryName} / 分子式: ${target.formula}`);
     }
-
     /* ========================= 統計 ========================= */
     updateStats() {
         const stats = StorageManager.getSummary();
@@ -1211,7 +1150,6 @@ class App {
         this.renderBarGraph('stage-bars', stats.byStage, (s) => `STAGE ${s}`);
         this.renderHistory(stats.history);
     }
-
     renderBarGraph(containerId, data, labelFunc) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -1225,7 +1163,6 @@ class App {
             const rate = total > 0 ? Math.round((val.correct / total) * 100) : 0;
             return { key, rate, total };
         }).sort((a, b) => a.rate - b.rate);
-
         entries.forEach(item => {
             const row = document.createElement('div');
             row.className = 'bar-item';
@@ -1238,7 +1175,6 @@ class App {
             container.appendChild(row);
         });
     }
-
     renderHistory(history) {
         const container = document.getElementById('history-list');
         if (!container) return;
@@ -1262,7 +1198,6 @@ class App {
             container.appendChild(item);
         });
     }
-
     updateRank(score) {
         const rankEl = document.getElementById('profile-rank');
         if (!rankEl) return;
@@ -1274,21 +1209,17 @@ class App {
         else if (score >= 500) rank = '初級者';
         rankEl.textContent = `段位: ${rank}`;
     }
-
     setText(id, text) {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     }
-
     /* ========================= 資料 ========================= */
     renderReference() {
         const tabsContainer = document.getElementById('reference-tabs');
         const listContainer = document.getElementById('reference-list');
         if (!tabsContainer || !listContainer) return;
-
         const categories = this.engine.getCategories();
         tabsContainer.innerHTML = '';
-
         const allTab = document.createElement('button');
         allTab.className = 'reference-tab' + (this.referenceCurrentCategory === 'all' ? ' selected' : '');
         allTab.textContent = 'すべて';
@@ -1298,7 +1229,6 @@ class App {
             this.renderReference();
         });
         tabsContainer.appendChild(allTab);
-
         categories.forEach(cat => {
             const tab = document.createElement('button');
             tab.className = 'reference-tab' + (this.referenceCurrentCategory === cat ? ' selected' : '');
@@ -1310,7 +1240,6 @@ class App {
             });
             tabsContainer.appendChild(tab);
         });
-
         listContainer.innerHTML = '';
         let filteredCompounds = this.engine.compounds;
         if (this.referenceCurrentCategory !== 'all') {
@@ -1320,14 +1249,12 @@ class App {
             listContainer.innerHTML = '<div class="reference-empty">この単元には化合物がありません</div>';
             return;
         }
-
         const grouped = {};
         filteredCompounds.forEach(c => {
             const cat = c.category || 'other';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(c);
         });
-
         Object.keys(grouped).sort().forEach(cat => {
             const section = document.createElement('div');
             section.className = 'reference-category-section';
@@ -1335,7 +1262,6 @@ class App {
             header.className = 'reference-category-header';
             header.textContent = `${this.getCategoryDisplayName(cat)}（${grouped[cat].length}）`;
             section.appendChild(header);
-
             const grid = document.createElement('div');
             grid.className = 'reference-grid';
             grouped[cat].forEach(compound => {
@@ -1352,7 +1278,6 @@ class App {
             section.appendChild(grid);
             listContainer.appendChild(section);
         });
-
         requestAnimationFrame(() => {
             const structures = listContainer.querySelectorAll('.reference-item-structure');
             structures.forEach((el, index) => {
@@ -1365,16 +1290,13 @@ class App {
             });
         });
     }
-
     showReferenceDetail(compound) {
         const modal = document.getElementById('reference-detail-modal');
         if (!modal) return;
         const compoundId = String(compound.id || '').trim();
         const clueData = this.engine.clues[compoundId];
-
         this.setText('detail-name', compound.name || '');
         this.setText('detail-formula', compound.formula || '');
-
         const structureDiv = document.getElementById('detail-structure');
         if (structureDiv) {
             structureDiv.innerHTML = '';
@@ -1386,7 +1308,6 @@ class App {
                 }).catch(() => { });
             }
         }
-
         const stagesDiv = document.getElementById('detail-stages');
         if (stagesDiv) {
             stagesDiv.innerHTML = '';
@@ -1415,7 +1336,6 @@ class App {
                 stagesDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem; padding: 10px;">読み札データがありません</div>';
             }
         }
-
         const explanationDiv = document.getElementById('detail-explanation');
         if (explanationDiv) {
             explanationDiv.innerHTML = '';
@@ -1431,10 +1351,8 @@ class App {
                 explanationDiv.innerHTML = '<div style="color: var(--text-light); font-size: 0.85rem;">解説データがありません</div>';
             }
         }
-
         modal.classList.add('active');
     }
-
     playAllStages(stages) {
         if (!stages || stages.length === 0) return;
         let index = 0;
@@ -1450,7 +1368,6 @@ class App {
         };
         playNext();
     }
-
     /* ========================= 画面切替・設定 ========================= */
     showScreen(screenId) {
         document.querySelectorAll('.screen').forEach(s => {
@@ -1463,7 +1380,6 @@ class App {
             scrollables.forEach(el => { el.scrollTop = 0; });
         }
     }
-
     getCategoryDisplayName(category) {
         const names = {
             hydrocarbon: '炭化水素', aromatic: '芳香族', alcohol: 'アルコール',
@@ -1478,7 +1394,6 @@ class App {
         };
         return names[category] || category;
     }
-
     loadSettings() {
         const settings = StorageManager.loadSettings();
         if (!settings) return;
@@ -1491,7 +1406,6 @@ class App {
         AudioManager.updateSettings({ enabled: settings.voiceEnabled, rate: settings.voiceSpeed });
     }
 }
-
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, starting app...');
     window.app = new App();
