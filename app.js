@@ -1224,7 +1224,7 @@ class App {
         if (nextBtn) {
             const disabled = !canNext || guestTurn || this.hasShownResult;
             nextBtn.disabled = disabled;
-            nextBtn.textContent = isFinal ? '最終札' : '次の札';
+            nextBtn.textContent = isFinal ? '最終札' : '次';
             nextBtn.title = isFinal ? '読み札はすべて読み終えました' : '次の読み札へ';
         }
         const skipBtn = document.getElementById('btn-skip');
@@ -1422,7 +1422,7 @@ class App {
             resultTitle = 'スキップ';
             resultColor = 'var(--accent-gold)';
         } else {
-            resultTitle = playerWon ? '正解' : (this.isOnlineMode ? '相手に取られた' : '不正解');
+            resultTitle = playerWon ? '正解' : (this.isOnlineMode ? '相手の取りです' : '不正解');
             resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
         }
 
