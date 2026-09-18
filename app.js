@@ -1,10 +1,11 @@
 /**
- * App - メインアプリケーションクラス（オンライン同期バグ修正完全版）
+ * App - メインアプリケーションクラス（完全修正版）
  * 
  * 修正内容：
- * 1. オンライン時のタップ処理をホスト/ゲストで分離（二重判定防止）
- * 2. オンライン時の解説モーダルをゲスト側でも表示
- * 3. カード配列の同期を確実にし、プレイヤー間で異なるカードが表示される問題を解消
+ * 1. オンラインモードでもホストはUI更新を行う
+ * 2. オンラインモードでホストのみ読み札開始・次のラウンド開始
+ * 3. オンラインモードでゲストはFirebaseからカード・状態を同期
+ * 4. CPU戦・オンライン戦ともに正解/誤答後に確実に進行
  */
 class App {
     constructor() {
@@ -18,7 +19,7 @@ class App {
         this.isHost = false;
         this.referenceCurrentCategory = 'all';
         this.onlineGameState = null;
-        this.hasShownResult = false; // ラウンド結果表示済みフラグ
+        this.hasShownResult = false;
         
         this.init();
     }
@@ -512,15 +513,13 @@ class App {
         if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
 
         if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
-            const currentCards = document.querySelectorAll('.card');
-            if (currentCards.length === 0) {
+            if (!this.isHost) {
                 await this.renderOnlineCards(gameState.cards);
             }
         } else if (gameState.phase === 'reading') {
             this.updateOnlineClue(gameState);
         } else if (gameState.phase === 'result' && !this.hasShownResult) {
             this.hasShownResult = true;
-            // ゲスト側でも解説モーダルを表示
             if (!this.isHost && gameState.target) {
                 const clueData = this.engine.clues[gameState.target.id];
                 this.showRoundResult({
@@ -595,7 +594,6 @@ class App {
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
 
-        // ホストのみが正誤判定を行う
         if (this.isHost) {
             this.engine.handlePlayerTap(id);
             const targetId = (this.engine.currentRound.target.id || '').trim();
@@ -606,7 +604,6 @@ class App {
                 setTimeout(() => element.classList.add('taken'), 600);
             }
         } else {
-            // ゲストはタップを記録するのみ
             await OnlineManager.recordTap(id);
         }
     }
@@ -726,7 +723,8 @@ class App {
     }
 
     async updateGameUI(data) {
-        if (this.isOnlineMode) return; // オンライン時は syncOnlineGameState が処理する
+        // オンラインモードでもホストはUIを更新する
+        // if (this.isOnlineMode) return; // この行を削除
 
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
@@ -738,7 +736,16 @@ class App {
 
         switch (data.state) {
             case 'DEAL':
-                await this.renderCards(data.round.cards);
+                // オンラインモードではホストのみカードを描画
+                if (this.isOnlineMode) {
+                    if (this.isHost) {
+                        await this.renderOnlineCards(data.round.cards);
+                        // ホストのみ読み札を開始
+                        this.engine.startReading();
+                    }
+                } else {
+                    await this.renderCards(data.round.cards);
+                }
                 const historyEl = document.getElementById('clue-history');
                 if (historyEl) historyEl.innerHTML = '';
                 const stageEl = document.getElementById('clue-stage');
@@ -853,7 +860,6 @@ class App {
             return;
         }
 
-        // オフラインモード（CPU戦・練習）
         this.engine.handlePlayerTap(id);
         
         const targetId = (this.engine.currentRound.target.id || '').trim();
@@ -923,7 +929,12 @@ class App {
             nextBtn.addEventListener('click', () => {
                 modal.remove();
                 this.hasShownResult = false;
-                this.engine.startNewRound();
+                
+                // ホストのみ次のラウンドを開始
+                if (this.isHost || !this.isOnlineMode) {
+                    this.engine.startNewRound();
+                }
+                // ゲストはFirebaseの変化を待つ
             });
         }
     }
@@ -977,6 +988,12 @@ class App {
         if (finishBtn) {
             finishBtn.addEventListener('click', () => {
                 modal.remove();
+                if (this.isOnlineMode) {
+                    if (typeof OnlineManager !== 'undefined') {
+                        OnlineManager.leaveRoom();
+                    }
+                    this.isOnlineMode = false;
+                }
                 this.showScreen('screen-title');
             });
         }
