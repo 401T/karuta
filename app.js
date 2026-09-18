@@ -1,27 +1,46 @@
 /* =========================================================================
-   app.js  —  メインアプリケーション v8
-   -------------------------------------------------------------------------
-   【v8 の変更】
-   1) 「構造式キャッシュ」パネルをタイトル画面から削除し、「設定」画面の
-      末尾セクション（#settings-cache-section）として収録。
-      ・タイトルに残るのは段位パネルのみ（ごちゃつき解消）
-      ・骨格は一度だけ生成し、以降は数値のみ差し替える方式にして
-        バックグラウンド生成中の毎tick更新でもちらつき／誤タップを起こさない
-   2) 設定画面のスクロール改善（style.css v8 と対で機能）
-      ・showScreen で .settings-container の scrollTop を確実にリセット
-      ・パネルは settings-container 直下に append（スクロール領域の内側）
-   【v7 から継続】
-   ・カードは「枠＋名前フォールバック」を先に出し、キャッシュがあれば同期注入、
-     無ければ実要素へ直接描画 → 描画完了後に setCardsReady → 読み上げ開始
-   ・音量は AudioBridge が実API形状を総当たりで適用
-   ・カード枚数は SettingsStore が正本（#card-grid.cards-N でレイアウト反映）
-   ・反応時間などの内部計測 → 記録画面の詳細グラフ
-   ・未解放分子は資料で名前も秘匿／解放条件は「誤答なしの一発正解」
-   ・段位特典（詳細グラフ・反応時間表示・解説全文・金色フレーム・全解放）
+app.js  —  メインアプリケーション v8.1
+【v8.1 の修正（オンライン対戦：ゲストのみ読み札が進まないバグ）】
+原因:
+  syncOnlineGameState / onlineWatchdogTick から this.updateOnlineClue(...) を
+  呼んでいるのに、App クラスに updateOnlineClue が【未定義】だった。
+  → ゲスト側で phase==='reading' のルーム更新が届くたびに
+     TypeError: this.updateOnlineClue is not a function が発生し、
+     読み札表示以降の処理（updateFooterState 等）まで巻き込まれて中断。
+     カード表示・タップ・結果処理は onlineGameState 設定後に動くため
+     「読み札以外は無事」という症状になっていた。
+修正:
+  1) updateOnlineClue(gameState) を新設
+     ・engine.clues（ローカル読み札データ）から該当 STAGE の文言を取得
+     ・updateClueWithHistory でステージ表示＋履歴＋スクロールを再現
+     ・ゲスト端末でも読み上げ（AudioManager.speak）と stage SE を再生
+     ・_guestRenderedStage により同一ステージの再描画／二重読み上げを防止
+       （ウォッチドッグの再同期で何度も firing しても安全）
+     ・_guestStageStart をステージごとに更新（反応時間計測の精度向上）
+  2) phase==='reading' 分岐を !this.isHost に限定
+     （ホストはエンジン経由で表示・読み上げ済みのため二重再生を防止）
+  3) _guestRenderedStage を constructor / resetRoundUIState /
+     resetClueDisplay / ラウンド切替時に確実にリセット
+【v8 の変更（継続）】
+「構造式キャッシュ」パネルをタイトル画面から削除し、「設定」画面の
+末尾セクション（#settings-cache-section）として収録。
+・タイトルに残るのは段位パネルのみ（ごちゃつき解消）
+・骨格は一度だけ生成し、以降は数値のみ差し替える方式にして
+バックグラウンド生成中の毎tick更新でもちらつき／誤タップを起こさない
+設定画面のスクロール改善（style.css v8 と対で機能）
+・showScreen で .settings-container の scrollTop を確実にリセット
+・パネルは settings-container 直下に append（スクロール領域の内側）
+【v7 から継続】
+・カードは「枠＋名前フォールバック」を先に出し、キャッシュがあれば同期注入、
+無ければ実要素へ直接描画 → 描画完了後に setCardsReady → 読み上げ開始
+・音量は AudioBridge が実API形状を総当たりで適用
+・カード枚数は SettingsStore が正本（#card-grid.cards-N でレイアウト反映）
+・反応時間などの内部計測 → 記録画面の詳細グラフ
+・未解放分子は資料で名前も秘匿／解放条件は「誤答なしの一発正解」
+・段位特典（詳細グラフ・反応時間表示・解説全文・金色フレーム・全解放）
 ========================================================================= */
-
 /* =========================================================================
-   1) SettingsStore — 設定の正本
+SettingsStore — 設定の正本
 ========================================================================= */
 const SettingsStore = {
     KEY: 'kkaruta_settings_v2',
@@ -30,7 +49,6 @@ const SettingsStore = {
         readerVolume: 0.8, seVolume: 0.7, bgmVolume: 0.5
     },
     data: null,
-
     init() {
         this.data = Object.assign({}, this.DEFAULTS);
         try {
@@ -58,9 +76,7 @@ const SettingsStore = {
         this.save();
         return this.data;
     },
-
     _clamp01(v) { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(1, n)) : 0.8; },
-
     normalizeCardCount(v) {
         let n = parseInt(v, 10);
         if (!isFinite(n) || n <= 0) n = 9;
@@ -69,9 +85,7 @@ const SettingsStore = {
         allowed.forEach(a => { const d = Math.abs(a - n); if (d < bd) { bd = d; best = a; } });
         return best;
     },
-
     get(key) { if (!this.data) this.init(); return this.data[key]; },
-
     set(key, value) {
         if (!this.data) this.init();
         if (key === 'cardCount') value = this.normalizeCardCount(value);
@@ -85,19 +99,16 @@ const SettingsStore = {
         } catch (e) { }
         return value;
     },
-
     save() {
         try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); }
         catch (e) { console.warn('SettingsStore save failed:', e); }
     }
 };
-
 /* =========================================================================
-   2) AudioBridge — 音量を実際に効かせるアダプタ
+2) AudioBridge — 音量を実際に効かせるアダプタ
 ========================================================================= */
 const AudioBridge = {
     patchedSpeak: false,
-
     applyAll() {
         this.apply({
             reader: SettingsStore.get('readerVolume'),
@@ -107,7 +118,6 @@ const AudioBridge = {
         this.applyVoiceSettings();
         this.patchSpeak();
     },
-
     applyVoiceSettings() {
         const A = window.AudioManager;
         if (!A) return;
@@ -121,7 +131,6 @@ const AudioBridge = {
         try { if ('enabled' in A) A.enabled = enabled; } catch (e) { }
         try { if ('rate' in A) A.rate = rate; } catch (e) { }
     },
-
     apply(vols) {
         const A = window.AudioManager;
         if (!A) return;
@@ -162,16 +171,13 @@ const AudioBridge = {
         try { this._applyGainNodes(A, { reader: r, se: s, bgm: b, master: master }); } catch (e) { }
         try { this._applyAudioElements(A, { se: s, bgm: b, reader: r }); } catch (e) { }
     },
-
     _n(v) { const n = Number(v); return isFinite(n) ? Math.max(0, Math.min(1, n)) : 0; },
-
     _isGain(node) {
         try {
             return node && typeof node === 'object' && node.gain &&
                 typeof node.gain.value === 'number' && typeof node.gain.setValueAtTime === 'function';
         } catch (e) { return false; }
     },
-
     _setGain(gainNode, value) {
         try {
             const ctx = gainNode.context;
@@ -182,7 +188,6 @@ const AudioBridge = {
             try { gainNode.gain.value = this._n(value); } catch (e2) { }
         }
     },
-
     _applyGainNodes(A, vols) {
         const matchRole = (key) => {
             const k = String(key).toLowerCase();
@@ -212,7 +217,6 @@ const AudioBridge = {
         };
         walk(A, 0);
     },
-
     _applyAudioElements(A, vols) {
         const matchRole = (key) => {
             const k = String(key).toLowerCase();
@@ -238,7 +242,6 @@ const AudioBridge = {
         };
         walk(A, 0);
     },
-
     patchSpeak() {
         const A = window.AudioManager;
         if (!A || this.patchedSpeak) return;
@@ -259,9 +262,8 @@ const AudioBridge = {
         } catch (e) { console.warn('speak patch failed:', e); }
     }
 };
-
 /* =========================================================================
-   3) StructureCache — 構造式の事前生成＆シームレス読み出し
+3) StructureCache — 構造式の事前生成＆シームレス読み出し
 ========================================================================= */
 const StructureCache = {
     mem: new Map(),
@@ -271,19 +273,15 @@ const StructureCache = {
     STORE: 'structures',
     onProgress: null,
     offscreenBroken: false,
-
     _prefetchList: [],
     _prefetchIndex: 0,
     _prefetchTotal: 0,
     _prefetchRunning: false,
     _paused: false,
     _failCount: 0,
-
     RENDER_W: 240,
     RENDER_H: 300,
-
     key(compound) { return String((compound && compound.id) || '').trim(); },
-
     isValid(html) {
         if (typeof html !== 'string') return false;
         if (html.length < 20) return false;
@@ -291,7 +289,6 @@ const StructureCache = {
         if (lower.indexOf('card-loading') >= 0 || lower.indexOf('loading-spinner') >= 0) return false;
         return lower.indexOf('<img') >= 0 || lower.indexOf('<svg') >= 0 || lower.indexOf('<canvas') >= 0;
     },
-
     async open() {
         if (this.db !== null) return this.db;
         this.db = await new Promise((resolve) => {
@@ -312,7 +309,6 @@ const StructureCache = {
         });
         return this.db;
     },
-
     async loadAll() {
         const db = await this.open();
         if (!db) return 0;
@@ -335,7 +331,6 @@ const StructureCache = {
             setTimeout(() => finish(this.mem.size), 4000);
         });
     },
-
     async save(id, html) {
         const key = String(id || '').trim();
         if (!key || !this.isValid(html)) return false;
@@ -348,7 +343,6 @@ const StructureCache = {
         } catch (e) { }
         return true;
     },
-
     snapshot(compound, el) {
         if (!compound || !el) return false;
         const key = this.key(compound);
@@ -358,7 +352,6 @@ const StructureCache = {
         this.save(key, html);
         return true;
     },
-
     async clearAll() {
         this.mem.clear();
         const db = await this.open();
@@ -369,12 +362,10 @@ const StructureCache = {
             } catch (e) { }
         }
     },
-
     has(compoundOrId) {
         const id = typeof compoundOrId === 'string' ? compoundOrId : this.key(compoundOrId);
         return this.mem.has(String(id || '').trim());
     },
-
     getHTML(compoundOrId) {
         const id = typeof compoundOrId === 'string' ? compoundOrId : this.key(compoundOrId);
         const html = this.mem.get(String(id || '').trim());
@@ -382,7 +373,6 @@ const StructureCache = {
         if (!this.isValid(html)) { this.mem.delete(String(id || '').trim()); return null; }
         return html;
     },
-
     applyTo(el, compound) {
         if (!el) return false;
         const html = this.getHTML(compound);
@@ -390,7 +380,6 @@ const StructureCache = {
         el.innerHTML = html;
         return true;
     },
-
     async renderOffscreen(compound) {
         const id = this.key(compound);
         if (!id) return null;
@@ -398,7 +387,6 @@ const StructureCache = {
         if (!compound || !compound.smiles) return null;
         if (typeof StructureRenderer === 'undefined' || !StructureRenderer.render) return null;
         if (this.offscreenBroken) return null;
-
         const box = document.createElement('div');
         box.className = 'card-content';
         box.setAttribute('aria-hidden', 'true');
@@ -424,7 +412,6 @@ const StructureCache = {
         if (html) { await this.save(id, html); return html; }
         return null;
     },
-
     async ensureMany(list, onProgress) {
         const items = (list || []).filter(c => c && this.key(c));
         const missing = items.filter(c => !this.has(c));
@@ -438,7 +425,6 @@ const StructureCache = {
         }
         return { total: items.length, generated: done };
     },
-
     startPrefetch(list) {
         this._prefetchList = (list || []).slice();
         this._prefetchIndex = 0;
@@ -447,23 +433,19 @@ const StructureCache = {
         this._paused = false;
         this._pump();
     },
-
     prioritize(categories) {
         if (!Array.isArray(categories) || categories.length === 0) return;
         const set = new Set(categories);
         this._prefetchList.sort((a, b) => (set.has(a.category) ? 0 : 1) - (set.has(b.category) ? 0 : 1));
     },
-
     pause() { this._paused = true; },
     resume() { if (this._paused) { this._paused = false; this._pump(); } },
     stop() { this._prefetchRunning = false; this._paused = false; },
     get running() { return this._prefetchRunning && !this._paused; },
-
     _schedule(fn) {
         if (window.requestIdleCallback) window.requestIdleCallback(fn, { timeout: 600 });
         else setTimeout(fn, 110);
     },
-
     _pump() {
         if (!this._prefetchRunning || this._paused) return;
         this._schedule(async () => {
@@ -493,21 +475,18 @@ const StructureCache = {
         });
     }
 };
-
 /* =========================================================================
-   4) ProgressManager — ポイント・段位・特典・図鑑解放・詳細計測
+4) ProgressManager — ポイント・段位・特典・図鑑解放・詳細計測
 ========================================================================= */
 const ProgressManager = {
     KEY: 'kagaku_karuta_progress_v3',
     MAX_RECORDS: 800,
     MAX_MATCHES: 60,
-
     UNLOCK_POINT: 30,
     CATEGORY_BONUS: 250,
     ALL_BONUS: 2000,
     MILESTONE_EVERY: 10,
     MILESTONE_POINT: 100,
-
     RANKS: [
         { min: 0,    name: '見習い',   priv: '基本プレイ' },
         { min: 200,  name: '初級者',   priv: 'タイトルに段位バッジ表示' },
@@ -519,7 +498,6 @@ const ProgressManager = {
         { min: 6000, name: '永世名人', priv: '全化合物の構造式を自動解放（図鑑完成特典）' }
     ],
     data: null,
-
     _default() {
         return {
             points: 0, wins: 0, losses: 0, draws: 0,
@@ -528,7 +506,6 @@ const ProgressManager = {
             records: [], matches: []
         };
     },
-
     init() {
         this.data = this._default();
         try {
@@ -559,21 +536,17 @@ const ProgressManager = {
         } catch (e) { }
         return this.data;
     },
-
     save() {
         try { localStorage.setItem(this.KEY, JSON.stringify(this.data)); }
         catch (e) { console.warn('ProgressManager save failed:', e); }
     },
-
     get points() { return Number(this.data && this.data.points) || 0; },
-
     _addPoints(n) {
         const v = Math.max(0, Math.round(Number(n) || 0));
         this.data.points += v;
         if (this.data.points > this.data.bestPoints) this.data.bestPoints = this.data.points;
         return v;
     },
-
     rankOf(points) {
         const p = Number(points) || 0;
         let cur = this.RANKS[0];
@@ -588,10 +561,8 @@ const ProgressManager = {
             priv: cur.priv
         };
     },
-
     get rankIndex() { return this.rankOf(this.points).index; },
     hasPrivilege(index) { return this.rankIndex >= index; },
-
     addRecord(rec) {
         if (!rec) return;
         this.data.records.push(rec);
@@ -601,7 +572,6 @@ const ProgressManager = {
         if (rec.correct) this.data.totalCorrect++;
         this.save();
     },
-
     addMatch(m) {
         if (!m) return;
         this.data.matches.push(m);
@@ -610,7 +580,6 @@ const ProgressManager = {
         }
         this.save();
     },
-
     recordGameEnd(info) {
         const opt = info || {};
         const mode = opt.mode || 'cpu';
@@ -619,7 +588,6 @@ const ProgressManager = {
         const correctRounds = Number(opt.correctRounds) || 0;
         const perfectRounds = Number(opt.perfectRounds) || 0;
         const before = this.rankOf(this.points).name;
-
         let gained = 0;
         if (mode === 'practice') {
             gained = 0;
@@ -631,7 +599,6 @@ const ProgressManager = {
             gained += correctRounds * 5 + perfectRounds * 10;
             gained = this._addPoints(gained);
         }
-
         this.data.gamesPlayed++;
         this.data.lastPlayed = Date.now();
         this.addMatch({
@@ -641,21 +608,17 @@ const ProgressManager = {
             oppScore: Number(opt.cpuScore) || 0,
             perfect: perfectRounds
         });
-
         const after = this.rankOf(this.points);
         this.save();
         return { gained: gained, rankUp: after.name !== before ? after.name : null, rank: after };
     },
-
     unlockWithReward(id, category, totalOfCategory) {
         const key = String(id || '').trim();
         if (!key) return null;
         if (this.data.unlocked.includes(key)) return null;
-
         this.data.unlocked.push(key);
         let gained = this._addPoints(this.UNLOCK_POINT);
         const events = [{ type: 'unlock', point: this.UNLOCK_POINT }];
-
         const cat = String(category || '').trim();
         if (cat) {
             const n = (this.data.unlockedByCategory[cat] || 0) + 1;
@@ -666,18 +629,15 @@ const ProgressManager = {
                 events.push({ type: 'category', point: b, category: cat });
             }
         }
-
         if (this.data.unlocked.length % this.MILESTONE_EVERY === 0) {
             const b = this._addPoints(this.MILESTONE_POINT);
             gained += b;
             events.push({ type: 'milestone', point: b, count: this.data.unlocked.length });
         }
-
         const before = this.rankOf(this.points - gained).name;
         const after = this.rankOf(this.points);
         this.data.lastPlayed = Date.now();
         this.save();
-
         return {
             gained: gained,
             events: events,
@@ -685,7 +645,6 @@ const ProgressManager = {
             total: this.data.unlocked.length
         };
     },
-
     completeAllBonus(totalCompounds) {
         if (!totalCompounds) return 0;
         if (this.data.unlocked.length < totalCompounds) return 0;
@@ -695,21 +654,16 @@ const ProgressManager = {
         this.save();
         return b;
     },
-
     isUnlocked(id) { return this.data.unlocked.includes(String(id || '').trim()); },
-
     isEffectivelyUnlocked(id) {
         if (this.hasPrivilege(7)) return true;
         return this.isUnlocked(id);
     },
-
     unlockedCount() { return this.data.unlocked.length; },
-
     winRate() {
         const t = this.data.wins + this.data.losses + this.data.draws;
         return t > 0 ? Math.round((this.data.wins / t) * 100) : 0;
     },
-
     stats() {
         const recs = this.data.records || [];
         const answers = recs.filter(r => typeof r.reactionMs === 'number');
@@ -718,7 +672,6 @@ const ProgressManager = {
         const sum = times.reduce((a, b) => a + b, 0);
         const median = times.length ? times[Math.floor(times.length / 2)] : 0;
         const p90 = times.length ? times[Math.min(times.length - 1, Math.floor(times.length * 0.9))] : 0;
-
         const byStage = {};
         answers.forEach(r => {
             const s = r.stage || 1;
@@ -726,14 +679,12 @@ const ProgressManager = {
             if (r.correct) byStage[s].correct++; else byStage[s].wrong++;
             if (r.correct) { byStage[s].time += r.reactionMs; byStage[s].n++; }
         });
-
         const byCategory = {};
         answers.forEach(r => {
             const c = r.category || 'other';
             if (!byCategory[c]) byCategory[c] = { correct: 0, wrong: 0 };
             if (r.correct) byCategory[c].correct++; else byCategory[c].wrong++;
         });
-
         const byDifficulty = {};
         (this.data.matches || []).forEach(m => {
             if (m.mode !== 'cpu') return;
@@ -743,9 +694,7 @@ const ProgressManager = {
             else if (m.winner === 'cpu') byDifficulty[d].lose++;
             else byDifficulty[d].draw++;
         });
-
         const perfect = answers.filter(r => r.correct && r.perfect).length;
-
         return {
             total: answers.length,
             correct: correct.length,
@@ -764,12 +713,10 @@ const ProgressManager = {
             times: times
         };
     },
-
     reset() { this.data = this._default(); this.save(); }
 };
-
 /* =========================================================================
-   5) フォールバック用スタイル注入（style.css 未更新環境向け）
+5) フォールバック用スタイル注入（style.css 未更新環境向け）
 ========================================================================= */
 function injectExtraStyles() {
     if (document.getElementById('app-extra-styles')) return;
@@ -796,7 +743,7 @@ function injectExtraStyles() {
         'overflow-y:auto;overflow-x:hidden;-webkit-overflow-scrolling:touch;',
         'overscroll-behavior-y:contain;touch-action:pan-y;',
         'padding-bottom:calc(40px + env(safe-area-inset-bottom,0px));}',
-        '.settings-container>*,.stats-container>*{flex-shrink:0;}',
+        '.settings-container > *,.stats-container > *{flex-shrink:0;}',
         '.title-container{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
         '.reference-container{flex:1 1 auto;min-height:0;}',
         '.reference-list{flex:1 1 auto;min-height:0;overflow-y:auto;-webkit-overflow-scrolling:touch;}',
@@ -857,7 +804,7 @@ function injectExtraStyles() {
         '.hist-label{font-family:var(--font-main);font-size:.6rem;color:rgba(255,255,255,.6);white-space:nowrap;}',
         '.donut-wrap{display:flex;align-items:center;gap:18px;flex-wrap:wrap;justify-content:center;}',
         '.donut{width:124px;height:124px;border-radius:50%;position:relative;flex-shrink:0;display:flex;align-items:center;justify-content:center;}',
-        '.donut::after{content:"";position:absolute;inset:17px;background:#14181c;border-radius:50%;}',
+        ".donut::after{content:'';position:absolute;inset:17px;background:#14181c;border-radius:50%;}",
         '.donut-center{position:relative;z-index:1;text-align:center;}',
         '.donut-value{font-family:var(--font-display);font-size:1.5rem;font-weight:900;color:var(--accent-gold);line-height:1;}',
         '.donut-label{font-family:var(--font-main);font-size:.68rem;color:rgba(255,255,255,.65);margin-top:4px;}',
@@ -903,7 +850,7 @@ function injectExtraStyles() {
         '.final-countdown .fc-label{font-size:.7rem;letter-spacing:.15em;opacity:.9;}',
         '.final-countdown .fc-time{font-size:1.05rem;font-weight:900;font-variant-numeric:tabular-nums;}',
         '.final-countdown .fc-bar{height:4px;background:rgba(255,255,255,.25);border-radius:2px;overflow:hidden;margin-top:5px;}',
-        '.final-countdown .fc-bar>i{display:block;height:100%;background:var(--accent-gold);width:100%;}',
+        '.final-countdown .fc-bar >i{display:block;height:100%;background:var(--accent-gold);width:100%;}',
         '.final-countdown.urgent{animation:fcBlink .7s infinite;}',
         '@keyframes fcBlink{0%,100%{background:rgba(139,32,32,.94);}50%{background:rgba(190,40,40,.98);}}',
         '.unlock-toast{position:fixed;left:50%;bottom:26px;transform:translate(-50%,24px);opacity:0;display:flex;align-items:center;',
@@ -943,9 +890,8 @@ function injectExtraStyles() {
     styleEl.textContent = css;
     document.head.appendChild(styleEl);
 }
-
 /* =========================================================================
-   6) App 本体
+6) App 本体
 ========================================================================= */
 class App {
     constructor() {
@@ -958,7 +904,6 @@ class App {
         this.isOnlineMode = false;
         this.isHost = false;
         this.referenceCurrentCategory = 'all';
-
         this.onlineGameState = null;
         this.onlineGameStarted = false;
         this.onlineRound = -1;
@@ -970,60 +915,48 @@ class App {
         this.syncSeq = 0;
         this._onlineWatchdog = null;
         this.scoredRemoteRound = -1;
-
         this.hasShownResult = false;
         this.roundResultModal = null;
         this.historyTargetId = null;
         this._finalCountdownTimer = null;
         this._gameEndResult = null;
-
         this._dealing = false;
         this._dealSeq = 0;
         this._dealingRound = -1;
         this._guestRoundStart = 0;
         this._guestStageStart = 0;
-
+        this._guestRenderedStage = 0;   // ★ v8.1: ゲスト側で表示済みのステージ番号
         this.init();
     }
-
     /* ========================= 初期化 ========================= */
     async init() {
-        console.log('App initializing (v8)...');
+        console.log('App initializing (v8.1)...');
         try {
             injectExtraStyles();
             SettingsStore.init();
             ProgressManager.init();
-
             const loaded = await this.engine.loadData();
             if (!loaded) { this.showError('データ読み込み失敗'); return; }
-
             StructureRenderer.init();
             AudioManager.init();
             try { StorageManager.init(); } catch (e) { }
-
             AudioBridge.applyAll();
-
             if (typeof OnlineManager !== 'undefined') {
                 const onlineReady = OnlineManager.init();
                 if (!onlineReady) console.warn('Online mode is disabled due to configuration.');
             }
-
             this.loadSettings();
-
             this.engine.onUpdate = (data) => this.updateGameUI(data);
             this.engine.onRoundEnd = (data) => this.showRoundResult(data);
             this.engine.onGameEnd = (data) => this.showGameEnd(data);
             this.engine.onCorrectAnswer = (compound, meta) => this.handleCorrectAnswer(compound, meta);
             this.engine.onAnswerRecord = (rec) => this.handleAnswerRecord(rec);
-
             this.bindEvents();
             this.syncSettingsUI();
             this.renderCategoryGrid();
             this.decorateDifficultyButtons();
             this.normalizeStartButton();
-
             await this.initStructureCache();
-
             setTimeout(() => {
                 const ls = document.getElementById('loading-screen');
                 if (ls) ls.classList.remove('active');
@@ -1035,26 +968,22 @@ class App {
             this.showError('初期化エラー: ' + e.message);
         }
     }
-
     async initStructureCache() {
         this.showCacheProgress(0, this.engine.compounds.length);
         try {
             const restored = await StructureCache.loadAll();
             console.log('[StructureCache] restored ' + restored + ' entries');
         } catch (e) { console.warn('[StructureCache] idb load failed', e); }
-
         // ★ 進捗は「設定画面のキャッシュパネル」へ反映（タイトルには出さない）
         StructureCache.onProgress = (done, total, finished) => {
             this.showCacheProgress(done, total);
             this.renderSettingsCachePanel();
             if (finished) console.log('[StructureCache] prefetch finished');
         };
-
         const pending = this.engine.compounds.filter(c => c && c.smiles && !StructureCache.has(c));
         StructureCache.startPrefetch(pending);
         this.renderSettingsCachePanel();
     }
-
     /** ローディング画面内の進捗（起動時のみ） */
     showCacheProgress(done, total) {
         const host = document.querySelector('#loading-screen .loading-content');
@@ -1075,7 +1004,6 @@ class App {
         if (v) v.textContent = done + ' / ' + total;
         if (f) f.style.width = pct + '%';
     }
-
     showError(message) {
         const loadingScreen = document.getElementById('loading-screen');
         if (!loadingScreen) return;
@@ -1086,7 +1014,6 @@ class App {
             '<p style="color:rgba(255,255,255,0.6);font-size:0.9rem;">コンソール(F12)で詳細を確認</p>' +
             '</div>';
     }
-
     /* ========================= 開始ボタン正規化 ========================= */
     normalizeStartButton() {
         const btn = document.getElementById('btn-start-difficulty');
@@ -1101,12 +1028,10 @@ class App {
         btn.appendChild(label);
         btn.style.textAlign = 'center';
     }
-
     /* ========================= 計測レコード ========================= */
     handleAnswerRecord(rec) {
         try { ProgressManager.addRecord(rec); } catch (e) { console.warn(e); }
     }
-
     /* ========================= 図鑑解放（誤答なし一発正解のみ） ========================= */
     handleCorrectAnswer(compound, meta) {
         if (!compound) return;
@@ -1114,17 +1039,13 @@ class App {
         const mode = (meta && meta.mode) || this.engine.mode;
         if (mode !== 'cpu') return;
         if (!meta || meta.perfect !== true) return;
-
         const id = String(compound.id || '').trim();
         if (!id || ProgressManager.isUnlocked(id)) return;
-
         const cat = compound.category || '';
         const totalOfCategory = this.engine.compounds.filter(c => (c.category || '') === cat).length;
         const result = ProgressManager.unlockWithReward(id, cat, totalOfCategory);
         if (!result) return;
-
         this.showUnlockToast(compound, result);
-
         const allBonus = ProgressManager.completeAllBonus(this.engine.compounds.length);
         if (allBonus > 0) {
             setTimeout(() => this.showBonusToast('図鑑コンプリート！', '全構造式を解放 +' + allBonus + ' pt'), 2900);
@@ -1132,7 +1053,6 @@ class App {
         try { AudioManager.playSound('combo'); } catch (e) { }
         this.renderSettingsCachePanel();
     }
-
     showUnlockToast(compound, result) {
         const toast = document.createElement('div');
         toast.className = 'unlock-toast';
@@ -1151,7 +1071,6 @@ class App {
             setTimeout(() => { try { toast.remove(); } catch (e) { } }, 400);
         }, 2800);
     }
-
     showBonusToast(title, text) {
         const toast = document.createElement('div');
         toast.className = 'unlock-toast';
@@ -1166,7 +1085,6 @@ class App {
             setTimeout(() => { try { toast.remove(); } catch (e) { } }, 400);
         }, 3000);
     }
-
     /* ========================= イベント ========================= */
     bindEvents() {
         document.querySelectorAll('[data-next]').forEach(btn => {
@@ -1187,11 +1105,9 @@ class App {
                 this.showScreen(nextScreen);
             });
         });
-
         document.querySelectorAll('[data-back]').forEach(btn => {
             btn.addEventListener('click', (e) => this.showScreen(e.currentTarget.dataset.back));
         });
-
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.addEventListener('click', (e) => {
                 document.querySelectorAll('.diff-btn').forEach(b => b.classList.remove('selected'));
@@ -1199,13 +1115,10 @@ class App {
                 this.selectedDifficulty = parseInt(e.currentTarget.dataset.level, 10);
             });
         });
-
         const startBtn = document.getElementById('btn-start-difficulty');
         if (startBtn) startBtn.addEventListener('click', () => this.startGame());
-
         const selectAllBtn = document.getElementById('btn-select-all');
         if (selectAllBtn) selectAllBtn.addEventListener('click', () => this.toggleSelectAllCategories());
-
         const cardGrid = document.getElementById('card-grid');
         if (cardGrid) {
             cardGrid.addEventListener('click', (e) => {
@@ -1218,7 +1131,6 @@ class App {
                 this.handleCardTap(card.dataset.id, card);
             });
         }
-
         const skipBtn = document.getElementById('btn-skip');
         if (skipBtn) {
             skipBtn.addEventListener('click', () => {
@@ -1226,7 +1138,6 @@ class App {
                 if (!this.isOnlineMode || this.isHost) this.engine.skipRound();
             });
         }
-
         const pauseBtn = document.getElementById('btn-pause');
         if (pauseBtn) {
             pauseBtn.addEventListener('click', async () => {
@@ -1240,10 +1151,8 @@ class App {
                 StructureCache.resume();
             });
         }
-
         const hintBtn = document.getElementById('btn-hint');
         if (hintBtn) hintBtn.addEventListener('click', () => this.showHint());
-
         const nextClueBtn = document.getElementById('btn-next-clue');
         if (nextClueBtn) {
             nextClueBtn.addEventListener('click', () => {
@@ -1254,7 +1163,6 @@ class App {
                 }
             });
         }
-
         const modalCloseBtn = document.getElementById('modal-close-btn');
         if (modalCloseBtn) {
             modalCloseBtn.addEventListener('click', () => {
@@ -1268,12 +1176,9 @@ class App {
                 if (e.target === modalOverlay) modalOverlay.classList.remove('active');
             });
         }
-
         const onlineBtn = document.getElementById('btn-online');
         if (onlineBtn) onlineBtn.addEventListener('click', () => this.showOnlineMenu());
-
         this.bindSettingsControls();
-
         const resetBtn = document.getElementById('btn-reset-stats');
         if (resetBtn) {
             resetBtn.addEventListener('click', () => {
@@ -1287,10 +1192,8 @@ class App {
             });
         }
     }
-
     bindSettingsControls() {
         const screen = document.getElementById('screen-settings') || document;
-
         const voiceToggle = document.getElementById('setting-voice');
         if (voiceToggle) {
             voiceToggle.addEventListener('change', (e) => {
@@ -1299,7 +1202,6 @@ class App {
                 AudioBridge.applyAll();
             });
         }
-
         const voiceSpeed = document.getElementById('setting-voice-speed');
         if (voiceSpeed) {
             voiceSpeed.addEventListener('change', (e) => {
@@ -1307,7 +1209,6 @@ class App {
                 AudioBridge.applyVoiceSettings();
             });
         }
-
         const cardCount = document.getElementById('setting-card-count');
         if (cardCount) {
             const handler = (e) => {
@@ -1319,7 +1220,6 @@ class App {
             cardCount.addEventListener('change', handler);
             cardCount.addEventListener('input', handler);
         }
-
         this.volumeInputs = [];
         const ranges = Array.from(screen.querySelectorAll('input[type="range"]'));
         ranges.forEach((input, index) => {
@@ -1341,7 +1241,6 @@ class App {
             input.addEventListener('input', onInput);
             input.addEventListener('change', onInput);
         });
-
         Array.from(screen.querySelectorAll('select')).forEach(sel => {
             if (sel.id === 'setting-voice-speed' || sel.id === 'setting-card-count') return;
             const role = this._detectVolumeRole(sel, -1, 0);
@@ -1360,7 +1259,6 @@ class App {
             });
         });
     }
-
     _detectVolumeRole(el, index, total) {
         const id = String(el.id || '').toLowerCase();
         const name = String(el.name || '').toLowerCase();
@@ -1374,7 +1272,6 @@ class App {
         if (index >= 0 && index < order.length && total >= 2) return order[index];
         return 'reader';
     }
-
     _updateVolumeIndicator(input, rawValue, max) {
         const item = input.closest ? input.closest('.setting-item') : null;
         if (!item) return;
@@ -1383,7 +1280,6 @@ class App {
         const barEl = item.querySelector('.volume-bar');
         if (barEl) barEl.style.width = Math.round((rawValue / (max || 1)) * 100) + '%';
     }
-
     syncSettingsUI() {
         const voiceToggle = document.getElementById('setting-voice');
         if (voiceToggle) voiceToggle.checked = !!SettingsStore.get('voiceEnabled');
@@ -1402,7 +1298,6 @@ class App {
         });
         this.applyCardGridLayout(SettingsStore.get('cardCount'));
     }
-
     decorateDifficultyButtons() {
         const desc = {
             0: 'CPUなし。読み札と構造式の確認用（解放対象外）',
@@ -1425,18 +1320,14 @@ class App {
             wrap.appendChild(d);
         });
     }
-
     /* ========================= ★1) 設定画面内の「構造式キャッシュ」 ========================= */
-
     /** 骨格を一度だけ作る（以降は数値のみ更新＝ちらつき防止） */
     _ensureSettingsCachePanel() {
         const container = document.querySelector('#screen-settings .settings-container') ||
             document.querySelector('.settings-container');
         if (!container) return null;
-
         let section = document.getElementById('settings-cache-section');
         if (section) return section;
-
         section = document.createElement('div');
         section.className = 'setting-section';
         section.id = 'settings-cache-section';
@@ -1455,7 +1346,6 @@ class App {
             '<p class="cache-panel-note">札の構造式を端末内に事前生成して保存します。準備済みだと対戦開始時に一瞬で展開され、読み上げまでの待ち時間がなくなります。空き時間に自動で生成するため、手動操作は不要です。</p>' +
             '</div>';
         container.appendChild(section);
-
         const btn = section.querySelector('#btn-rebuild-cache');
         if (btn) {
             btn.addEventListener('click', async () => {
@@ -1474,24 +1364,20 @@ class App {
         }
         return section;
     }
-
     /** 値だけの差分更新 */
     renderSettingsCachePanel() {
         const section = this._ensureSettingsCachePanel();
         if (!section) return;
-
         const total = this.engine.compounds.length || 0;
         const cached = Math.min(StructureCache.mem.size, total);
         const pct = total > 0 ? Math.round((cached / total) * 100) : 0;
         const done = total > 0 && cached >= total;
         const broken = StructureCache.offscreenBroken;
-
         let stateText, dotDone = false;
         if (done) { stateText = '準備完了（即時展開）'; dotDone = true; }
         else if (broken) { stateText = '対戦時に逐次生成'; dotDone = true; }
         else if (StructureCache.running) stateText = 'バックグラウンド生成中';
         else stateText = '待機中（対戦開始時に生成）';
-
         const setTxt = (id, text) => {
             const el = document.getElementById(id);
             if (el && el.textContent !== text) el.textContent = text;
@@ -1499,7 +1385,6 @@ class App {
         setTxt('scp-state', stateText);
         setTxt('scp-pct', pct + '%');
         setTxt('scp-count', cached + ' / ' + total + ' 枚');
-
         const fill = document.getElementById('scp-fill');
         if (fill) {
             fill.style.width = pct + '%';
@@ -1508,7 +1393,6 @@ class App {
         const dot = document.getElementById('scp-dot');
         if (dot) dot.classList.toggle('done', dotDone);
     }
-
     /* ========================= オンライン ========================= */
     showOnlineMenu() {
         if (typeof OnlineManager === 'undefined' || !OnlineManager.init()) {
@@ -1517,7 +1401,6 @@ class App {
         }
         this.resetOnlineState();
         document.querySelectorAll('.modal-screen').forEach(m => m.remove());
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
@@ -1534,12 +1417,10 @@ class App {
             '<button class="btn btn-danger" id="btn-cancel-online" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>' +
             '</div>';
         document.body.appendChild(modal);
-
         document.getElementById('btn-create-room').addEventListener('click', () => this.createOnlineRoom());
         document.getElementById('btn-join-room').addEventListener('click', () => this.joinOnlineRoom());
         document.getElementById('btn-cancel-online').addEventListener('click', () => modal.remove());
     }
-
     async createOnlineRoom() {
         try {
             this.resetOnlineState();
@@ -1552,11 +1433,9 @@ class App {
             const roomId = await OnlineManager.createRoom(settings);
             this.isHost = true;
             this.isOnlineMode = true;
-
             const onlineMenu = document.getElementById('online-menu-modal');
             if (onlineMenu) onlineMenu.remove();
             this.showWaitingRoom(roomId);
-
             OnlineManager.onRoomUpdate((roomData) => {
                 if (!roomData) return;
                 if (this.onlineGameStarted) return;
@@ -1577,22 +1456,18 @@ class App {
             alert('ルーム作成に失敗しました: ' + e.message);
         }
     }
-
     async joinOnlineRoom() {
         try {
             const roomIdInput = document.getElementById('room-id-input');
             const roomId = roomIdInput ? roomIdInput.value.trim().toUpperCase() : '';
             if (!roomId || roomId.length !== 6) { alert('6桁のルームIDを入力してください'); return; }
-
             this.resetOnlineState();
             await OnlineManager.joinRoom(roomId);
             this.isHost = false;
             this.isOnlineMode = true;
-
             const onlineMenu = document.getElementById('online-menu-modal');
             if (onlineMenu) onlineMenu.remove();
             this.showWaitingRoomForGuest(roomId);
-
             OnlineManager.onRoomUpdate((roomData) => {
                 if (!roomData) {
                     if (this.onlineGameStarted && !this.leftHandled) {
@@ -1610,7 +1485,6 @@ class App {
             alert('ルーム参加に失敗しました: ' + e.message);
         }
     }
-
     _waitingRoomShell(inner) {
         const existing = document.getElementById('waiting-room-modal');
         if (existing) existing.remove();
@@ -1624,7 +1498,6 @@ class App {
         document.body.appendChild(modal);
         return modal;
     }
-
     showWaitingRoom(roomId) {
         this._waitingRoomShell(
             '<h2 id="waiting-opponent-status" style="font-size:1.3rem;margin-bottom:20px;color:var(--text-light);font-family:var(--font-display);">対戦相手を待っています...</h2>' +
@@ -1635,7 +1508,6 @@ class App {
             '<button class="btn btn-primary" id="btn-start-game" disabled style="width:100%;margin-bottom:15px;min-height:48px;opacity:0.5;">ゲーム開始</button>' +
             '<div class="loading-spinner" style="margin:20px auto;"></div>' +
             '<button class="btn btn-danger" id="btn-cancel-waiting" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>');
-
         document.getElementById('btn-start-game').addEventListener('click', () => {
             OnlineManager.updateGameState({ phase: 'starting' });
         });
@@ -1644,7 +1516,6 @@ class App {
             this.resetOnlineState();
         });
     }
-
     showWaitingRoomForGuest(roomId) {
         this._waitingRoomShell(
             '<h2 style="font-size:1.3rem;margin-bottom:20px;color:var(--accent-gold);font-family:var(--font-display);">ホストの開始を待っています...</h2>' +
@@ -1654,29 +1525,24 @@ class App {
             '<p style="font-size:0.85rem;color:var(--text-light);margin-bottom:20px;">ホストがゲームを開始するまでお待ちください</p>' +
             '<div class="loading-spinner" style="margin:20px auto;"></div>' +
             '<button class="btn btn-danger" id="btn-cancel-waiting" style="width:100%;min-height:44px;margin-top:0;">キャンセル</button>');
-
         document.getElementById('btn-cancel-waiting').addEventListener('click', async () => {
             if (typeof OnlineManager !== 'undefined') { try { await OnlineManager.leaveRoom(); } catch (e) { } }
             this.resetOnlineState();
         });
     }
-
     startOnlineGameAsHost(roomData) {
         if (this.onlineGameStarted) return;
         this.onlineGameStarted = true;
         const waitingModal = document.getElementById('waiting-room-modal');
         if (waitingModal) waitingModal.remove();
-
         this.isOnlineMode = true;
         this.isHost = true;
         this.isPracticeMode = false;
         this.resetRoundUIState();
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) gameScreen.classList.remove('practice-mode');
         this.setText('player-score-label', 'あなた');
         this.setText('cpu-score-label', '相手');
-
         const settings = (roomData && roomData.settings) || {};
         const cardCount = SettingsStore.normalizeCardCount(settings.cardCount || SettingsStore.get('cardCount'));
         this.engine.configure({
@@ -1691,23 +1557,19 @@ class App {
         this.engine.startGame(10);
         this.startOnlineWatchdog();
     }
-
     startOnlineGameAsGuest(roomData) {
         if (this.onlineGameStarted) return;
         this.onlineGameStarted = true;
         const waitingModal = document.getElementById('waiting-room-modal');
         if (waitingModal) waitingModal.remove();
-
         this.isOnlineMode = true;
         this.isHost = false;
         this.isPracticeMode = false;
         this.resetRoundUIState();
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) gameScreen.classList.remove('practice-mode');
         this.setText('player-score-label', 'あなた');
         this.setText('cpu-score-label', '相手');
-
         const settings = (roomData && roomData.settings) || {};
         const cardCount = SettingsStore.normalizeCardCount(settings.cardCount || SettingsStore.get('cardCount'));
         this.engine.configure({
@@ -1721,7 +1583,6 @@ class App {
         StructureCache.pause();
         this.startOnlineWatchdog();
     }
-
     resetRoundUIState() {
         this.syncSeq++;
         this.hasShownResult = false;
@@ -1736,10 +1597,10 @@ class App {
         this.scoredRemoteRound = -1;
         this._dealing = false;
         this._dealingRound = -1;
+        this._guestRenderedStage = 0;   // ★ v8.1
         this.stopFinalCountdown();
         this.closeRoundResultModal();
     }
-
     resetOnlineState() {
         this.engine.pause();
         this.stopOnlineWatchdog();
@@ -1753,7 +1614,6 @@ class App {
         const om = document.getElementById('online-menu-modal');
         if (om) om.remove();
     }
-
     async handleOnlineStateChange(state) {
         if (!this.isOnlineMode || !this.isHost || !state) return;
         try {
@@ -1780,14 +1640,12 @@ class App {
             }
         } catch (e) { console.error('handleOnlineStateChange error:', e); }
     }
-
     syncScoresToRoom() {
         if (!this.isOnlineMode || !this.isHost) return Promise.resolve();
         if (typeof OnlineManager === 'undefined') return Promise.resolve();
         return OnlineManager.updateScores(this.engine.getAuthoritativeScores())
             .catch(e => console.error('syncScoresToRoom error:', e));
     }
-
     setupOnlineSync() {
         OnlineManager.onRoomUpdate((roomData) => {
             if (!roomData) {
@@ -1807,7 +1665,6 @@ class App {
         });
         OnlineManager.onTaps((taps) => this.handleRemoteTaps(taps));
     }
-
     handleOpponentLeft(message) {
         this.engine.pause();
         if (typeof OnlineManager !== 'undefined') { try { OnlineManager.leaveRoom(); } catch (e) { } }
@@ -1816,7 +1673,6 @@ class App {
         StructureCache.resume();
         alert(message || '対戦相手が退出しました');
     }
-
     startOnlineWatchdog() {
         this.stopOnlineWatchdog();
         this._onlineWatchdog = setInterval(() => this.onlineWatchdogTick(), 3000);
@@ -1824,7 +1680,6 @@ class App {
     stopOnlineWatchdog() {
         if (this._onlineWatchdog) { clearInterval(this._onlineWatchdog); this._onlineWatchdog = null; }
     }
-
     async onlineWatchdogTick() {
         if (!this.isOnlineMode || !this.onlineGameStarted) { this.stopOnlineWatchdog(); return; }
         if (typeof OnlineManager === 'undefined' || !OnlineManager.roomRef) return;
@@ -1833,13 +1688,11 @@ class App {
             if (!room || !room.gameState) return;
             const gs = room.gameState;
             const dbRound = Number(gs.round) || 0;
-
             if (this.isHost) {
                 const r = this.engine.currentRound;
                 if (!r || !r.isActive || r.settled) return;
                 const myRound = this.engine.roundNumber;
                 const myStage = Number(r.currentStage) || 0;
-
                 if (dbRound !== myRound) {
                     await OnlineManager.setRoundData(r.cards, r.target, myRound, this.engine.totalRounds, myStage);
                     await OnlineManager.updateScores(this.engine.getAuthoritativeScores());
@@ -1862,16 +1715,13 @@ class App {
             }
         } catch (e) { console.error('onlineWatchdogTick error:', e); }
     }
-
     async syncOnlineGameState(gameState, roomData) {
         if (!gameState) return;
         const mySeq = ++this.syncSeq;
         this.onlineGameState = gameState;
-
         const round = Number(gameState.round) || 0;
         const phase = gameState.phase || 'waiting';
         const roundChanged = (round !== this.onlineRound);
-
         if (roundChanged) {
             this.onlineRound = round;
             this.hasShownResult = false;
@@ -1881,10 +1731,10 @@ class App {
             this.scoredRemoteRound = -1;
             this._guestRoundStart = Date.now();
             this._guestStageStart = 0;
+            this._guestRenderedStage = 0;   // ★ v8.1: 新ラウンドなので表示済みステージをリセット
             this.stopFinalCountdown();
             this.closeRoundResultModal();
         }
-
         const scores = gameState.scores || {};
         let myScore, oppScore;
         if (this.isHost) {
@@ -1895,10 +1745,8 @@ class App {
         }
         this.setText('score-player', myScore);
         this.setText('score-cpu', oppScore);
-
         const total = this.num(gameState.totalRounds) || this.engine.totalRounds || 10;
         this.setText('round-display', round + ' / ' + total);
-
         const cards = gameState.cards;
         if (!this.isHost && Array.isArray(cards) && cards.length > 0 && this.renderedRound !== round) {
             this.renderedRound = round;
@@ -1906,16 +1754,21 @@ class App {
             this.applyCardGridLayout(cards.length);
             this.renderCards(cards, false).catch(() => { });
         }
-
-        if (phase === 'reading') {
-            if (!this.isHost && !this._guestStageStart) this._guestStageStart = Date.now();
+        /* ★ v8.1 修正: 読み札表示はゲストのみが行う。
+           ホストはエンジン（updateGameUI → updateClueWithHistory）で表示・読み上げ済みのため、
+           ここで呼ぶと二重表示／二重読み上げになる。
+           そして updateOnlineClue は v8 で「呼び出しだけ存在し定義が無い」バグだったため、
+           ゲスト側で phase==='reading' を受信するたびに TypeError が発生し、
+           読み札が一切表示されない（＝進まない）状態になっていた。 */
+        if (phase === 'reading' && !this.isHost) {
+            if (!this._guestStageStart) this._guestStageStart = Date.now();
             this.updateOnlineClue(gameState);
         }
         else if (phase === 'dealing' && roundChanged && !this.isHost) {
             this._guestStageStart = 0;
+            this._guestRenderedStage = 0;
             this.resetClueDisplay();
         }
-
         if (phase === 'result' && !this.hasShownResult) {
             const resultRound = (gameState.resultRound === undefined || gameState.resultRound === null)
                 ? round : Number(gameState.resultRound);
@@ -1952,7 +1805,6 @@ class App {
                 }
             }
         }
-
         if (phase === 'finished' && !this.gameEndShown) {
             this.gameEndShown = true;
             const s = gameState.scores || {};
@@ -1970,7 +1822,6 @@ class App {
         }
         this.updateFooterState();
     }
-
     creditOpponentFromRoom(resultRound) {
         if (!this.isHost || !this.isOnlineMode) return;
         if (this.scoredRemoteRound === resultRound) return;
@@ -1981,9 +1832,7 @@ class App {
         this.scoredRemoteRound = resultRound;
         if (scored) this.syncScoresToRoom();
     }
-
     num(v) { const n = Number(v); return isFinite(n) ? n : 0; }
-
     resetClueDisplay() {
         const historyEl = document.getElementById('clue-history');
         if (historyEl) historyEl.innerHTML = '';
@@ -1992,11 +1841,56 @@ class App {
         const textEl = document.getElementById('clue-text');
         if (textEl) textEl.textContent = '読み札がここに表示されます';
         this.historyTargetId = null;
+        this._guestRenderedStage = 0;   // ★ v8.1
         this.removeFinalCountdown();
         const cluePanel = document.querySelector('.clue-display');
         if (cluePanel) cluePanel.scrollTop = 0;
     }
-
+    /* ========================= ★ v8.1 新設: ゲスト側の読み札表示 =========================
+       【バグの本体】v8 までは syncOnlineGameState / onlineWatchdogTick から
+       this.updateOnlineClue(...) を呼んでいたのに、このメソッドが未定義だった。
+       → ゲスト端末では phase==='reading' の同期ごとに
+          TypeError: this.updateOnlineClue is not a function が thrown され、
+          読み札表示と、その後の updateFooterState まで巻き込まれて停止。
+          カード描画・タップ・結果表示は onlineGameState 代入後に動くため無事で、
+          「ゲストだけ読み札が進まない（それ以外は普通）」という症状になっていた。
+       【実装方針】
+       ・ホストから DB 経由で届く gameState.currentStage / target.id を使い、
+         ゲスト側でローカルに読み込んだ engine.clues から該当ステージの文言を引く
+         （ルームデータには読み札本文を含めないため、両端末共通のデータを使う）
+       ・表示は updateClueWithHistory に委譲し、履歴・スクロール挙動を CPU 戦と統一
+       ・_guestRenderedStage で「同一ステージの再描画・二重読み上げ」を防止
+         （ウォッチドッグや得点同期で phase==='reading' の update が何度も来ても安全）
+       ・_guestStageStart をステージ受信ごとに更新し、ゲストの反応時間計測を
+         「読み札が出た瞬間」基準にする（recordGuestAnswer が参照）
+    ================================================================================= */
+    updateOnlineClue(gameState) {
+        if (!gameState || !gameState.target) return;
+        const stage = Number(gameState.currentStage) || 0;
+        if (stage < 1) return;
+        // 同一ステージの再表示・二重読み上げを防ぐ（同期イベントは複数回飛んでくる）
+        if (stage === this._guestRenderedStage) return;
+        this._guestRenderedStage = stage;
+        this._guestStageStart = Date.now();
+        const targetId = String(gameState.target.id || '').trim();
+        const clueData = this.engine.clues[targetId];
+        const stageData = (clueData && Array.isArray(clueData.stages))
+            ? clueData.stages.find(s => s.stage === stage) : null;
+        if (stageData && stageData.text) {
+            // CPU戦と同じ表示ロジック（ステージ表示＋履歴＋自動スクロール）
+            this.updateClueWithHistory({ target: gameState.target, currentStage: stage });
+            try { AudioManager.playSound('stage'); } catch (e) { }
+            // ゲスト端末でも読み上げる（音量・ON/OFF は AudioBridge が適用済み）
+            try { AudioManager.speak(stageData.text); } catch (e) { }
+        } else {
+            // 読み札データが引けなかった場合のフォールバック（表示だけは止めない）
+            const stageEl = document.getElementById('clue-stage');
+            const textEl = document.getElementById('clue-text');
+            if (stageEl) stageEl.textContent = 'STAGE ' + stage;
+            if (textEl) textEl.textContent = '（読み札データがありません）';
+        }
+        this.updateFooterState();
+    }
     /* ========================= タップ処理 ========================= */
     handleCardTap(id, element) {
         if (this.hasShownResult) return;
@@ -2007,14 +1901,12 @@ class App {
         if (String(id || '').trim() === targetId && element) element.classList.add('correct');
         this.updateFooterState();
     }
-
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
         const gs = this.onlineGameState;
         if (!gs || !gs.target) return;
         if (this.hasShownResult) return;
         if (gs.phase !== 'dealing' && gs.phase !== 'reading') return;
-
         const tapId = String(id || '').trim();
         const targetId = String(gs.target.id || '').trim();
         const isCorrect = (tapId === targetId);
@@ -2022,9 +1914,7 @@ class App {
         const stage = Number(gs.currentStage) || 0;
         this.tapSeq++;
         const meta = { round: round, stage: stage, seq: this.tapSeq };
-
         if (!this.isHost) this.recordGuestAnswer(isCorrect, stage, gs.target);
-
         if (this.isHost) {
             this.engine.handlePlayerTap(tapId);
             if (isCorrect && element) element.classList.add('correct');
@@ -2032,7 +1922,6 @@ class App {
             try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
             return;
         }
-
         if (isCorrect) {
             if (element) element.classList.add('correct');
             this.hasShownResult = true;
@@ -2046,7 +1935,6 @@ class App {
             } catch (e) { console.error(e); }
             return;
         }
-
         if (element) {
             element.classList.add('wrong');
             setTimeout(() => element.classList.remove('wrong'), 600);
@@ -2054,7 +1942,6 @@ class App {
         try { AudioManager.playSound('wrong'); } catch (e) { }
         try { await OnlineManager.recordTap(tapId, meta); } catch (e) { }
     }
-
     recordGuestAnswer(isCorrect, stage, target) {
         const now = Date.now();
         const base = this._guestStageStart || this._guestRoundStart || now;
@@ -2075,10 +1962,8 @@ class App {
         try { ProgressManager.addRecord(rec); } catch (e) { }
         if (!isCorrect) this._guestStageStart = now;
     }
-
     handleRemoteTaps(taps) {
         if (!this.isOnlineMode || !taps) return;
-
         if (!this.isHost) {
             Object.keys(taps).forEach(pid => {
                 const tap = taps[pid];
@@ -2097,12 +1982,10 @@ class App {
             });
             return;
         }
-
         const round = this.engine.currentRound;
         if (!round || !round.target) return;
         const targetId = String(round.target.id || '').trim();
         const currentRoundNo = this.engine.roundNumber;
-
         Object.keys(taps).forEach(pid => {
             const tap = taps[pid];
             if (!tap || !tap.cardId) return;
@@ -2111,11 +1994,9 @@ class App {
             const key = tapRound + '_' + (tap.seq || tap.timestamp || 0) + '_' + tap.cardId;
             if (this.processedTaps[pid] === key) return;
             this.processedTaps[pid] = key;
-
             const tapId = String(tap.cardId).trim();
             const cardEl = this.findCardElement(tapId);
             const isCorrect = (tapId === targetId);
-
             if (isCorrect) {
                 if (cardEl) cardEl.classList.add('correct');
                 const stage = Number(tap.stage) || round.currentStage || 1;
@@ -2141,7 +2022,6 @@ class App {
             }
         });
     }
-
     findCardElement(id) {
         const grid = document.getElementById('card-grid');
         if (!grid) return null;
@@ -2151,21 +2031,17 @@ class App {
             return Array.from(grid.querySelectorAll('.card')).find(c => c.dataset.id === String(id)) || null;
         }
     }
-
     flashCard(id, type) {
         const card = this.findCardElement(id);
         if (card) { card.classList.add(type); setTimeout(() => card.classList.remove(type), 600); }
     }
-
     /* ========================= ゲームUI ========================= */
     async updateGameUI(data) {
         if (!data) return;
-
         const scores = data.scores || { player: 0, opponent: 0 };
         this.setText('score-player', scores.player || 0);
         this.setText('score-cpu', scores.opponent || 0);
         this.setText('round-display', data.roundNumber + ' / ' + data.totalRounds);
-
         switch (data.state) {
             case 'DEAL':
                 if (this._dealing && this._dealingRound === data.roundNumber) break;
@@ -2194,17 +2070,14 @@ class App {
                 this.stopFinalCountdown();
                 break;
         }
-
         if (data.type === 'final_stage') this.startFinalCountdown();
         if (data.type === 'wrong' || data.type === 'cpu_wrong') this.flashCard(data.id, 'wrong');
         this.updateFooterState();
     }
-
     updateFooterState() {
         const canNext = this.engine.canNextClue ? this.engine.canNextClue() : false;
         const isFinal = this.engine.isFinalStage ? this.engine.isFinalStage() : false;
         const guestTurn = this.isOnlineMode && !this.isHost;
-
         const nextBtn = document.getElementById('btn-next-clue');
         if (nextBtn) {
             nextBtn.disabled = !canNext || guestTurn || this.hasShownResult || this._dealing;
@@ -2215,18 +2088,15 @@ class App {
         if (skipBtn) skipBtn.disabled = guestTurn || this.hasShownResult || this._dealing;
         const hintBtn = document.getElementById('btn-hint');
         if (hintBtn) hintBtn.disabled = this.hasShownResult;
-
         if (isFinal && !document.getElementById('final-countdown') && !this.hasShownResult &&
             this.engine.finalDeadline > Date.now()) {
             this.startFinalCountdown();
         }
     }
-
     startFinalCountdown() {
         this.stopFinalCountdown(false);
         const host = document.querySelector('#screen-game .clue-display') || document.getElementById('screen-game');
         if (!host) return;
-
         let el = document.getElementById('final-countdown');
         if (!el) {
             el = document.createElement('div');
@@ -2237,7 +2107,6 @@ class App {
         el.innerHTML =
             '<div class="fc-row"><span class="fc-label">読み札終了 ・ 時間切れで終了</span><span class="fc-time">--</span></div>' +
             '<div class="fc-bar"><i></i></div>';
-
         const tick = () => {
             const dl = this.engine.finalDeadline || 0;
             if (!dl) return;
@@ -2253,18 +2122,15 @@ class App {
         this._finalCountdownTimer = setInterval(tick, 100);
         this.updateFooterState();
     }
-
     stopFinalCountdown(remove = true) {
         if (this._finalCountdownTimer) { clearInterval(this._finalCountdownTimer); this._finalCountdownTimer = null; }
         if (remove) this.removeFinalCountdown();
     }
-
     removeFinalCountdown() {
         if (this._finalCountdownTimer) { clearInterval(this._finalCountdownTimer); this._finalCountdownTimer = null; }
         const el = document.getElementById('final-countdown');
         if (el) el.remove();
     }
-
     /* ========================= カード描画 ========================= */
     applyCardGridLayout(count) {
         const grid = document.getElementById('card-grid');
@@ -2272,17 +2138,14 @@ class App {
         grid.classList.remove('cards-6', 'cards-9', 'cards-12', 'cards-16');
         grid.classList.add('cards-' + SettingsStore.normalizeCardCount(count));
     }
-
     _cardFallbackHTML(compound) {
         return '<div class="card-fallback">' +
             '<div class="compound-name">' + (compound.name || '') + '</div>' +
             '<div class="compound-formula">' + (compound.formula || '') + '</div></div>';
     }
-
     async renderCards(cards, startReading) {
         const grid = document.getElementById('card-grid');
         if (!grid) return;
-
         const list = (cards || []).filter(c => c);
         const dealId = ++this._dealSeq;
         this._dealing = true;
@@ -2290,9 +2153,7 @@ class App {
         this.engine.cardsReady = false;
         this.applyCardGridLayout(list.length);
         this.updateFooterState();
-
         grid.innerHTML = '';
-
         const entries = list.map(compound => {
             const div = document.createElement('div');
             div.className = 'card loading-card';
@@ -2304,14 +2165,12 @@ class App {
             grid.appendChild(div);
             return { compound: compound, div: div, contentDiv: contentDiv, done: false };
         });
-
         if (list.length === 0) {
             this._dealing = false;
             this.engine.setCardsReady(true);
             if (startReading) this.engine.startReading(true);
             return;
         }
-
         const misses = [];
         entries.forEach(e => {
             if (StructureCache.applyTo(e.contentDiv, e.compound)) {
@@ -2321,14 +2180,12 @@ class App {
                 misses.push(e);
             }
         });
-
         if (misses.length > 0) {
             await Promise.race([
                 Promise.all(misses.map((e, i) => this._renderOneCard(e, i, dealId))),
                 new Promise(res => setTimeout(res, 15000))
             ]);
         }
-
         entries.forEach(e => {
             if (dealId !== this._dealSeq) return;
             e.div.classList.remove('loading-card');
@@ -2337,9 +2194,7 @@ class App {
             }
             e.done = true;
         });
-
         if (dealId !== this._dealSeq) return;
-
         await new Promise(r => requestAnimationFrame(() => r()));
         this._dealing = false;
         this.engine.setCardsReady(true);
@@ -2347,7 +2202,6 @@ class App {
         this.updateFooterState();
         if (!this.isOnlineMode) StructureCache.resume();
     }
-
     async _renderOneCard(entry, index, dealId) {
         await new Promise(r => setTimeout(r, Math.min(index * 40, 400)));
         if (dealId !== this._dealSeq) return;
@@ -2371,30 +2225,24 @@ class App {
             if (dealId === this._dealSeq) entry.div.classList.remove('loading-card');
         }
     }
-
     updateClueWithHistory(round) {
         if (!round || !round.target) return;
         const targetId = String(round.target.id || '').trim();
         const clueData = this.engine.clues[targetId];
         if (!clueData || !Array.isArray(clueData.stages)) return;
-
         const currentStage = Number(round.currentStage) || 0;
         if (currentStage < 1) return;
         const currentStageData = clueData.stages.find(s => s.stage === currentStage);
         if (!currentStageData) return;
-
         const stageEl = document.getElementById('clue-stage');
         const textEl = document.getElementById('clue-text');
         if (stageEl) stageEl.textContent = 'STAGE ' + currentStage;
         if (textEl) textEl.textContent = currentStageData.text;
-
         const historyDiv = document.getElementById('clue-history');
         if (!historyDiv) return;
         if (this.historyTargetId !== targetId) { historyDiv.innerHTML = ''; this.historyTargetId = targetId; }
-
         const existing = new Set();
         historyDiv.querySelectorAll('.clue-history-item').forEach(item => existing.add(String(item.dataset.stage)));
-
         let added = false;
         for (let s = 1; s < currentStage; s++) {
             if (existing.has(String(s))) continue;
@@ -2425,7 +2273,6 @@ class App {
             if (cluePanel) cluePanel.scrollTop = 0;
         }
     }
-
     /* ========================= モーダル ========================= */
     closeRoundResultModal() {
         if (this.roundResultModal) {
@@ -2435,7 +2282,6 @@ class App {
         const legacy = document.getElementById('round-result-modal');
         if (legacy) legacy.remove();
     }
-
     closeAllModals() {
         this.stopFinalCountdown();
         this.closeRoundResultModal();
@@ -2445,30 +2291,25 @@ class App {
         const rd = document.getElementById('reference-detail-modal');
         if (rd) rd.classList.remove('active');
     }
-
     showRoundResult(data) {
         if (!data) return;
         if (this.roundResultModal && !document.body.contains(this.roundResultModal)) this.roundResultModal = null;
         if (this.roundResultModal) return;
         this.closeRoundResultModal();
-
         this.hasShownResult = true;
         this.stopFinalCountdown();
         this._dealing = false;
         this.updateFooterState();
-
         const playerWon = !!data.playerWon;
         const reason = data.reason || null;
         const compound = data.target || {};
         const explanation = data.explanation || '解説はありません。';
         const perfect = !!data.perfect;
         const rankIdx = ProgressManager.rankIndex;
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'round-result-modal';
-
         let resultTitle, resultColor;
         if (this.isPracticeMode) {
             resultTitle = playerWon ? '正解' : '確認';
@@ -2481,13 +2322,11 @@ class App {
             resultTitle = playerWon ? (perfect ? '一発正解' : '正解') : (this.isOnlineMode ? '相手の取りです' : '不正解');
             resultColor = playerWon ? '#22c55e' : 'var(--accent-red)';
         }
-
         const sc = (this.isHost || !this.isOnlineMode)
             ? this.engine.getAuthoritativeScores()
             : (() => { const s = (this.onlineGameState && this.onlineGameState.scores) || {}; return { player: this.num(s.player), opponent: this.num(s.opponent) }; })();
         const myNow = (this.isHost || !this.isOnlineMode) ? sc.player : sc.opponent;
         const oppNow = (this.isHost || !this.isOnlineMode) ? sc.opponent : sc.player;
-
         let timingHtml = '';
         const recs = ProgressManager.data.records || [];
         const lastRec = recs.length ? recs[recs.length - 1] : null;
@@ -2498,7 +2337,6 @@ class App {
             timingHtml += '<span>CPUの思考 <b>' + this.engine.lastCpuReactionMs + '</b> ms</span>';
         }
         if (timingHtml) timingHtml = '<div class="timing-row">' + timingHtml + '</div>';
-
         const targetId = String(compound.id || '').trim();
         const unlockedNow = targetId && ProgressManager.isUnlocked(targetId);
         let lockBadge = '';
@@ -2508,7 +2346,6 @@ class App {
             else if (playerWon && !perfect) lockBadge = '<div class="lock-badge">🔒 誤答あり → 解放されません</div>';
             else lockBadge = '<div class="lock-badge">🔒 誤答なしの一発正解で解放</div>';
         }
-
         modal.innerHTML =
             '<div class="modal-content" style="background:var(--card-bg);border:3px solid ' + resultColor + ';border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.5);">' +
             '<h2 style="font-size:1.8rem;margin-bottom:15px;color:' + resultColor + ';font-family:var(--font-display);letter-spacing:.15em;text-indent:.15em;">' + resultTitle + '</h2>' +
@@ -2532,14 +2369,12 @@ class App {
             '</div>';
         document.body.appendChild(modal);
         this.roundResultModal = modal;
-
         const nameEl = modal.querySelector('.modal-name');
         if (nameEl) nameEl.textContent = compound.name || '';
         const formulaEl = modal.querySelector('.modal-formula');
         if (formulaEl) formulaEl.textContent = compound.formula || '';
         const expEl = modal.querySelector('.modal-explanation');
         if (expEl) expEl.textContent = explanation;
-
         const structureDiv = document.getElementById('modal-structure');
         if (structureDiv) {
             if (!StructureCache.applyTo(structureDiv, compound)) {
@@ -2550,7 +2385,6 @@ class App {
                 }
             }
         }
-
         const nextBtn = document.getElementById('modal-next-btn');
         if (nextBtn) {
             if (this.isOnlineMode && !this.isHost) {
@@ -2567,7 +2401,6 @@ class App {
                 });
             }
         }
-
         if (this.isOnlineMode) {
             this._refreshModalScores = () => {
                 if (!this.roundResultModal) return;
@@ -2586,7 +2419,6 @@ class App {
             setTimeout(() => { if (this._refreshModalScores) this._refreshModalScores(); }, 1800);
         }
     }
-
     showGameEnd(data) {
         if (!data) return;
         if (this.gameEndShown && this.isOnlineMode) return;
@@ -2595,7 +2427,6 @@ class App {
         this.stopFinalCountdown();
         this._dealing = false;
         try { StorageManager.recordCpuResult(data.winner); } catch (e) { }
-
         const mode = this.isPracticeMode ? 'practice' : (this.isOnlineMode ? 'online' : 'cpu');
         const rw = this.engine.roundWins || {};
         const progress = ProgressManager.recordGameEnd({
@@ -2608,16 +2439,13 @@ class App {
             cpuScore: data.cpuScore || 0
         });
         this._gameEndResult = progress;
-
         const modal = document.createElement('div');
         modal.className = 'screen active modal-screen';
         modal.style.zIndex = '1000';
         modal.id = 'game-end-modal';
-
         const rankUpHtml = progress.rankUp ? '<div class="rankup-banner">昇段 ／ ' + progress.rankUp + '</div>' : '';
         const pointsHtml = progress.gained > 0 ? '<div class="points-gained">+' + progress.gained + ' pt 獲得</div>' : '';
         const newPriv = progress.rankUp ? '<p style="font-size:.75rem;color:var(--text-light);margin:-4px 0 14px;line-height:1.6;">特典解放：' + progress.rank.priv + '</p>' : '';
-
         if (this.isPracticeMode) {
             modal.innerHTML =
                 '<div class="modal-content" style="background:var(--card-bg);border:3px solid var(--accent-gold);border-radius:2px;padding:25px 20px;max-width:420px;width:92%;text-align:center;box-shadow:0 8px 24px rgba(0,0,0,0.5);">' +
@@ -2652,7 +2480,6 @@ class App {
                 '<button class="btn btn-primary" id="modal-finish-btn" style="width:100%;">タイトルへ戻る</button></div>';
         }
         document.body.appendChild(modal);
-
         const finishBtn = document.getElementById('modal-finish-btn');
         if (finishBtn) {
             finishBtn.addEventListener('click', async () => {
@@ -2666,7 +2493,6 @@ class App {
             });
         }
     }
-
     /* ========================= 難易度・単元 ========================= */
     renderCategoryGrid() {
         const grid = document.getElementById('category-grid');
@@ -2675,7 +2501,6 @@ class App {
         const categories = this.engine.getCategories();
         this.selectedCategories = categories.slice();
         this.allCategoriesSelected = true;
-
         categories.forEach(cat => {
             const tag = document.createElement('button');
             tag.className = 'category-tag selected';
@@ -2696,12 +2521,10 @@ class App {
         });
         this.updateSelectAllButtonText();
     }
-
     updateSelectAllButtonText() {
         const btn = document.getElementById('btn-select-all');
         if (btn) btn.textContent = this.allCategoriesSelected ? 'すべて解除' : 'すべて選択';
     }
-
     toggleSelectAllCategories() {
         const tags = document.querySelectorAll('.category-tag');
         const shouldSelect = !this.allCategoriesSelected;
@@ -2711,14 +2534,12 @@ class App {
         this.updateSelectAllButtonText();
         StructureCache.prioritize(this.selectedCategories);
     }
-
     updateDifficultySelection() {
         document.querySelectorAll('.diff-btn').forEach(btn => {
             btn.classList.remove('selected');
             if (parseInt(btn.dataset.level, 10) === this.selectedDifficulty) btn.classList.add('selected');
         });
     }
-
     startGame() {
         this.isPracticeMode = (this.selectedDifficulty === 0);
         this.isOnlineMode = false;
@@ -2732,10 +2553,10 @@ class App {
         this.scoredRemoteRound = -1;
         this._dealing = false;
         this._dealingRound = -1;
+        this._guestRenderedStage = 0;   // ★ v8.1
         this.stopOnlineWatchdog();
         this.stopFinalCountdown();
         this.closeRoundResultModal();
-
         const cardCount = SettingsStore.get('cardCount');
         const settings = {
             mode: this.isPracticeMode ? 'practice' : 'cpu',
@@ -2747,7 +2568,6 @@ class App {
         this.engine.configure(settings);
         this.engine.onOnlineStateChange = null;
         this.applyCardGridLayout(cardCount);
-
         const gameScreen = document.getElementById('screen-game');
         if (gameScreen) {
             if (this.isPracticeMode) gameScreen.classList.add('practice-mode');
@@ -2755,29 +2575,24 @@ class App {
         }
         this.setText('player-score-label', '得点');
         this.setText('cpu-score-label', this.isPracticeMode ? '' : 'CPU');
-
         StructureCache.pause();
         StructureCache.prioritize(this.selectedCategories);
-
         this.showScreen('screen-game');
         this.engine.startGame(10);
         this.updateFooterState();
     }
-
     showHint() {
         let target = this.engine.currentRound ? this.engine.currentRound.target : null;
         if (!target && this.onlineGameState) target = this.onlineGameState.target;
         if (!target) return;
         alert('ヒント: ' + this.getCategoryDisplayName(target.category) + ' / 分子式: ' + target.formula);
     }
-
     /* ========================= 統計（詳細グラフ） ========================= */
     updateStats() {
         let summary = null;
         try { summary = StorageManager.getSummary(); } catch (e) { summary = null; }
         const p = ProgressManager.data;
         const st = ProgressManager.stats();
-
         this.setText('stat-games', p.gamesPlayed || (summary ? summary.totalGames : 0));
         this.setText('stat-accuracy', (st.total ? st.accuracy : (summary ? summary.accuracy : 0)) + '%');
         this.setText('stat-max-combo', summary ? summary.maxCombo : 0);
@@ -2788,7 +2603,6 @@ class App {
         this.setText('profile-total-score', ProgressManager.points + ' pt');
         this.renderRankPanel();
         this.renderDetailedStats();
-
         if (summary) {
             const diffNames = { 0: '練習', 1: '易しい', 3: '普通', 7: '難しい' };
             this.renderBarGraph('category-bars', st.total ? st.byCategory : summary.byCategory, (cat) => this.getCategoryDisplayName(cat));
@@ -2801,7 +2615,6 @@ class App {
             this.renderHistory(null);
         }
     }
-
     _stageAccuracy(byStage) {
         const out = {};
         Object.keys(byStage || {}).forEach(k => {
@@ -2809,7 +2622,6 @@ class App {
         });
         return out;
     }
-
     renderDetailedStats() {
         const container = document.querySelector('.stats-container');
         if (!container) return;
@@ -2821,11 +2633,9 @@ class App {
             if (profile && profile.nextSibling) container.insertBefore(host, profile.nextSibling);
             else container.appendChild(host);
         }
-
         const rankIdx = ProgressManager.rankIndex;
         const st = ProgressManager.stats();
         const matches = ProgressManager.data.matches || [];
-
         if (rankIdx < 2) {
             host.innerHTML =
                 '<div class="chart-block"><div class="chart-title">詳細分析</div>' +
@@ -2835,7 +2645,6 @@ class App {
                 this._privilegeBlock(rankIdx);
             return;
         }
-
         if (st.total === 0) {
             host.innerHTML =
                 '<div class="chart-block"><div class="chart-title">詳細分析</div>' +
@@ -2843,7 +2652,6 @@ class App {
                 this._privilegeBlock(rankIdx);
             return;
         }
-
         const buckets = [
             { label: '0-1s', min: 0, max: 1000 }, { label: '1-2s', min: 1000, max: 2000 },
             { label: '2-3s', min: 2000, max: 3000 }, { label: '3-4s', min: 3000, max: 4000 },
@@ -2858,7 +2666,6 @@ class App {
                 '<div class="hist-bar" style="height:' + Math.max(2, h) + '%"></div>' +
                 '<div class="hist-label">' + b.label + '</div></div>';
         }).join('');
-
         const stageKeys = Object.keys(st.byStage).sort((a, b) => Number(a) - Number(b));
         const stageRows = stageKeys.map(k => {
             const s = st.byStage[k];
@@ -2870,23 +2677,19 @@ class App {
                 '<div class="bar-value">' + rate + '%</div>' +
                 '<div class="bar-value" style="width:62px;color:var(--card-bg);">' + (avg ? (avg / 1000).toFixed(2) + 's' : '-') + '</div></div>';
         }).join('');
-
         const pointSeries = [];
         let acc = 0;
         matches.slice(-30).forEach(m => { acc += (m.points || 0); pointSeries.push(acc); });
         const basePoints = ProgressManager.points - acc;
         const lineValues = pointSeries.map(v => v + basePoints);
-
         const strip = matches.slice(-20).map(m => {
             const cls = m.winner === 'player' ? 'win' : (m.winner === 'cpu' ? 'lose' : 'draw');
             const h = m.winner === 'player' ? 100 : (m.winner === 'cpu' ? 45 : 70);
             return '<div class="match-cell ' + cls + '" style="height:' + h + '%" title="' +
                 new Date(m.t).toLocaleDateString() + ' ' + (m.winner === 'player' ? '勝利' : m.winner === 'cpu' ? '敗北' : '引分') + '"></div>';
         }).join('');
-
         const diff = ProgressManager.data;
         const accPct = st.accuracy;
-
         host.innerHTML =
             '<div class="chart-block">' +
             '<div class="chart-title">反応時間（内部時計計測）</div>' +
@@ -2897,13 +2700,11 @@ class App {
             '<div class="kpi-item"><div class="kpi-label">最速</div><div class="kpi-value">' + (st.min / 1000).toFixed(2) + '<span class="kpi-unit">s</span></div></div>' +
             '<div class="kpi-item red"><div class="kpi-label">90%線</div><div class="kpi-value">' + (st.p90 / 1000).toFixed(2) + '<span class="kpi-unit">s</span></div></div>' +
             '</div></div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">反応時間分布</div>' +
             '<div class="chart-sub">読み札開始から正解タップまでの時間（正解のみ）</div>' +
             '<div class="hist">' + histHtml + '</div>' +
             '</div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">正答 / 誤答 / 一発正解</div>' +
             '<div class="chart-sub">誤答なしで取り切った比率が高いほど資料が早く解放されます</div>' +
@@ -2916,19 +2717,16 @@ class App {
             '<div class="legend-item"><span class="legend-swatch" style="background:var(--accent-gold)"></span>一発正解 ' + st.perfect + '（' + st.perfectRate + '%）</div>' +
             '<div class="legend-item"><span class="legend-swatch" style="background:#6a4a6a"></span>最長コンボ ' + (this.engine.maxCombo || 0) + '</div>' +
             '</div></div></div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">読み札ステージ別 正答率 / 平均反応</div>' +
             '<div class="chart-sub">早いステージで取れているほど高得点・解放に有利</div>' +
             (stageRows || '<div class="chart-empty">データなし</div>') +
             '</div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">ポイント推移（直近 ' + lineValues.length + ' 戦）</div>' +
             '<div class="chart-sub">現在の累計 ' + ProgressManager.points + ' pt</div>' +
             (lineValues.length >= 2 ? this._svgLineChart(lineValues) : '<div class="chart-empty">対戦が2回以上必要です</div>') +
             '</div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">直近 ' + Math.min(20, matches.length) + ' 戦の勝敗</div>' +
             '<div class="chart-sub">' + diff.wins + ' 勝 ' + diff.losses + ' 敗 ' + diff.draws + ' 分（勝率 ' + ProgressManager.winRate() + '%）</div>' +
@@ -2938,16 +2736,13 @@ class App {
                 '<span><i style="background:var(--text-light)"></i>引分</span></div>'
                 : '<div class="chart-empty">対戦データがありません</div>') +
             '</div>' +
-
             '<div class="chart-block">' +
             '<div class="chart-title">CPU難易度別 戦績</div>' +
             '<div class="chart-sub">難しいほど獲得ポイントが増えます</div>' +
             this._difficultyTable(st.byDifficulty) +
             '</div>' +
-
             this._privilegeBlock(rankIdx);
     }
-
     _difficultyTable(byDifficulty) {
         const names = { 0: '練習', 1: '易しい', 2: '初級', 3: '普通', 4: '上位', 5: '難関', 6: '上級', 7: '難しい' };
         const keys = Object.keys(byDifficulty || {});
@@ -2962,7 +2757,6 @@ class App {
                 '<div class="bar-value" style="width:70px;color:var(--card-bg);font-size:.7rem;">' + d.win + '勝' + d.lose + '敗</div></div>';
         }).join('') + '</div>';
     }
-
     _privilegeBlock(rankIdx) {
         const items = ProgressManager.RANKS.map((r, i) => {
             const owned = rankIdx >= i;
@@ -2976,7 +2770,6 @@ class App {
             '<div class="chart-sub">ポイントと分子解放数で段位が上がり、特典が増えます</div>' +
             '<div class="priv-list">' + items + '</div></div>';
     }
-
     _svgLineChart(values) {
         const w = 300, h = 110, pad = 8;
         const min = Math.min(...values), max = Math.max(...values);
@@ -2995,13 +2788,11 @@ class App {
             '</svg>' +
             '<div class="svg-axis"><span>' + min + ' pt</span><span>' + Math.round((min + max) / 2) + ' pt</span><span>' + max + ' pt</span></div>';
     }
-
     renderRankPanel() {
         const card = document.querySelector('.profile-card');
         if (!card) return;
         const rank = ProgressManager.rankOf(ProgressManager.points);
         this.setText('profile-rank', '段位: ' + rank.name);
-
         let panel = document.getElementById('rank-progress');
         if (!panel) {
             panel = document.createElement('div');
@@ -3021,7 +2812,6 @@ class App {
             ' 化合物（1分子 +' + ProgressManager.UNLOCK_POINT + ' pt）</div>' +
             '<div class="profile-unlock" style="margin-top:4px;color:var(--accent-gold);">現在の特典: ' + rank.priv + '</div>';
     }
-
     renderBarGraph(containerId, data, labelFunc) {
         const container = document.getElementById(containerId);
         if (!container) return;
@@ -3035,7 +2825,6 @@ class App {
             const rate = total > 0 ? Math.round(((val.correct || 0) / total) * 100) : 0;
             return { key: key, rate: rate, total: total };
         }).sort((a, b) => a.rate - b.rate);
-
         entries.forEach(item => {
             const row = document.createElement('div');
             row.className = 'bar-item';
@@ -3048,7 +2837,6 @@ class App {
             container.appendChild(row);
         });
     }
-
     renderHistory(history) {
         const container = document.getElementById('history-list');
         if (!container) return;
@@ -3087,19 +2875,16 @@ class App {
             container.appendChild(item);
         });
     }
-
     setText(id, text) {
         const el = document.getElementById(id);
         if (el) el.textContent = text;
     }
-
     /* ========================= 資料（未解放は分子名も秘匿） ========================= */
     _lockSvg() {
         return '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">' +
             '<rect x="4" y="10" width="16" height="11" rx="2"></rect>' +
             '<path d="M8 10V7a4 4 0 0 1 8 0v3"></path></svg>';
     }
-
     renderUnlockBar() {
         const container = document.querySelector('.reference-container');
         if (!container) return;
@@ -3124,14 +2909,11 @@ class App {
             '<div class="unlock-hint">CPU戦で「誤答なしの一発正解」をした化合物だけが解放されます（1分子 +' +
             ProgressManager.UNLOCK_POINT + ' pt）。未解放の分子は名前も含めて秘匿されます。</div>';
     }
-
     renderReference() {
         const tabsContainer = document.getElementById('reference-tabs');
         const listContainer = document.getElementById('reference-list');
         if (!tabsContainer || !listContainer) return;
-
         this.renderUnlockBar();
-
         const categories = this.engine.getCategories();
         tabsContainer.innerHTML = '';
         const allTab = document.createElement('button');
@@ -3140,7 +2922,6 @@ class App {
         allTab.dataset.category = 'all';
         allTab.addEventListener('click', () => { this.referenceCurrentCategory = 'all'; this.renderReference(); });
         tabsContainer.appendChild(allTab);
-
         categories.forEach(cat => {
             const tab = document.createElement('button');
             tab.className = 'reference-tab' + (this.referenceCurrentCategory === cat ? ' selected' : '');
@@ -3149,7 +2930,6 @@ class App {
             tab.addEventListener('click', () => { this.referenceCurrentCategory = cat; this.renderReference(); });
             tabsContainer.appendChild(tab);
         });
-
         listContainer.innerHTML = '';
         let filtered = this.engine.compounds;
         if (this.referenceCurrentCategory !== 'all') {
@@ -3159,14 +2939,12 @@ class App {
             listContainer.innerHTML = '<div class="reference-empty">この単元には化合物がありません</div>';
             return;
         }
-
         const grouped = {};
         filtered.forEach(c => {
             const cat = c.category || 'other';
             if (!grouped[cat]) grouped[cat] = [];
             grouped[cat].push(c);
         });
-
         const renderQueue = [];
         Object.keys(grouped).sort().forEach(cat => {
             const section = document.createElement('div');
@@ -3176,7 +2954,6 @@ class App {
             const unlockedInCat = grouped[cat].filter(c => ProgressManager.isEffectivelyUnlocked(c.id)).length;
             header.textContent = this.getCategoryDisplayName(cat) + '（' + unlockedInCat + ' / ' + grouped[cat].length + '）';
             section.appendChild(header);
-
             const grid = document.createElement('div');
             grid.className = 'reference-grid';
             grouped[cat].forEach(compound => {
@@ -3196,7 +2973,6 @@ class App {
             section.appendChild(grid);
             listContainer.appendChild(section);
         });
-
         requestAnimationFrame(() => {
             renderQueue.forEach(entry => {
                 if (!entry.el) return;
@@ -3207,13 +2983,11 @@ class App {
             });
         });
     }
-
     showReferenceDetail(compound) {
         const modal = document.getElementById('reference-detail-modal');
         if (!modal) return;
         const compoundId = String(compound.id || '').trim();
         const unlocked = ProgressManager.isEffectivelyUnlocked(compoundId);
-
         if (!unlocked) {
             this.setText('detail-name', '？？？');
             this.setText('detail-formula', '未解放の化合物');
@@ -3241,11 +3015,9 @@ class App {
             modal.classList.add('active');
             return;
         }
-
         const clueData = this.engine.clues[compoundId];
         this.setText('detail-name', compound.name || '');
         this.setText('detail-formula', compound.formula || '');
-
         const structureDiv = document.getElementById('detail-structure');
         if (structureDiv) {
             structureDiv.innerHTML = '';
@@ -3256,7 +3028,6 @@ class App {
                 }).then(() => { StructureCache.snapshot(compound, structureDiv); }).catch(() => { });
             }
         }
-
         const stagesDiv = document.getElementById('detail-stages');
         if (stagesDiv) {
             stagesDiv.innerHTML = '';
@@ -3285,7 +3056,6 @@ class App {
                 stagesDiv.innerHTML = '<div style="color:var(--text-light);font-size:0.85rem;padding:10px;">読み札データがありません</div>';
             }
         }
-
         const explanationDiv = document.getElementById('detail-explanation');
         if (explanationDiv) {
             explanationDiv.innerHTML = '';
@@ -3294,7 +3064,6 @@ class App {
                 title.className = 'reference-detail-explanation-title';
                 title.textContent = '構造決定のポイント';
                 explanationDiv.appendChild(title);
-
                 const full = ProgressManager.hasPrivilege(5);
                 const text = String(clueData.explanation);
                 const content = document.createElement('div');
@@ -3310,10 +3079,8 @@ class App {
                 explanationDiv.innerHTML = '<div style="color:var(--text-light);font-size:0.85rem;">解説データがありません</div>';
             }
         }
-
         modal.classList.add('active');
     }
-
     playAllStages(stages) {
         if (!stages || stages.length === 0) return;
         let index = 0;
@@ -3326,12 +3093,10 @@ class App {
         };
         playNext();
     }
-
     /* ========================= 画面切替・設定 ========================= */
     showScreen(screenId) {
         if (screenId !== 'screen-game') this.closeAllModals();
         else { this.closeRoundResultModal(); this.removeFinalCountdown(); }
-
         document.querySelectorAll('.screen').forEach(s => {
             if (!s.classList.contains('modal-screen')) s.classList.remove('active');
         });
@@ -3355,22 +3120,18 @@ class App {
         }
         this.updateFooterState();
     }
-
     /** タイトル画面：段位パネルのみ */
     renderTitleRankPanel() {
         const container = document.querySelector('.title-container');
         if (!container) return;
         const rank = ProgressManager.rankOf(ProgressManager.points);
-
         const logo = document.querySelector('.title-logo');
         if (logo) logo.classList.toggle('rank-gold', ProgressManager.hasPrivilege(6));
-
         // 旧バージョンの残骸（タイトル内キャッシュパネル）があれば除去
         const legacy = document.getElementById('title-cache-panel');
         if (legacy) legacy.remove();
         const legacyBar = document.getElementById('title-progress-bar');
         if (legacyBar) legacyBar.remove();
-
         let panel = document.getElementById('title-rank-panel');
         if (!panel) {
             panel = document.createElement('div');
@@ -3389,7 +3150,6 @@ class App {
             '<div class="trp-sub" style="margin-top:6px;color:var(--accent-gold);">' +
             (rank.next ? ('あと ' + rank.need + ' pt で「' + rank.next.name + '」') : '最高段位・全特典解放済み') + '</div>';
     }
-
     getCategoryDisplayName(category) {
         const names = {
             hydrocarbon: '炭化水素', aromatic: '芳香族', alcohol: 'アルコール',
@@ -3404,7 +3164,6 @@ class App {
         };
         return names[category] || category;
     }
-
     loadSettings() {
         try {
             const legacy = StorageManager.loadSettings();
@@ -3417,7 +3176,6 @@ class App {
         AudioBridge.applyAll();
     }
 }
-
 window.addEventListener('DOMContentLoaded', () => {
     console.log('DOM loaded, starting app...');
     window.app = new App();
