@@ -2,10 +2,9 @@
  * App - メインアプリケーションクラス（完全修正版）
  * 
  * 修正内容：
- * 1. オンラインモードでもホストはUI更新を行う
- * 2. オンラインモードでホストのみ読み札開始・次のラウンド開始
- * 3. オンラインモードでゲストはFirebaseからカード・状態を同期
- * 4. CPU戦・オンライン戦ともに正解/誤答後に確実に進行
+ * 1. オンラインモードでホスト/ゲスト双方にエフェクトを表示
+ * 2. 正解後の「次の問題へ」でホストが Firebase 状態を更新し、ゲストが同期
+ * 3. compounds.json / clues.json のキー名空白に対応 (.trim())
  */
 class App {
     constructor() {
@@ -421,6 +420,7 @@ class App {
         };
         this.engine.configure(gameSettings);
         
+        // ホストがゲーム状態を変更した際に Firebase に同期するコールバック
         this.engine.onOnlineStateChange = (state) => {
             this.handleOnlineStateChange(state);
         };
@@ -467,23 +467,30 @@ class App {
         this.showScreen('screen-game');
     }
 
-    handleOnlineStateChange(state) {
+    /**
+     * ホスト側のゲーム状態変更を Firebase に送信
+     */
+    async handleOnlineStateChange(state) {
         if (!this.isOnlineMode || !this.isHost) return;
         
         switch (state.type) {
             case 'round_start':
-                OnlineManager.setRoundData(state.cards, state.target, state.round);
-                OnlineManager.updateScores(state.scores);
+                await OnlineManager.setRoundData(state.cards, state.target, state.round);
+                await OnlineManager.updateScores(state.scores);
+                await OnlineManager.updateGameState({ phase: 'dealing' });
                 break;
             case 'stage_update':
-                OnlineManager.updateStage(state.currentStage);
+                await OnlineManager.updateStage(state.currentStage);
                 break;
             case 'round_end':
-                OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
-                OnlineManager.updateScores(state.scores);
+                // 勝者情報を Firebase に保存
+                await OnlineManager.finishRound(state.playerWon ? 'player' : 'opponent');
+                await OnlineManager.updateScores(state.scores);
+                await OnlineManager.updateGameState({ phase: 'result' });
                 break;
             case 'game_end':
-                OnlineManager.finishGame(state.scores);
+                await OnlineManager.finishGame(state.scores);
+                await OnlineManager.updateGameState({ phase: 'finished' });
                 break;
         }
     }
@@ -501,6 +508,9 @@ class App {
         });
     }
 
+    /**
+     * Firebase からゲーム状態を受け取り、UI を更新
+     */
     async syncOnlineGameState(gameState) {
         if (!gameState) return;
 
@@ -512,20 +522,27 @@ class App {
         if (cpuScoreEl) cpuScoreEl.textContent = gameState.scores.opponent;
         if (roundDisplayEl) roundDisplayEl.textContent = `${gameState.round} / ${gameState.totalRounds}`;
 
+        // phase に基づいて処理を分岐
         if (gameState.phase === 'dealing' && gameState.cards && gameState.cards.length > 0) {
+            // ゲストはカードを描画（ホストは updateGameUI で描画済み）
             if (!this.isHost) {
                 await this.renderOnlineCards(gameState.cards);
             }
         } else if (gameState.phase === 'reading') {
             this.updateOnlineClue(gameState);
         } else if (gameState.phase === 'result' && !this.hasShownResult) {
+            // ラウンド終了時、ゲストも解説モーダルを表示
             this.hasShownResult = true;
-            if (!this.isHost && gameState.target) {
-                const clueData = this.engine.clues[gameState.target.id];
+            if (gameState.target) {
+                // 解説データを取得
+                const targetId = (gameState.target.id || '').trim();
+                const clueData = this.engine.clues[targetId];
+                const explanation = clueData ? clueData.explanation : '解説データなし';
+                
                 this.showRoundResult({
                     playerWon: gameState.roundWinner === 'player',
                     target: gameState.target,
-                    explanation: clueData ? clueData.explanation : '解説データなし'
+                    explanation: explanation
                 });
             }
         } else if (gameState.phase === 'finished') {
@@ -547,6 +564,7 @@ class App {
         cards.forEach(c => {
             const div = document.createElement('div');
             div.className = 'card';
+            // キー名空白対策
             div.dataset.id = (c.id || '').trim();
             const contentDiv = document.createElement('div');
             contentDiv.className = 'card-content';
@@ -577,11 +595,14 @@ class App {
         
         if (stageEl) stageEl.textContent = `STAGE ${gameState.currentStage}`;
         
-        if (gameState.target && this.engine.clues[gameState.target.id]) {
-            const clueData = this.engine.clues[gameState.target.id];
-            const stageData = clueData.stages.find(s => s.stage === gameState.currentStage);
-            if (textEl && stageData) {
-                textEl.textContent = stageData.text;
+        if (gameState.target) {
+            const targetId = (gameState.target.id || '').trim();
+            const clueData = this.engine.clues[targetId];
+            if (clueData) {
+                const stageData = clueData.stages.find(s => s.stage === gameState.currentStage);
+                if (textEl && stageData) {
+                    textEl.textContent = stageData.text;
+                }
             }
         }
 
@@ -591,23 +612,53 @@ class App {
         });
     }
 
+    /**
+     * オンライン対戦中のカードタップ処理
+     */
     async handleOnlineCardTap(id, element) {
         if (!this.isOnlineMode) return;
 
         if (this.isHost) {
+            // ホスト：game.js に処理を委譲し、正誤判定を行う
             this.engine.handlePlayerTap(id);
+            
+            // ローカルUI更新（エフェクト）
             const targetId = (this.engine.currentRound.target.id || '').trim();
             const tapId = (id || '').trim();
             const isCorrect = (tapId === targetId);
+            
             if (isCorrect) {
                 element.classList.add('correct');
                 setTimeout(() => element.classList.add('taken'), 600);
+            } else {
+                element.classList.add('wrong');
+                setTimeout(() => element.classList.remove('wrong'), 600);
             }
         } else {
+            // ゲスト：Firebase にタップを記録
             await OnlineManager.recordTap(id);
+            
+            // ローカルUI更新（自分のタップに対するフィードバック）
+            const target = this.onlineGameState ? this.onlineGameState.target : null;
+            if (target) {
+                const targetId = (target.id || '').trim();
+                const tapId = (id || '').trim();
+                const isCorrect = (tapId === targetId);
+                
+                if (isCorrect) {
+                    element.classList.add('correct');
+                    setTimeout(() => element.classList.add('taken'), 600);
+                } else {
+                    element.classList.add('wrong');
+                    setTimeout(() => element.classList.remove('wrong'), 600);
+                }
+            }
         }
     }
 
+    /**
+     * 相手のタップ処理（エフェクト表示）
+     */
     handleOpponentTap(taps) {
         if (!this.onlineGameState) return;
 
@@ -724,8 +775,6 @@ class App {
 
     async updateGameUI(data) {
         // オンラインモードでもホストはUIを更新する
-        // if (this.isOnlineMode) return; // この行を削除
-
         const playerScoreEl = document.getElementById('score-player');
         const cpuScoreEl = document.getElementById('score-cpu');
         const roundDisplayEl = document.getElementById('round-display');
@@ -803,7 +852,9 @@ class App {
     }
 
     updateClueWithHistory(round) {
-        const clueData = this.engine.clues[round.target.id];
+        if (!round || !round.target) return;
+        const targetId = (round.target.id || '').trim();
+        const clueData = this.engine.clues[targetId];
         if (!clueData) return;
 
         const currentStageData = clueData.stages.find(s => s.stage === round.currentStage);
@@ -860,6 +911,7 @@ class App {
             return;
         }
 
+        // オフラインモード（CPU戦・練習）
         this.engine.handlePlayerTap(id);
         
         const targetId = (this.engine.currentRound.target.id || '').trim();
@@ -880,6 +932,10 @@ class App {
         }
     }
 
+    /**
+     * 正解/不正解モーダル表示
+     * 「次の問題へ」ボタンでホストのみが次のラウンドを開始
+     */
     showRoundResult(data) {
         if (this.hasShownResult) return;
         this.hasShownResult = true;
@@ -930,11 +986,10 @@ class App {
                 modal.remove();
                 this.hasShownResult = false;
                 
-                // ホストのみ次のラウンドを開始
+                // ホストのみ次のラウンドを開始（Firebase 同期によりゲストも進む）
                 if (this.isHost || !this.isOnlineMode) {
                     this.engine.startNewRound();
                 }
-                // ゲストはFirebaseの変化を待つ
             });
         }
     }
@@ -1205,7 +1260,8 @@ class App {
         const modal = document.getElementById('reference-detail-modal');
         if (!modal) return;
         
-        const clueData = this.engine.clues[(compound.id || '').trim()];
+        const compoundId = (compound.id || '').trim();
+        const clueData = this.engine.clues[compoundId];
         
         document.getElementById('detail-name').textContent = compound.name || '';
         document.getElementById('detail-formula').textContent = compound.formula || '';
